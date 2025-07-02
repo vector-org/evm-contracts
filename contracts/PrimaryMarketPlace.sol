@@ -6,12 +6,18 @@ import "./Interfaces/ILicenseFactory.sol";
 import "@openzeppelin/contracts/utils/Counters.sol";
 
 contract PrimaryMarketPlace{
+    struct GameNFT{
+        address owner;
+        string uri;
+    }
     address private immutable primary_marketplace = address(this);
     address private immutable secondary_marketplace = 0x1d72B383cd2F783e4f2eDafE9D7544A3355507C2;
     address private immutable administrator = 0x1d72B383cd2F783e4f2eDafE9D7544A3355507C2;
     address public owner;
     address private coordinator;
     address private factory;
+    mapping(uint256 => GameNFT) public gameNFTs;
+    uint256[] public allNFTIDs;
 
     using Counters for Counters.Counter;
     Counters.Counter private _tokenIdCounter;
@@ -49,9 +55,19 @@ contract PrimaryMarketPlace{
         licenseContract.safeMint(uri, _receiver, nftId);
         _tokenIdCounter.increment();
 
+        gameNFTs[nftId] = GameNFT({
+            owner: _receiver,
+            uri: uri
+        });
+        allNFTIDs.push(nftId);
         emit Mint(_receiver, licenseAddress, uri, block.timestamp);
-
     }
 
+    function getAllNFTIds() external view returns (uint256[] memory) {
+        return allNFTIDs;
+    }
 
+    function getNFTDetails(uint256 nftId) external view returns (GameNFT memory) {
+        return gameNFTs[nftId];
+    }
 }

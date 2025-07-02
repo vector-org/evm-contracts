@@ -41,4 +41,3 @@ contract LicenseContract is ERC721URIStorage{
         super._beforeTokenTransfer(from, to, licenseId);  
     }
 }
- 

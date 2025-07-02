@@ -2,7 +2,7 @@
 pragma solidity ^0.8.20;
 
 import "./LicenseContract.sol";
-import "@openzeppelin/contracts/utils/Counters.sol"; 
+import "@openzeppelin/contracts/utils/Counters.sol";
 
 contract LicenseFactory{
     struct License {
@@ -13,7 +13,26 @@ contract LicenseFactory{
         string symbol;
         bool isActive;
         uint256 timestamp;
+        uint256 developerFee;
+        uint256 platformFee;
+        uint256 publisherFee;
+        address developer;
+        address publisher;
+        address platform;
     }
+
+    struct LicenseInput {
+        string name;
+        string symbol;
+        bool isActive;
+        uint256 developerFee;
+        uint256 platformFee;
+        uint256 publisherFee;
+        address developer;
+        address publisher;
+        address platform;
+    }
+
     event NewLicenseContract(address indexed contractAddress, uint256 tokenId, address indexed creator, uint256 timestamp);
     event OwnerChanged(address indexed newOwner, address indexed oldOwner, uint256 timestamp);
     event AddCoordinator(address indexed coordinator, uint256 timestamp);
@@ -50,24 +69,33 @@ contract LicenseFactory{
     }
 
     function createLicense(
-        string memory name,
-        string memory symbol,
-        bool isActive
+        LicenseInput memory licenseInput
     ) external onlyCoordinator returns (address) {
-        LicenseContract newLicense = new LicenseContract(name, symbol);
-        address licenseAddress = address(newLicense);
-        allLicenses.push(licenseAddress);
+        address newLicenseAddress = address(new LicenseContract(licenseInput.name, licenseInput.symbol));
+        allLicenses.push(newLicenseAddress);
 
-        uint256 licenseId = _tokenIdCounter.current();
-        tokenIds.push(licenseId);
-        License memory licenseInstance = License(licenseAddress, primary_marketplace, administrator, name, symbol, isActive, block.timestamp);
-        licenseContracts[licenseId] =  licenseInstance;
+        tokenIds.push(_tokenIdCounter.current());
 
+        License storage licenseSlot = licenseContracts[_tokenIdCounter.current()];
+        licenseSlot.contractAddress = newLicenseAddress;
+        licenseSlot.owner = primary_marketplace;
+        licenseSlot.coordinator = administrator;
+        licenseSlot.name = licenseInput.name;
+        licenseSlot.symbol = licenseInput.symbol;
+        licenseSlot.isActive = licenseInput.isActive;
+        licenseSlot.timestamp = block.timestamp;
+        licenseSlot.developerFee = licenseInput.developerFee;
+        licenseSlot.platformFee = licenseInput.platformFee;
+        licenseSlot.publisherFee = licenseInput.publisherFee;
+        licenseSlot.developer = licenseInput.developer;
+        licenseSlot.publisher = licenseInput.publisher;
+        licenseSlot.platform = licenseInput.platform;
+
+        emit NewLicenseContract(newLicenseAddress, _tokenIdCounter.current(), msg.sender, block.timestamp);
         _tokenIdCounter.increment();
-
-        emit NewLicenseContract(licenseAddress, licenseId, msg.sender, block.timestamp);
-        return address(newLicense);
+        return newLicenseAddress;
     }
+
 
     function changeLicenseStatus(uint256 licenseId, bool status) external {
         address license_owner = licenseContracts[licenseId].owner;
@@ -100,6 +128,4 @@ contract LicenseFactory{
     function getAllLicenseIds() external view returns(uint256[] memory){
         return tokenIds;
     }
-
-
 }
