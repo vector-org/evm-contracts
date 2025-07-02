@@ -6,6 +6,10 @@
   },
   "dependencies": {
     "@openzeppelin/contracts": "^4.7.0",
-    "dotenv": "^17.0.1"
+    "dotenv": "^17.0.1",
+    "husky": "^9.1.7"
+  },
+  "scripts": {
+    "prepare": "husky"
   }
 }

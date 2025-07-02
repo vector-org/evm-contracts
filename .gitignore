@@ -18,6 +18,7 @@ ignition/deployments/chain-31337
 
 node_modules
 .env
+.DS_Store
 
 # Hardhat files
 /cache
