@@ -9,7 +9,7 @@ contract PrimaryMarketPlace{
     address private immutable primary_marketplace = address(this);
     address private immutable secondary_marketplace = 0x1d72B383cd2F783e4f2eDafE9D7544A3355507C2;
     address private immutable administrator = 0x1d72B383cd2F783e4f2eDafE9D7544A3355507C2;
-    address private immutable owner;
+    address public owner;
     address private coordinator;
     address private factory;
 
@@ -20,6 +20,11 @@ contract PrimaryMarketPlace{
 
     modifier onlyAdmin{
         require(msg.sender == administrator, "You are not the administrator");
+        _;
+    }
+
+    modifier onlyOwner{
+        require(msg.sender == owner, "You are not the owner");
         _;
     }
 

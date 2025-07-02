@@ -11,7 +11,6 @@ contract LicenseFactory{
         address coordinator;
         string name;
         string symbol;
-        uint256 licenseId;
         bool isActive;
         uint256 timestamp;
     }
@@ -26,18 +25,18 @@ contract LicenseFactory{
     address private immutable secondary_marketplace = 0x1d72B383cd2F783e4f2eDafE9D7544A3355507C2;
     address private immutable administrator = 0x1d72B383cd2F783e4f2eDafE9D7544A3355507C2;
     mapping(address => bool) private coordinators;
-    address private owner;
+    address public owner;
 
     using Counters for Counters.Counter;
     Counters.Counter private _tokenIdCounter;
     
     modifier checkAccess(){
-        require(msg.sender == primary_marketplace || msg.sender == administrator, "Not authorized");
+        require(msg.sender == administrator, "Not authorized");
         _;
     }
 
     modifier onlyCoordinator(){
-        require(coordinators[msg.sender], "Not authorized");
+        require(coordinators[msg.sender] == true, "Not authorized");
         _;
     }
 
@@ -61,7 +60,7 @@ contract LicenseFactory{
 
         uint256 licenseId = _tokenIdCounter.current();
         tokenIds.push(licenseId);
-        License memory licenseInstance = License(licenseAddress, primary_marketplace, administrator, name, symbol, licenseId, isActive, block.timestamp);
+        License memory licenseInstance = License(licenseAddress, primary_marketplace, administrator, name, symbol, isActive, block.timestamp);
         licenseContracts[licenseId] =  licenseInstance;
 
         _tokenIdCounter.increment();

@@ -5,12 +5,11 @@ import "@openzeppelin/contracts/token/ERC721/ERC721.sol";
 import "@openzeppelin/contracts/token/ERC721/extensions/ERC721URIStorage.sol";
  
 contract LicenseContract is ERC721URIStorage{
-    uint256 counter = 0;
     address internal burning_address = 0x000000000000000000000000000000000000dEaD;
     address private immutable primary_marketplace = 0x1d72B383cd2F783e4f2eDafE9D7544A3355507C2;
     address private immutable secondary_marketplace = 0x1d72B383cd2F783e4f2eDafE9D7544A3355507C2;
     address private immutable administrator = 0x1d72B383cd2F783e4f2eDafE9D7544A3355507C2;
-    address private owner;
+    address public owner;
  
     constructor(
         string memory name,
@@ -38,7 +37,7 @@ contract LicenseContract is ERC721URIStorage{
     address to, 
     uint256 licenseId
     ) internal override virtual {
-        require(msg.sender == primary_marketplace || msg.sender == secondary_marketplace || to == burning_address ,"Only the marketplaces can burn");
+        require(msg.sender == primary_marketplace || msg.sender == secondary_marketplace,"Only authorized marketplaces can transfer tokens");
         super._beforeTokenTransfer(from, to, licenseId);  
     }
 }

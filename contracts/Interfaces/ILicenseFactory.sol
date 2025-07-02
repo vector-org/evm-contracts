@@ -11,7 +11,6 @@ interface ILicenseFactory {
         address coordinator;
         string name;
         string symbol;
-        uint256 licenseId;
         bool isActive;
         uint256 timestamp;
     }
