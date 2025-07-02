@@ -1,0 +1,44 @@
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.20;
+ 
+import "@openzeppelin/contracts/token/ERC721/ERC721.sol";
+import "@openzeppelin/contracts/token/ERC721/extensions/ERC721URIStorage.sol";
+ 
+contract LicenseContract is ERC721URIStorage{
+    uint256 counter = 0;
+    address internal burning_address = 0x000000000000000000000000000000000000dEaD;
+    address private immutable primary_marketplace = 0x1d72B383cd2F783e4f2eDafE9D7544A3355507C2;
+    address private immutable secondary_marketplace = 0x1d72B383cd2F783e4f2eDafE9D7544A3355507C2;
+    address private immutable administrator = 0x1d72B383cd2F783e4f2eDafE9D7544A3355507C2;
+    address private owner;
+ 
+    constructor(
+        string memory name,
+        string memory symbol
+    ) ERC721(name, symbol) {
+        owner = msg.sender;
+    }
+ 
+    function safeMint(string memory uri,  address to, uint256 licenseId) public {
+        _safeMint(to, licenseId);
+        _setTokenURI(licenseId, uri);
+    }
+ 
+    function tokenURI(uint256 licenseId)
+        public
+        view
+        override
+        returns (string memory)
+    {
+        return super.tokenURI(licenseId);
+    }
+
+    function _beforeTokenTransfer(
+    address from, 
+    address to, 
+    uint256 licenseId
+    ) internal override virtual {
+        require(msg.sender == primary_marketplace || msg.sender == secondary_marketplace || to == burning_address ,"Only the marketplaces can burn");
+        super._beforeTokenTransfer(from, to, licenseId);  
+    }
+}
