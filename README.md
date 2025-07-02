@@ -1,13 +1,13 @@
-# Sample Hardhat Project
+# EVM Based Contracts
 
-This project demonstrates a basic Hardhat use case. It comes with a sample contract, a test for that contract, and a Hardhat Ignition module that deploys that contract.
+## Running 
+1. Make sure to configure your `.env` with your private key 
+```sh
+cp .env.example .env
+```
 
-Try running some of the following tasks:
-
-```shell
-npx hardhat help
-npx hardhat test
-REPORT_GAS=true npx hardhat test
-npx hardhat node
-npx hardhat ignition deploy ./ignition/modules/Lock.js
+2. 
+```sh
+npx hardhat compile
+npx hardhat ignition deploy ignition/modules/LicenseFactory.js --network sepolia #deploys the licensefactory
 ```
