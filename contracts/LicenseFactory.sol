@@ -12,6 +12,7 @@ contract LicenseFactory{
         string name;
         string symbol;
         uint256 licenseId;
+        bool isActive;
         uint256 timestamp;
     }
     event NewLicenseContract(address indexed contractAddress, uint256 tokenId, address indexed creator, uint256 timestamp);
@@ -51,7 +52,8 @@ contract LicenseFactory{
 
     function createLicense(
         string memory name,
-        string memory symbol
+        string memory symbol,
+        bool isActive
     ) external onlyCoordinator returns (address) {
         LicenseContract newLicense = new LicenseContract(name, symbol);
         address licenseAddress = address(newLicense);
@@ -59,13 +61,19 @@ contract LicenseFactory{
 
         uint256 licenseId = _tokenIdCounter.current();
         tokenIds.push(licenseId);
-        License memory licenseInstance = License(licenseAddress, primary_marketplace, administrator, name, symbol, licenseId, block.timestamp);
+        License memory licenseInstance = License(licenseAddress, primary_marketplace, administrator, name, symbol, licenseId, isActive, block.timestamp);
         licenseContracts[licenseId] =  licenseInstance;
 
         _tokenIdCounter.increment();
 
         emit NewLicenseContract(licenseAddress, licenseId, msg.sender, block.timestamp);
         return address(newLicense);
+    }
+
+    function changeLicenseStatus(uint256 licenseId, bool status) external {
+        address license_owner = licenseContracts[licenseId].owner;
+        require(license_owner == msg.sender || msg.sender == administrator);
+        licenseContracts[licenseId].isActive = status;
     }
 
     function setOwner(address newOwner) external onlyOwner{
