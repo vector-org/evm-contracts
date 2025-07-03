@@ -7,7 +7,7 @@ import {IPrimaryMarketPlace} from "./Interfaces/IPrimaryMarketPlace.sol";
 import {Counters} from "@openzeppelin/contracts/utils/Counters.sol";
 import {Addresses} from "./Constants/Addresses.sol";
 
-contract SecondaryMarketPlace is Addresses{
+contract SecondaryMarketPlace is Addresses {
     struct Offer {
         address seller;
         address buyer;
@@ -54,19 +54,21 @@ contract SecondaryMarketPlace is Addresses{
         uint256 timestamp
     );
 
-    constructor(
-        address _owner,
-        address _coordinator,
-        address _factory
-    ) {
-        require(msg.sender == Addresses.ADMINISTRATOR, "You are not the administrator");
+    constructor(address _owner, address _coordinator, address _factory) {
+        require(
+            msg.sender == Addresses.ADMINISTRATOR,
+            "You are not the administrator"
+        );
         owner = _owner;
         coordinator = _coordinator;
         factory = _factory;
     }
 
-    modifier onlyOwner(){
-        require(msg.sender == owner, "You are not the owner to call the function");
+    modifier onlyOwner() {
+        require(
+            msg.sender == owner,
+            "You are not the owner to call the function"
+        );
         _;
     }
 
@@ -76,7 +78,10 @@ contract SecondaryMarketPlace is Addresses{
         uint256 price
     ) external {
         ILicenseContract licenseContract = ILicenseContract(licenseAddress);
-        require(licenseContract.ownerOf(tokenId) == msg.sender, "You are not the owner of this token");
+        require(
+            licenseContract.ownerOf(tokenId) == msg.sender,
+            "You are not the owner of this token"
+        );
         // here should be a logic to check if the game NFT is tradeable or not
         require(price > 0, "Price must be greater than zero");
 
@@ -92,13 +97,22 @@ contract SecondaryMarketPlace is Addresses{
         offers.push(newOffer);
         offerById[tokenId] = newOffer;
 
-        emit NewOfferCreated(msg.sender, tokenId, licenseAddress, price, block.timestamp);
+        emit NewOfferCreated(
+            msg.sender,
+            tokenId,
+            licenseAddress,
+            price,
+            block.timestamp
+        );
     }
 
     function removeOffer(uint256 tokenId) external {
         Offer storage offer = offerById[tokenId];
         require(offer.isActive, "Offer is not active");
-        require(offer.seller == msg.sender || msg.sender == coordinator, "You are not the seller of this offer");
+        require(
+            offer.seller == msg.sender || msg.sender == coordinator,
+            "You are not the seller of this offer"
+        );
 
         offer.isActive = false;
 
@@ -116,7 +130,9 @@ contract SecondaryMarketPlace is Addresses{
         require(msg.value >= offer.price, "Insufficient payment");
         require(offer.seller != msg.sender, "You cannot buy your own offer");
 
-        ILicenseContract licenseContract = ILicenseContract(offer.licenseAddress);
+        ILicenseContract licenseContract = ILicenseContract(
+            offer.licenseAddress
+        );
         licenseContract.safeTransferFrom(offer.seller, msg.sender, tokenId);
 
         payable(offer.seller).transfer(offer.price);
@@ -130,7 +146,7 @@ contract SecondaryMarketPlace is Addresses{
             offer.licenseAddress,
             block.timestamp
         );
-        
+
         emit OfferAccepted(
             offer.seller,
             msg.sender,

@@ -1,4 +1,5 @@
 #!/bin/bash
 
 npm run lint
+npm run check:format
 npm run compile

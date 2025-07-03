@@ -13,5 +13,8 @@ jobs:
         steps:
             - uses: actions/checkout@v4
             - uses: ./.github/actions/install
+            - run: npm run lint
+              shell: bash
+            - run: npm run check:format
             - run: npm run compile
               shell: bash

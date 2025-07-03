@@ -27,7 +27,11 @@ interface IPrimaryMarketPlace {
     /// @param licenseId The license ID managed by the factory.
     /// @param _receiver The address to receive the minted NFT.
     /// @param uri The metadata URI to assign to the NFT.
-    function mintLicense(uint256 licenseId, address _receiver, string memory uri) external;
+    function mintLicense(
+        uint256 licenseId,
+        address _receiver,
+        string memory uri
+    ) external;
 
     /// @notice Get the list of all NFT IDs minted through this contract.
     /// @return An array of NFT token IDs.
@@ -36,5 +40,7 @@ interface IPrimaryMarketPlace {
     /// @notice Get metadata and ownership information of a specific NFT ID.
     /// @param nftId The NFT token ID.
     /// @return A GameNFT struct with owner and URI.
-    function getNFTDetails(uint256 nftId) external view returns (GameNFT memory);
+    function getNFTDetails(
+        uint256 nftId
+    ) external view returns (GameNFT memory);
 }
