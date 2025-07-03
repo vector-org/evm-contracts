@@ -1,0 +1,13 @@
+name: Push Workflow
+
+on:
+  push:
+    branches:
+      - '**'
+
+jobs:
+  install:
+    uses: ./.github/workflows/jobs-install.yml
+
+  lint:
+    uses: ./.github/workflows/jobs-lint.yml

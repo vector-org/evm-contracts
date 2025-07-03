@@ -1,0 +1,15 @@
+name: Install job
+
+on:
+    workflow_call:
+      inputs:
+        runner:
+            type: string
+            default: '[self-hosted, Linux, X64]'
+
+jobs:
+    install:
+        runs-on: ${{ inputs.runner }}
+        steps:
+            - uses: actions/checkout@v4
+            - uses: ./.github/actions/install
