@@ -2,7 +2,8 @@
 pragma solidity ^0.8.28;
 
 contract Addresses {
-    address public constant BURNINGADDRESS = 0x000000000000000000000000000000000000dEaD;
+    address public constant BURNINGADDRESS =
+        0x000000000000000000000000000000000000dEaD;
     address public immutable PRIMARYMARKETPLACE;
     address public immutable SECONDARYMARKETPLACE;
     address public immutable ADMINISTRATOR;

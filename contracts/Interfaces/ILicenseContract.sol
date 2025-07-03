@@ -9,7 +9,11 @@ interface ILicenseContract {
     /// @param uri The metadata URI associated with the license.
     /// @param to The recipient address of the license.
     /// @param licenseId The token ID for the license.
-    function safeMint(string memory uri, address to, uint256 licenseId) external;
+    function safeMint(
+        string memory uri,
+        address to,
+        uint256 licenseId
+    ) external;
 
     /// @notice Updates the token URI of an existing license NFT.
     /// @dev Only callable by the contract owner, administrator, or factory.
@@ -67,5 +71,9 @@ interface ILicenseContract {
     /// @param from The address to transfer the token from.
     /// @param to The address to transfer the token to.
     /// @param tokenId The ID of the token to transfer.
-    function safeTransferFrom(address from, address to, uint256 tokenId) external;
+    function safeTransferFrom(
+        address from,
+        address to,
+        uint256 tokenId
+    ) external;
 }

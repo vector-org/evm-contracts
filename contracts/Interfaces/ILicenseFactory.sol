@@ -50,15 +50,14 @@ interface ILicenseFactory {
     );
 
     /// @notice Emitted when a coordinator is added or removed.
-    event AddCoordinator(
-        address indexed coordinator,
-        uint256 timestamp
-    );
+    event AddCoordinator(address indexed coordinator, uint256 timestamp);
 
     /// @notice Deploy a new license contract and store its metadata.
     /// @param licenseInput The configuration and metadata for the license.
     /// @return The address of the newly deployed license contract.
-    function createLicense(LicenseInput memory licenseInput) external returns (address);
+    function createLicense(
+        LicenseInput memory licenseInput
+    ) external returns (address);
 
     /// @notice Change the active status of an existing license.
     /// @param licenseId The license ID (token ID).
@@ -82,7 +81,9 @@ interface ILicenseFactory {
     /// @notice Get full license metadata by ID.
     /// @param id The license ID (token ID).
     /// @return A `License` struct with metadata and configuration.
-    function getLicenseFromID(uint256 id) external view returns (License memory);
+    function getLicenseFromID(
+        uint256 id
+    ) external view returns (License memory);
 
     /// @notice Get the owner of a license.
     /// @param id The license ID (token ID).
