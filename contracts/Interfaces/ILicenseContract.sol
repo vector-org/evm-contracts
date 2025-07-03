@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.20;
+pragma solidity ^0.8.28;
 
 /// @title ILicenseContract
 /// @notice Interface for interacting with the LicenseContract ERC-721 implementation with restricted minting and transfer rules.
@@ -45,4 +45,39 @@ interface ILicenseContract {
     /// @notice Returns the current owner of the license contract.
     /// @return The owner address.
     function owner() external view returns (address);
+
+    /// @notice Returns the balance of tokens held by a given address.
+    /// @param owner The address to check the balance for.
+    /// @return The number of tokens owned by the address.
+    function balanceOf(address owner) external view returns (uint256);
+
+    /// @notice Returns the owner of the given token ID.
+    /// @param tokenId The ID of the token to check.
+    /// @return The address of the token owner.
+    function ownerOf(uint256 tokenId) external view returns (address);
+
+    /// @notice Approves another address to transfer the given token ID.
+    /// @dev Approval is cleared when the token is transferred.
+    /// @param to The address to approve for transfer.
+    /// @param tokenId The ID of the token to approve.
+    function approve(address to, uint256 tokenId) external;
+
+    /// @notice Returns the address approved for the given token ID.
+    /// @param tokenId The ID of the token to check.
+    /// @return The address approved to transfer the token, or zero if none.
+    function getApproved(uint256 tokenId) external view returns (address);
+
+    /// @notice Transfers a token from one address to another.
+    /// @dev This function does not check for the receiver's support of the ERC721 interface.
+    /// @param from The address to transfer the token from.
+    /// @param to The address to transfer the token to.
+    /// @param tokenId The ID of the token to transfer.
+    function transferFrom(address from, address to, uint256 tokenId) external;
+
+    /// @notice Safe transfer (ERC721) with checks.
+    /// @dev Ensures the recipient can handle ERC721 tokens.
+    /// @param from The address to transfer the token from.
+    /// @param to The address to transfer the token to.
+    /// @param tokenId The ID of the token to transfer.
+    function safeTransferFrom(address from, address to, uint256 tokenId) external;
 }
