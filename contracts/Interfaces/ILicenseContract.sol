@@ -22,18 +22,6 @@ interface ILicenseContract {
     /// @return A string containing the metadata URI.
     function tokenURI(uint256 licenseId) external view returns (string memory);
 
-    /// @notice Returns the burn address used to destroy tokens.
-    /// @return The 0x...dEaD burn address.
-    function burning_address() external view returns (address);
-
-    /// @notice Returns the address of the primary marketplace.
-    /// @return The primary marketplace address.
-    function primary_marketplace() external view returns (address);
-
-    /// @notice Returns the address of the secondary marketplace.
-    /// @return The secondary marketplace address.
-    function secondary_marketplace() external view returns (address);
-
     /// @notice Returns the administrator address of the license contract.
     /// @return The administrator address.
     function administrator() external view returns (address);

@@ -1,12 +1,13 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.28;
 
-import "./Interfaces/ILicenseContract.sol";
-import "./Interfaces/ILicenseFactory.sol";
-import "./Interfaces/IPrimaryMarketPlace.sol";
-import "@openzeppelin/contracts/utils/Counters.sol";
+import {ILicenseContract} from "./Interfaces/ILicenseContract.sol";
+import {ILicenseFactory} from "./Interfaces/ILicenseFactory.sol";
+import {IPrimaryMarketPlace} from "./Interfaces/IPrimaryMarketPlace.sol";
+import {Counters} from "@openzeppelin/contracts/utils/Counters.sol";
+import {Addresses} from "./Constants/Addresses.sol";
 
-contract SecondaryMarketPlace{
+contract SecondaryMarketPlace is Addresses{
     struct Offer {
         address seller;
         address buyer;
@@ -16,9 +17,7 @@ contract SecondaryMarketPlace{
         bool isActive;
     }
 
-    address private immutable primary_marketplace = 0x1d72B383cd2F783e4f2eDafE9D7544A3355507C2;
     address private immutable secondary_marketplace = address(this);
-    address private immutable administrator = 0x1d72B383cd2F783e4f2eDafE9D7544A3355507C2;
     address public owner;
     address private coordinator;
     address private factory;
@@ -60,7 +59,7 @@ contract SecondaryMarketPlace{
         address _coordinator,
         address _factory
     ) {
-        require(msg.sender == administrator, "You are not the administrator");
+        require(msg.sender == Addresses.ADMINISTRATOR, "You are not the administrator");
         owner = _owner;
         coordinator = _coordinator;
         factory = _factory;
