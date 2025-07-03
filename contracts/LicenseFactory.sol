@@ -2,6 +2,7 @@
 pragma solidity ^0.8.20;
 
 import "./LicenseContract.sol";
+import "./Interfaces/ILicenseContract.sol";
 import "@openzeppelin/contracts/utils/Counters.sol";
 
 contract LicenseFactory{
@@ -101,6 +102,14 @@ contract LicenseFactory{
         address license_owner = licenseContracts[licenseId].owner;
         require(license_owner == msg.sender || msg.sender == administrator);
         licenseContracts[licenseId].isActive = status;
+    }
+
+    function updateLicense(uint256 licenseId, string memory uri) external {
+        address license_address = licenseContracts[licenseId].contractAddress;
+        require(license_address != address(0), "License does not exist");
+        require(msg.sender == licenseContracts[licenseId].owner || msg.sender == administrator || msg.sender == primary_marketplace, "Not authorized to update license");
+        ILicenseContract licenseContract = ILicenseContract(license_address);
+        licenseContract.updateTokenURI(licenseId, uri);
     }
 
     function setOwner(address newOwner) external onlyOwner{

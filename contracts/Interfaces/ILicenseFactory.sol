@@ -4,7 +4,7 @@ pragma solidity ^0.8.20;
 /// @title ILicenseFactory
 /// @notice Interface for the LicenseFactory contract that deploys and manages license contracts.
 interface ILicenseFactory {
-    /// @dev License metadata stored on factory creation.
+    /// @dev License metadata stored in the factory mapping.
     struct License {
         address contractAddress;
         address owner;
@@ -64,6 +64,11 @@ interface ILicenseFactory {
     /// @param licenseId The license ID (token ID).
     /// @param status The new active status (true or false).
     function changeLicenseStatus(uint256 licenseId, bool status) external;
+
+    /// @notice Update the metadata URI of a license token in the associated license contract.
+    /// @param licenseId The license token ID.
+    /// @param uri The new metadata URI to set.
+    function updateLicense(uint256 licenseId, string memory uri) external;
 
     /// @notice Transfer ownership of the factory contract to a new address.
     /// @param newOwner The new owner of the contract.
