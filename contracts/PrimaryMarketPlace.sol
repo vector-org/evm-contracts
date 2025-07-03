@@ -1,18 +1,17 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.28;
 
-import "./Interfaces/ILicenseContract.sol";
-import "./Interfaces/ILicenseFactory.sol";
-import "@openzeppelin/contracts/utils/Counters.sol";
+import {ILicenseContract} from "./Interfaces/ILicenseContract.sol";
+import {ILicenseFactory} from "./Interfaces/ILicenseFactory.sol";
+import {Counters} from "@openzeppelin/contracts/utils/Counters.sol";
+import {Addresses} from "./Constants/Addresses.sol";
 
-contract PrimaryMarketPlace{
+contract PrimaryMarketPlace is Addresses{
     struct GameNFT{
         address owner;
         string uri;
     }
-    address private immutable primary_marketplace = address(this);
-    address private immutable secondary_marketplace = 0x1d72B383cd2F783e4f2eDafE9D7544A3355507C2;
-    address private immutable administrator = 0x1d72B383cd2F783e4f2eDafE9D7544A3355507C2;
+    address private immutable primaryMarketplace = address(this);
     address public owner;
     address private coordinator;
     address private factory;
@@ -25,7 +24,7 @@ contract PrimaryMarketPlace{
     event Mint(address indexed to, address indexed licenseAddress, string uri, uint256 timestamp);
 
     modifier onlyAdmin{
-        require(msg.sender == administrator, "You are not the administrator");
+        require(msg.sender == Addresses.ADMINISTRATOR, "You are not the administrator");
         _;
     }
 

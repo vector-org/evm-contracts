@@ -12,6 +12,7 @@
   "scripts": {
     "prepare": "husky",
     "compile": "npx hardhat compile",
-    "deploy": "npx hardhat deploy --network sepolia"
+    "deploy": "npx hardhat deploy --network sepolia",
+    "lint": "solhint 'contracts/**/*.sol'"
   }
 }

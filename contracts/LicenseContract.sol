@@ -1,16 +1,13 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.28;
  
-import "@openzeppelin/contracts/token/ERC721/ERC721.sol";
-import "@openzeppelin/contracts/token/ERC721/extensions/ERC721URIStorage.sol";
+import {ERC721} from "@openzeppelin/contracts/token/ERC721/ERC721.sol";
+import {ERC721URIStorage} from "@openzeppelin/contracts/token/ERC721/extensions/ERC721URIStorage.sol";
+import {Addresses} from "./Constants/Addresses.sol";
  
-contract LicenseContract is ERC721URIStorage{
-    address internal burning_address = 0x000000000000000000000000000000000000dEaD;
-    address private immutable primary_marketplace = 0x1d72B383cd2F783e4f2eDafE9D7544A3355507C2;
-    address private immutable secondary_marketplace = 0x1d72B383cd2F783e4f2eDafE9D7544A3355507C2;
-    address private immutable administrator = 0x1d72B383cd2F783e4f2eDafE9D7544A3355507C2;
+contract LicenseContract is ERC721URIStorage, Addresses{
     address public owner;
- 
+
     constructor(
         string memory name,
         string memory symbol
@@ -37,7 +34,7 @@ contract LicenseContract is ERC721URIStorage{
     address to, 
     uint256 licenseId
     ) internal override virtual {
-        require(from == address(0) || msg.sender == primary_marketplace || msg.sender == secondary_marketplace,"Only authorized marketplaces can transfer tokens");
+        require(from == address(0) || msg.sender == PRIMARYMARKETPLACE || msg.sender == SECONDARYMARKETPLACE,"not an authorized marketplace");
         super._beforeTokenTransfer(from, to, licenseId);  
     }
 }

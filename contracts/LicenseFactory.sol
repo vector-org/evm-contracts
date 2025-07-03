@@ -4,8 +4,9 @@ pragma solidity ^0.8.28;
 import "./LicenseContract.sol";
 import "./Interfaces/ILicenseContract.sol";
 import "@openzeppelin/contracts/utils/Counters.sol";
+import {Addresses} from "./Constants/Addresses.sol";
 
-contract LicenseFactory{
+contract LicenseFactory is Addresses{
     struct License {
         address contractAddress;
         address owner;
@@ -41,9 +42,6 @@ contract LicenseFactory{
     mapping(uint256 => License) public licenseContracts;
     address[] public allLicenses;
     uint256[] public tokenIds;
-    address private immutable primary_marketplace = 0x1d72B383cd2F783e4f2eDafE9D7544A3355507C2;
-    address private immutable secondary_marketplace = 0x1d72B383cd2F783e4f2eDafE9D7544A3355507C2;
-    address private immutable administrator = 0x1d72B383cd2F783e4f2eDafE9D7544A3355507C2;
     mapping(address => bool) private coordinators;
     address public owner;
 
@@ -51,7 +49,7 @@ contract LicenseFactory{
     Counters.Counter private _tokenIdCounter;
     
     modifier checkAccess(){
-        require(msg.sender == administrator, "Not authorized");
+        require(msg.sender == Addresses.ADMINISTRATOR, "Not authorized");
         _;
     }
 
@@ -79,8 +77,8 @@ contract LicenseFactory{
 
         License storage licenseSlot = licenseContracts[_tokenIdCounter.current()];
         licenseSlot.contractAddress = newLicenseAddress;
-        licenseSlot.owner = primary_marketplace;
-        licenseSlot.coordinator = administrator;
+        licenseSlot.owner = Addresses.PRIMARYMARKETPLACE;
+        licenseSlot.coordinator = Addresses.ADMINISTRATOR;
         licenseSlot.name = licenseInput.name;
         licenseSlot.symbol = licenseInput.symbol;
         licenseSlot.isActive = licenseInput.isActive;
@@ -100,14 +98,14 @@ contract LicenseFactory{
 
     function changeLicenseStatus(uint256 licenseId, bool status) external {
         address license_owner = licenseContracts[licenseId].owner;
-        require(license_owner == msg.sender || msg.sender == administrator);
+        require(license_owner == msg.sender || msg.sender == Addresses.ADMINISTRATOR);
         licenseContracts[licenseId].isActive = status;
     }
 
     function updateLicense(uint256 licenseId, string memory uri) external {
         address license_address = licenseContracts[licenseId].contractAddress;
         require(license_address != address(0), "License does not exist");
-        require(msg.sender == licenseContracts[licenseId].owner || msg.sender == administrator || msg.sender == primary_marketplace, "Not authorized to update license");
+        require(msg.sender == licenseContracts[licenseId].owner || msg.sender == Addresses.ADMINISTRATOR || msg.sender == Addresses.PRIMARYMARKETPLACE, "Not authorized to update license");
         ILicenseContract licenseContract = ILicenseContract(license_address);
         licenseContract.updateTokenURI(licenseId, uri);
     }
