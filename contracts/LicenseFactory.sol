@@ -47,6 +47,7 @@ contract LicenseFactory is Addresses {
 
     constructor() checkAccess {
         owner = msg.sender;
+        coordinators[msg.sender] = true;
     }
 
     function createLicense(
@@ -56,7 +57,9 @@ contract LicenseFactory is Addresses {
             new LicenseContract(
                 licenseInput.name,
                 licenseInput.symbol,
-                address(this)
+                address(this),
+                licenseInput.primaryMarketplace,
+                licenseInput.secondaryMarketplace
             )
         );
         allLicenses.push(newLicenseAddress);
@@ -67,7 +70,7 @@ contract LicenseFactory is Addresses {
             _tokenIdCounter.current()
         ];
         licenseSlot.contractAddress = newLicenseAddress;
-        licenseSlot.owner = Addresses.PRIMARYMARKETPLACE;
+        licenseSlot.owner = licenseInput.publisher;
         licenseSlot.coordinator = Addresses.ADMINISTRATOR;
         licenseSlot.name = licenseInput.name;
         licenseSlot.symbol = licenseInput.symbol;
@@ -104,7 +107,7 @@ contract LicenseFactory is Addresses {
         require(
             msg.sender == licenseContracts[licenseId].owner ||
                 msg.sender == Addresses.ADMINISTRATOR ||
-                msg.sender == Addresses.PRIMARYMARKETPLACE,
+                coordinators[msg.sender] == true,
             "Not authorized to update license"
         );
         ILicenseContract licenseContract = ILicenseContract(license_address);
