@@ -1,22 +1,14 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.28;
 
-import {ILicenseContract} from "./Interfaces/ILicenseContract.sol";
-import {ILicenseFactory} from "./Interfaces/ILicenseFactory.sol";
-import {IPrimaryMarketPlace} from "./Interfaces/IPrimaryMarketPlace.sol";
+import {ILicenseContract} from "./interfaces/ILicenseContract.sol";
+import {ILicenseFactory} from "./interfaces/ILicenseFactory.sol";
+import {IPrimaryMarketPlace} from "./interfaces/IPrimaryMarketPlace.sol";
 import {Counters} from "@openzeppelin/contracts/utils/Counters.sol";
-import {Addresses} from "./Constants/Addresses.sol";
+import {Addresses} from "./constants/Addresses.sol";
+import {Offer} from "./types/Types.sol";
 
 contract SecondaryMarketPlace is Addresses {
-    struct Offer {
-        address seller;
-        address buyer;
-        uint256 price;
-        uint256 tokenId;
-        address licenseAddress;
-        bool isActive;
-    }
-
     address private immutable secondary_marketplace = address(this);
     address public owner;
     address private coordinator;

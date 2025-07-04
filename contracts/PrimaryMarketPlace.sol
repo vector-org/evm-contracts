@@ -1,16 +1,13 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.28;
 
-import {ILicenseContract} from "./Interfaces/ILicenseContract.sol";
-import {ILicenseFactory} from "./Interfaces/ILicenseFactory.sol";
+import {ILicenseContract} from "./interfaces/ILicenseContract.sol";
+import {ILicenseFactory} from "./interfaces/ILicenseFactory.sol";
 import {Counters} from "@openzeppelin/contracts/utils/Counters.sol";
-import {Addresses} from "./Constants/Addresses.sol";
+import {Addresses} from "./constants/Addresses.sol";
+import {GameNFT} from "./types/Types.sol";
 
 contract PrimaryMarketPlace is Addresses {
-    struct GameNFT {
-        address owner;
-        string uri;
-    }
     address private immutable primaryMarketplace = address(this);
     address public owner;
     address private coordinator;
