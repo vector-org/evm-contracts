@@ -1,39 +1,21 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.28;
 
-import "./LicenseContract.sol";
-import "./Interfaces/ILicenseContract.sol";
-import "@openzeppelin/contracts/utils/Counters.sol";
-import {Addresses} from "./Constants/Addresses.sol";
+import {LicenseContract} from "./LicenseContract.sol";
+import {ILicenseContract} from "./interfaces/ILicenseContract.sol";
+import {Counters} from "@openzeppelin/contracts/utils/Counters.sol";
+import {Addresses} from "./constants/Addresses.sol";
+import {License, LicenseInput} from "./types/Types.sol";
 
 contract LicenseFactory is Addresses {
-    struct License {
-        address contractAddress;
-        address owner;
-        address coordinator;
-        string name;
-        string symbol;
-        bool isActive;
-        uint256 timestamp;
-        uint256 developerFee;
-        uint256 platformFee;
-        uint256 publisherFee;
-        address developer;
-        address publisher;
-        address platform;
-    }
+    mapping(uint256 => License) public licenseContracts;
+    address[] public allLicenses;
+    uint256[] public tokenIds;
+    mapping(address => bool) private coordinators;
+    address public owner;
 
-    struct LicenseInput {
-        string name;
-        string symbol;
-        bool isActive;
-        uint256 developerFee;
-        uint256 platformFee;
-        uint256 publisherFee;
-        address developer;
-        address publisher;
-        address platform;
-    }
+    using Counters for Counters.Counter;
+    Counters.Counter private _tokenIdCounter;
 
     event NewLicenseContract(
         address indexed contractAddress,
@@ -47,15 +29,6 @@ contract LicenseFactory is Addresses {
         uint256 timestamp
     );
     event AddCoordinator(address indexed coordinator, uint256 timestamp);
-
-    mapping(uint256 => License) public licenseContracts;
-    address[] public allLicenses;
-    uint256[] public tokenIds;
-    mapping(address => bool) private coordinators;
-    address public owner;
-
-    using Counters for Counters.Counter;
-    Counters.Counter private _tokenIdCounter;
 
     modifier checkAccess() {
         require(msg.sender == Addresses.ADMINISTRATOR, "Not authorized");
