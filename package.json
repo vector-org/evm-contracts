@@ -14,7 +14,10 @@
   "scripts": {
     "prepare": "husky",
     "compile": "npx hardhat compile",
-    "deploy:license": "npx hardhat ignition deploy './ignition/modules/LicenseContract.sol' --network sepolia",
+    "deploy:license": "npx hardhat ignition deploy './ignition/modules/LicenseContract.js' --network sepolia",
+    "deploy:license-factory": "npx hardhat ignition deploy './ignition/modules/LicenseFactory.js' --network sepolia",
+    "deploy:primary-marketplace": "npx hardhat ignition deploy './ignition/modules/PrimaryMarketPlace.js' --network sepolia",
+    "deploy:secondary-marketplace": "npx hardhat ignition deploy './ignition/modules/SecondaryMarketPlace.js' --network sepolia",
     "lint": "solhint 'contracts/**/*.sol'",
     "check:format": "prettier --list-different --plugin=prettier-plugin-solidity 'contracts/**/*.sol'",
     "format": "npx prettier --write --plugin=prettier-plugin-solidity 'contracts/**/*.sol'"
