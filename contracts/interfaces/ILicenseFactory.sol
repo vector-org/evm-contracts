@@ -32,6 +32,8 @@ interface ILicenseFactory {
         address developer;
         address publisher;
         address platform;
+        address primaryMarketplace;
+        address secondaryMarketplace;
     }
 
     /// @notice Emitted when a new license contract is deployed.
