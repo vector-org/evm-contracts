@@ -13,8 +13,8 @@ contract LicenseContract is ERC721URIStorage, Addresses {
     address public immutable PRIMARYMARKETPLACE;
     address public immutable SECONDARYMARKETPLACE;
 
-    modifier onlyFactory() {
-        require(msg.sender == factory, "Only factory can call this function");
+    modifier onlyFactory(address _factory) {
+        require(msg.sender == _factory, "Only factory can call this function");
         _;
     }
 
@@ -24,7 +24,7 @@ contract LicenseContract is ERC721URIStorage, Addresses {
         address _factory,
         address primaryMarketplace,
         address secondaryMarketplace
-    ) ERC721(name, symbol) onlyFactory {
+    ) ERC721(name, symbol) onlyFactory(_factory) {
         factory = _factory;
         owner = msg.sender;
         PRIMARYMARKETPLACE = primaryMarketplace;
