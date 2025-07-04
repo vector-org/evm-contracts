@@ -11,12 +11,16 @@ contract LicenseContract is ERC721URIStorage, Addresses {
     address public owner;
     address public immutable factory;
 
-    modifier onlyFactory(){
+    modifier onlyFactory() {
         require(msg.sender == factory, "Only factory can call this function");
         _;
     }
 
-    constructor(string memory name, string memory symbol, address _factory) ERC721(name, symbol) onlyFactory {
+    constructor(
+        string memory name,
+        string memory symbol,
+        address _factory
+    ) ERC721(name, symbol) onlyFactory {
         factory = _factory;
         owner = msg.sender;
     }
