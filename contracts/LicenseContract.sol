@@ -9,8 +9,15 @@ import {Addresses} from "./constants/Addresses.sol";
 
 contract LicenseContract is ERC721URIStorage, Addresses {
     address public owner;
+    address public immutable factory;
 
-    constructor(string memory name, string memory symbol) ERC721(name, symbol) {
+    modifier onlyFactory(){
+        require(msg.sender == factory, "Only factory can call this function");
+        _;
+    }
+
+    constructor(string memory name, string memory symbol, address _factory) ERC721(name, symbol) onlyFactory {
+        factory = _factory;
         owner = msg.sender;
     }
 

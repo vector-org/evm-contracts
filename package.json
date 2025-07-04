@@ -14,7 +14,7 @@
   "scripts": {
     "prepare": "husky",
     "compile": "npx hardhat compile",
-    "deploy": "npx hardhat deploy --network sepolia",
+    "deploy:license": "npx hardhat ignition deploy './ignition/modules/LicenseContract.sol' --network sepolia",
     "lint": "solhint 'contracts/**/*.sol'",
     "check:format": "prettier --list-different --plugin=prettier-plugin-solidity 'contracts/**/*.sol'",
     "format": "npx prettier --write --plugin=prettier-plugin-solidity 'contracts/**/*.sol'"
