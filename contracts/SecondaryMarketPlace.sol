@@ -69,9 +69,10 @@ contract SecondaryMarketPlace is Addresses {
         address licenseAddress,
         uint256 price
     ) external {
-        ILicenseContract licenseContract = ILicenseContract(licenseAddress);
+        ILicenseFactory licenseFactory = ILicenseFactory(factory);
+        ILicenseFactory.License memory gameLicense = licenseFactory.getLicenseFromID(tokenId);
         require(
-            licenseContract.ownerOf(tokenId) == msg.sender,
+            gameLicense.owner == msg.sender,
             "You are not the owner of this token"
         );
         // here should be a logic to check if the game NFT is tradeable or not
