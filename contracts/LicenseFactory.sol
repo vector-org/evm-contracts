@@ -53,7 +53,7 @@ contract LicenseFactory is Addresses {
         LicenseInput memory licenseInput
     ) external onlyCoordinator returns (address) {
         address newLicenseAddress = address(
-            new LicenseContract(licenseInput.name, licenseInput.symbol)
+            new LicenseContract(licenseInput.name, licenseInput.symbol, address(this))
         );
         allLicenses.push(newLicenseAddress);
 
