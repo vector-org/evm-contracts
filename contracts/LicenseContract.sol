@@ -10,6 +10,8 @@ import {Addresses} from "./constants/Addresses.sol";
 contract LicenseContract is ERC721URIStorage, Addresses {
     address public owner;
     address public immutable factory;
+    address public immutable PRIMARYMARKETPLACE;
+    address public immutable SECONDARYMARKETPLACE;
 
     modifier onlyFactory() {
         require(msg.sender == factory, "Only factory can call this function");
@@ -19,10 +21,14 @@ contract LicenseContract is ERC721URIStorage, Addresses {
     constructor(
         string memory name,
         string memory symbol,
-        address _factory
+        address _factory,
+        address primaryMarketplace,
+        address secondaryMarketplace
     ) ERC721(name, symbol) onlyFactory {
         factory = _factory;
         owner = msg.sender;
+        PRIMARYMARKETPLACE = primaryMarketplace;
+        SECONDARYMARKETPLACE = secondaryMarketplace;
     }
 
     function safeMint(string memory uri, address to, uint256 licenseId) public {

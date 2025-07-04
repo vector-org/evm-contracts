@@ -27,6 +27,8 @@ struct LicenseInput {
     address developer;
     address publisher;
     address platform;
+    address primaryMarketplace;
+    address secondaryMarketplace;
 }
 
 struct GameNFT {
