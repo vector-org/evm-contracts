@@ -42,12 +42,11 @@ contract LicenseContract is ERC721URIStorage, Addresses {
         return super.tokenURI(licenseId);
     }
 
-    function updateTokenURI(
-        uint256 licenseId,
-        string memory newUri
-    ) public {
+    function updateTokenURI(uint256 licenseId, string memory newUri) public {
         require(
-            msg.sender == owner || msg.sender == factory || msg.sender == Addresses.ADMINISTRATOR,
+            msg.sender == owner ||
+                msg.sender == factory ||
+                msg.sender == Addresses.ADMINISTRATOR,
             "Only owner or factory can update URI"
         );
         _setTokenURI(licenseId, newUri);

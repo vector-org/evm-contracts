@@ -2,7 +2,7 @@
 pragma solidity ^0.8.28;
 
 import {ILicenseContract} from "./interfaces/ILicenseContract.sol";
-import {ILicenseFactory} from "./interfaces/ILicenseFactory.sol";
+import {IPrimaryMarketPlace} from "./interfaces/IPrimaryMarketPlace.sol";
 import {IPrimaryMarketPlace} from "./interfaces/IPrimaryMarketPlace.sol";
 import {Counters} from "@openzeppelin/contracts/utils/Counters.sol";
 import {Addresses} from "./constants/Addresses.sol";
@@ -13,6 +13,7 @@ contract SecondaryMarketPlace is Addresses {
     address public owner;
     address private coordinator;
     address private factory;
+    address private primaryMarketPlace;
     Offer[] public offers;
     mapping(uint256 => Offer) public offerById;
 
@@ -46,7 +47,12 @@ contract SecondaryMarketPlace is Addresses {
         uint256 timestamp
     );
 
-    constructor(address _owner, address _coordinator, address _factory) {
+    constructor(
+        address _owner,
+        address _coordinator,
+        address _factory,
+        address _primaryMarketPlace
+    ) Addresses() {
         require(
             msg.sender == Addresses.ADMINISTRATOR,
             "You are not the administrator"
@@ -54,6 +60,7 @@ contract SecondaryMarketPlace is Addresses {
         owner = _owner;
         coordinator = _coordinator;
         factory = _factory;
+        primaryMarketPlace = _primaryMarketPlace;
     }
 
     modifier onlyOwner() {
@@ -69,10 +76,13 @@ contract SecondaryMarketPlace is Addresses {
         address licenseAddress,
         uint256 price
     ) external {
-        ILicenseFactory licenseFactory = ILicenseFactory(factory);
-        ILicenseFactory.License memory gameLicense = licenseFactory.getLicenseFromID(tokenId);
+        IPrimaryMarketPlace primaryMarket = IPrimaryMarketPlace(
+            primaryMarketPlace
+        );
+        IPrimaryMarketPlace.GameNFT memory gameNFT = primaryMarket
+            .getNFTDetails(tokenId);
         require(
-            gameLicense.owner == msg.sender,
+            gameNFT.owner == msg.sender,
             "You are not the owner of this token"
         );
         // here should be a logic to check if the game NFT is tradeable or not
