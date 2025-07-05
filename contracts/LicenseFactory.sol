@@ -70,7 +70,7 @@ contract LicenseFactory is Addresses {
             _tokenIdCounter.current()
         ];
         licenseSlot.contractAddress = newLicenseAddress;
-        licenseSlot.owner = licenseInput.publisher;
+        licenseSlot.owner = msg.sender;
         licenseSlot.coordinator = Addresses.ADMINISTRATOR;
         licenseSlot.name = licenseInput.name;
         licenseSlot.symbol = licenseInput.symbol;
