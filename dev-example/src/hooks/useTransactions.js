@@ -7,6 +7,11 @@ export function useTransactions() {
   const [currentTx, setCurrentTx] = useState(null)
 
   const addTransaction = (hash, description, type = 'general') => {
+    if (!hash || !hash.startsWith('0x')) {
+      console.error('❌ Invalid transaction hash:', hash)
+      return null
+    }
+
     const tx = {
       hash,
       description,
@@ -15,6 +20,13 @@ export function useTransactions() {
       status: 'pending'
     }
     
+    console.log('📝 Adding transaction to tracker:', {
+      hash,
+      description,
+      type,
+      explorerUrl: getExplorerUrl(hash)
+    })
+    
     setTransactions(prev => [tx, ...prev])
     setCurrentTx(tx)
     
@@ -22,6 +34,8 @@ export function useTransactions() {
   }
 
   const updateTransaction = (hash, updates) => {
+    console.log('🔄 Updating transaction:', hash, updates)
+    
     setTransactions(prev => 
       prev.map(tx => 
         tx.hash === hash ? { ...tx, ...updates } : tx
@@ -34,6 +48,7 @@ export function useTransactions() {
   }
 
   const clearCurrentTransaction = () => {
+    console.log('🧹 Clearing current transaction')
     setCurrentTx(null)
   }
 
@@ -49,10 +64,10 @@ export function useTransactions() {
     return getExplorerUrl(hash)
   }
 
-  // Auto-cleanup old transactions (keep last 10)
+  // Auto-cleanup old transactions (keep last 20)
   useEffect(() => {
-    if (transactions.length > 10) {
-      setTransactions(prev => prev.slice(0, 10))
+    if (transactions.length > 20) {
+      setTransactions(prev => prev.slice(0, 20))
     }
   }, [transactions])
 
@@ -71,37 +86,90 @@ export function useTransactions() {
 export function useTransactionWatcher(hash, onSuccess, onError) {
   const { updateTransaction } = useTransactions()
   
-  const { data, isError, isLoading, isSuccess } = useWaitForTransactionReceipt({
+  const { 
+    data: receipt, 
+    isError, 
+    isLoading, 
+    isSuccess,
+    error 
+  } = useWaitForTransactionReceipt({
     hash,
     query: {
-      enabled: !!hash,
+      enabled: !!hash && hash.startsWith('0x'),
+      retry: 5,
+      retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 30000),
     }
   })
 
+  // Log when starting to watch
   useEffect(() => {
-    if (hash && isSuccess && data) {
+    if (hash && hash.startsWith('0x')) {
+      console.log('🔍 Watching transaction:', {
+        hash,
+        explorerUrl: `https://sepolia.etherscan.io/tx/${hash}`
+      })
+    }
+  }, [hash])
+
+  // Handle successful transaction
+  useEffect(() => {
+    if (hash && isSuccess && receipt) {
+      console.log('✅ Transaction successful:', {
+        hash,
+        receipt: {
+          blockNumber: receipt.blockNumber?.toString(),
+          gasUsed: receipt.gasUsed?.toString(),
+          status: receipt.status,
+          confirmations: receipt.confirmations || 1
+        }
+      })
+      
       updateTransaction(hash, { 
         status: 'success', 
-        receipt: data,
-        confirmations: data.confirmations || 1
+        receipt: receipt,
+        confirmations: receipt.confirmations || 1,
+        completedAt: Date.now()
       })
-      onSuccess?.(data)
+      
+      onSuccess?.(receipt)
     }
-  }, [hash, isSuccess, data, updateTransaction, onSuccess])
+  }, [hash, isSuccess, receipt, updateTransaction, onSuccess])
 
+  // Handle failed transaction
   useEffect(() => {
     if (hash && isError) {
-      updateTransaction(hash, { 
-        status: 'failed'
+      console.error('❌ Transaction failed:', {
+        hash,
+        error: error?.message || 'Unknown error',
+        errorDetails: error
       })
-      onError?.()
+      
+      updateTransaction(hash, { 
+        status: 'failed',
+        error: error?.message || 'Transaction failed',
+        failedAt: Date.now()
+      })
+      
+      onError?.(error)
     }
-  }, [hash, isError, updateTransaction, onError])
+  }, [hash, isError, error, updateTransaction, onError])
+
+  // Handle pending state
+  useEffect(() => {
+    if (hash && isLoading) {
+      console.log('⏳ Transaction pending:', hash)
+      updateTransaction(hash, { 
+        status: 'pending',
+        lastChecked: Date.now()
+      })
+    }
+  }, [hash, isLoading, updateTransaction])
 
   return {
-    data,
+    receipt,
     isError,
     isLoading,
-    isSuccess
+    isSuccess,
+    error
   }
 }

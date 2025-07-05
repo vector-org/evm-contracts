@@ -2,7 +2,7 @@
 import { useState } from 'react'
 import { ConnectKitButton } from "connectkit"
 import { Button } from './ui/button'
-import { Menu, X, Gamepad2, Plus, ShoppingBag, Store } from 'lucide-react'
+import { Menu, X, Gamepad2, Plus, ShoppingBag, Store, Activity, TestTube } from 'lucide-react'
 
 export default function Navbar({ activeTab, setActiveTab }) {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
@@ -12,6 +12,8 @@ export default function Navbar({ activeTab, setActiveTab }) {
     { id: 'create', label: 'Create License', icon: Plus },
     { id: 'mynfts', label: 'My NFTs', icon: ShoppingBag },
     { id: 'secondary', label: 'Secondary Market', icon: Gamepad2 },
+    { id: 'status', label: 'System Status', icon: Activity },
+    { id: 'test', label: 'System Test', icon: TestTube },
   ]
 
   return (

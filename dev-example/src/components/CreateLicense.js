@@ -1,5 +1,5 @@
 "use client";
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useAccount } from 'wagmi'
 import { Button } from './ui/button'
 import { Input } from './ui/input'
@@ -22,9 +22,9 @@ export default function CreateLicense() {
     name: '',
     symbol: '',
     description: '',
-    developer: address || '',
-    publisher: address || '',
-    platform: address || '',
+    developer: '',
+    publisher: '',
+    platform: '',
     developerFee: '',
     platformFee: '',
     publisherFee: '',
@@ -37,37 +37,66 @@ export default function CreateLicense() {
   const [imagePreview, setImagePreview] = useState(null)
   const [isCreating, setIsCreating] = useState(false)
   const [creationStatus, setCreationStatus] = useState(null)
+  const [currentTxHash, setCurrentTxHash] = useState(null)
+  const [metadataURI, setMetadataURI] = useState(null)
 
-  const { writeContractAsync: createLicense, data: createLicenseData } = useCreateLicense()
+  // Update form when address changes
+  useEffect(() => {
+    if (address && !formData.developer) {
+      setFormData(prev => ({
+        ...prev,
+        developer: address,
+        publisher: address,
+        platform: address
+      }))
+    }
+  }, [address, formData.developer])
+
+  const { createLicense, isPending: isContractPending } = useCreateLicense()
 
   useTransactionWatcher(
-    createLicenseData,
-    () => {
+    currentTxHash,
+    (receipt) => {
+      console.log('🎉 License creation successful!', {
+        transactionHash: currentTxHash,
+        receipt: receipt
+      })
       setCreationStatus('success')
       setIsCreating(false)
-      // Reset form
-      setFormData({
-        name: '',
-        symbol: '',
-        description: '',
-        developer: address || '',
-        publisher: address || '',
-        platform: address || '',
-        developerFee: '',
-        platformFee: '',
-        publisherFee: '',
-        genre: '',
-        externalUrl: '',
-        youtubeUrl: ''
-      })
-      setImageFile(null)
-      setImagePreview(null)
+      
+      // Reset form after successful creation
+      setTimeout(() => {
+        resetForm()
+        setCreationStatus(null)
+      }, 3000)
     },
     () => {
+      console.error('💥 License creation failed:', currentTxHash)
       setCreationStatus('error')
       setIsCreating(false)
     }
   )
+
+  const resetForm = () => {
+    setFormData({
+      name: '',
+      symbol: '',
+      description: '',
+      developer: address || '',
+      publisher: address || '',
+      platform: address || '',
+      developerFee: '',
+      platformFee: '',
+      publisherFee: '',
+      genre: '',
+      externalUrl: '',
+      youtubeUrl: ''
+    })
+    setImageFile(null)
+    setImagePreview(null)
+    setMetadataURI(null)
+    setCurrentTxHash(null)
+  }
 
   const handleInputChange = (e) => {
     const { name, value } = e.target
@@ -80,11 +109,44 @@ export default function CreateLicense() {
   const handleImageChange = (e) => {
     const file = e.target.files[0]
     if (file) {
+      console.log('📁 Image selected:', {
+        name: file.name,
+        size: file.size,
+        type: file.type
+      })
+      
       setImageFile(file)
       const reader = new FileReader()
       reader.onload = (e) => setImagePreview(e.target.result)
       reader.readAsDataURL(file)
     }
+  }
+
+  const validateForm = () => {
+    const required = ['name', 'symbol', 'developer', 'publisher', 'platform']
+    const missing = required.filter(field => !formData[field].trim())
+    
+    if (missing.length > 0) {
+      alert(`Please fill in required fields: ${missing.join(', ')}`)
+      return false
+    }
+    
+    if (!imageFile) {
+      alert('Please select an image for your game')
+      return false
+    }
+    
+    // Validate Ethereum addresses
+    const addressFields = ['developer', 'publisher', 'platform']
+    for (const field of addressFields) {
+      const addr = formData[field]
+      if (addr && !addr.match(/^0x[a-fA-F0-9]{40}$/)) {
+        alert(`Invalid Ethereum address for ${field}`)
+        return false
+      }
+    }
+    
+    return true
   }
 
   const handleSubmit = async (e) => {
@@ -95,53 +157,81 @@ export default function CreateLicense() {
       return
     }
 
-    if (!imageFile) {
-      alert('Please select an image for your game')
+    if (!validateForm()) {
       return
     }
 
     try {
+      console.log('🚀 Starting license creation process...')
       setIsCreating(true)
       setCreationStatus('uploading')
+      setCurrentTxHash(null)
 
-      // Upload to IPFS
+      // Step 1: Upload to IPFS
+      console.log('📤 Uploading metadata to IPFS...')
       const ipfsResult = await uploadGameMetadata(formData, imageFile)
       
+      console.log('✅ IPFS upload successful:', {
+        imageHash: ipfsResult.imageHash,
+        imageUrl: ipfsResult.imageUrl,
+        metadataHash: ipfsResult.metadataHash,
+        metadataUrl: ipfsResult.metadataUrl
+      })
+      
+      setMetadataURI(ipfsResult.metadataUrl)
       setCreationStatus('creating')
 
-      // Prepare license input
+      // Step 2: Prepare license input
       const licenseInput = {
-        name: formData.name,
-        symbol: formData.symbol,
+        name: formData.name.trim(),
+        symbol: formData.symbol.trim().toUpperCase(),
         isActive: true,
         developerFee: parseEther(formData.developerFee || "0"),
         platformFee: parseEther(formData.platformFee || "0"),
         publisherFee: parseEther(formData.publisherFee || "0"),
-        developer: formData.developer || address,
-        publisher: formData.publisher || address,
-        platform: formData.platform || address,
+        developer: formData.developer.trim(),
+        publisher: formData.publisher.trim(),
+        platform: formData.platform.trim(),
         primaryMarketplace: CONTRACT_ADDRESSES.PRIMARY_MARKETPLACE,
         secondaryMarketplace: CONTRACT_ADDRESSES.SECONDARY_MARKETPLACE
       }
 
-      // Create license on blockchain
-      const tx = await createLicense({
-        address: CONTRACT_ADDRESSES.FACTORY,
-        abi: CONTRACTS.FACTORY.abi,
-        functionName: 'createLicense',
-        args: [licenseInput]
-      })
+      console.log('📋 License input prepared:', licenseInput)
+
+      // Step 3: Create license on blockchain
+      console.log('⛓️ Creating license on blockchain...')
+      
+      const txHash = await createLicense(licenseInput)
+      
+      console.log('📝 Transaction submitted successfully:', txHash)
+      console.log('🔗 View on Etherscan:', `https://sepolia.etherscan.io/tx/${txHash}`)
+      
+      setCurrentTxHash(txHash)
 
       addTransaction(
-        tx,
+        txHash,
         `Creating license: ${formData.name}`,
         'create-license'
       )
 
     } catch (error) {
-      console.error('Error creating license:', error)
+      console.error('💥 Error creating license:', {
+        error: error.message,
+        stack: error.stack,
+        cause: error.cause
+      })
+      
       setCreationStatus('error')
       setIsCreating(false)
+      
+      // Show user-friendly error message
+      if (error.message.includes('User rejected') || error.message.includes('user rejected')) {
+        alert('Transaction was cancelled by user')
+      } else if (error.message.includes('insufficient funds')) {
+        alert('Insufficient funds for transaction')
+      } else {
+        alert(`Error creating license: ${error.message}`)
+      }
     }
   }
 
@@ -172,7 +262,7 @@ export default function CreateLicense() {
             <span>Create Game License</span>
           </CardTitle>
           <CardDescription>
-            Create a new gaming license NFT contract for your game
+            Create a new gaming license NFT contract for your game. All data will be stored on IPFS.
           </CardDescription>
         </CardHeader>
 
@@ -189,6 +279,7 @@ export default function CreateLicense() {
                     accept="image/*"
                     onChange={handleImageChange}
                     required
+                    disabled={isCreating}
                   />
                 </div>
                 {imagePreview && (
@@ -201,6 +292,11 @@ export default function CreateLicense() {
                   </div>
                 )}
               </div>
+              {imageFile && (
+                <p className="text-sm text-gray-500">
+                  Selected: {imageFile.name} ({(imageFile.size / 1024 / 1024).toFixed(2)} MB)
+                </p>
+              )}
             </div>
 
             {/* Basic Info */}
@@ -214,6 +310,7 @@ export default function CreateLicense() {
                   onChange={handleInputChange}
                   placeholder="Enter game name"
                   required
+                  disabled={isCreating}
                 />
               </div>
               <div className="space-y-2">
@@ -226,6 +323,7 @@ export default function CreateLicense() {
                   placeholder="e.g., GAME"
                   maxLength={10}
                   required
+                  disabled={isCreating}
                 />
               </div>
             </div>
@@ -238,40 +336,47 @@ export default function CreateLicense() {
                 value={formData.description}
                 onChange={handleInputChange}
                 placeholder="Describe your game..."
-                className="w-full min-h-[100px] px-3 py-2 border border-input rounded-md resize-none focus:outline-none focus:ring-2 focus:ring-ring"
+                className="w-full min-h-[100px] px-3 py-2 border border-input rounded-md resize-none focus:outline-none focus:ring-2 focus:ring-ring disabled:opacity-50"
+                disabled={isCreating}
               />
             </div>
 
             {/* Stakeholders */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <div className="space-y-2">
-                <Label htmlFor="developer">Developer Address</Label>
+                <Label htmlFor="developer">Developer Address *</Label>
                 <Input
                   id="developer"
                   name="developer"
                   value={formData.developer}
                   onChange={handleInputChange}
                   placeholder="0x..."
+                  required
+                  disabled={isCreating}
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="publisher">Publisher Address</Label>
+                <Label htmlFor="publisher">Publisher Address *</Label>
                 <Input
                   id="publisher"
                   name="publisher"
                   value={formData.publisher}
                   onChange={handleInputChange}
                   placeholder="0x..."
+                  required
+                  disabled={isCreating}
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="platform">Platform Address</Label>
+                <Label htmlFor="platform">Platform Address *</Label>
                 <Input
                   id="platform"
                   name="platform"
                   value={formData.platform}
                   onChange={handleInputChange}
                   placeholder="0x..."
+                  required
+                  disabled={isCreating}
                 />
               </div>
             </div>
@@ -285,9 +390,11 @@ export default function CreateLicense() {
                   name="developerFee"
                   type="number"
                   step="0.001"
+                  min="0"
                   value={formData.developerFee}
                   onChange={handleInputChange}
                   placeholder="0.0"
+                  disabled={isCreating}
                 />
               </div>
               <div className="space-y-2">
@@ -297,9 +404,11 @@ export default function CreateLicense() {
                   name="platformFee"
                   type="number"
                   step="0.001"
+                  min="0"
                   value={formData.platformFee}
                   onChange={handleInputChange}
                   placeholder="0.0"
+                  disabled={isCreating}
                 />
               </div>
               <div className="space-y-2">
@@ -309,9 +418,11 @@ export default function CreateLicense() {
                   name="publisherFee"
                   type="number"
                   step="0.001"
+                  min="0"
                   value={formData.publisherFee}
                   onChange={handleInputChange}
                   placeholder="0.0"
+                  disabled={isCreating}
                 />
               </div>
             </div>
@@ -326,6 +437,7 @@ export default function CreateLicense() {
                   value={formData.genre}
                   onChange={handleInputChange}
                   placeholder="e.g., Action, RPG, Strategy"
+                  disabled={isCreating}
                 />
               </div>
               <div className="space-y-2">
@@ -337,6 +449,7 @@ export default function CreateLicense() {
                   value={formData.externalUrl}
                   onChange={handleInputChange}
                   placeholder="https://..."
+                  disabled={isCreating}
                 />
               </div>
             </div>
@@ -350,22 +463,50 @@ export default function CreateLicense() {
                 value={formData.youtubeUrl}
                 onChange={handleInputChange}
                 placeholder="https://youtube.com/..."
+                disabled={isCreating}
               />
             </div>
 
             {/* Status Display */}
-            {(isUploading || isCreating) && (
+            {isUploading && (
               <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
                 <div className="flex items-center space-x-3">
                   <Loader2 className="h-5 w-5 animate-spin text-blue-600" />
                   <div>
-                    {creationStatus === 'uploading' && (
-                      <p className="text-blue-800">
-                        Uploading to IPFS... {uploadProgress}%
-                      </p>
-                    )}
-                    {creationStatus === 'creating' && (
-                      <p className="text-blue-800">Creating license on blockchain...</p>
+                    <p className="text-blue-800 font-medium">
+                      Uploading to IPFS... {uploadProgress}%
+                    </p>
+                    <p className="text-blue-600 text-sm">
+                      This may take a few moments depending on file size
+                    </p>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {creationStatus === 'creating' && (
+              <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+                <div className="flex items-center space-x-3">
+                  <Loader2 className="h-5 w-5 animate-spin text-yellow-600" />
+                  <div>
+                    <p className="text-yellow-800 font-medium">Creating license on blockchain...</p>
+                    <p className="text-yellow-600 text-sm">
+                      Please wait for transaction confirmation
+                    </p>
+                    {currentTxHash && (
+                      <div className="mt-2">
+                        <p className="text-yellow-600 text-xs">
+                          TX: {currentTxHash}
+                        </p>
+                        <a 
+                          href={`https://sepolia.etherscan.io/tx/${currentTxHash}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-yellow-700 text-xs underline"
+                        >
+                          View on Etherscan
+                        </a>
+                      </div>
                     )}
                   </div>
                 </div>
@@ -376,7 +517,17 @@ export default function CreateLicense() {
               <div className="bg-green-50 border border-green-200 rounded-lg p-4">
                 <div className="flex items-center space-x-3">
                   <CheckCircle className="h-5 w-5 text-green-600" />
-                  <p className="text-green-800">License created successfully!</p>
+                  <div>
+                    <p className="text-green-800 font-medium">License created successfully!</p>
+                    <p className="text-green-600 text-sm">
+                      Your game license is now available in the marketplace
+                    </p>
+                    {metadataURI && (
+                      <p className="text-green-600 text-xs mt-1">
+                        Metadata: {metadataURI}
+                      </p>
+                    )}
+                  </div>
                 </div>
               </div>
             )}
@@ -385,7 +536,12 @@ export default function CreateLicense() {
               <div className="bg-red-50 border border-red-200 rounded-lg p-4">
                 <div className="flex items-center space-x-3">
                   <AlertCircle className="h-5 w-5 text-red-600" />
-                  <p className="text-red-800">Failed to create license. Please try again.</p>
+                  <div>
+                    <p className="text-red-800 font-medium">Failed to create license</p>
+                    <p className="text-red-600 text-sm">
+                      Please check the console for details and try again
+                    </p>
+                  </div>
                 </div>
               </div>
             )}
@@ -394,13 +550,13 @@ export default function CreateLicense() {
           <CardFooter>
             <Button 
               type="submit" 
-              disabled={isCreating || isUploading || !formData.name || !imageFile}
+              disabled={isCreating || isUploading || !formData.name || !imageFile || isContractPending}
               className="w-full"
             >
-              {isCreating || isUploading ? (
+              {isCreating || isUploading || isContractPending ? (
                 <>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  {creationStatus === 'uploading' ? 'Uploading...' : 'Creating License...'}
+                  {creationStatus === 'uploading' ? 'Uploading to IPFS...' : 'Creating License...'}
                 </>
               ) : (
                 'Create License'

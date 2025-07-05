@@ -1,4 +1,3 @@
-// Import contract ABIs and addresses
 import LicenseFactoryData from '../abi/LicenseFactory.json'
 import PrimaryMarketPlaceData from '../abi/PrimaryMarketPlace.json'
 import SecondaryMarketPlaceData from '../abi/SecondaryMarketPlace.json'
