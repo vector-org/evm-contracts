@@ -85,6 +85,18 @@ export function useContract() {
     })
   }
 
+  const useGetLicenseTokenURI = (licenseContractAddress, licenseId) => {
+    return useReadContract({
+      address: licenseContractAddress,
+      abi: CONTRACTS.LICENSE.abi, // Make sure you have the LICENSE contract ABI in your contracts
+      functionName: 'tokenURI',
+      args: [licenseId],
+      query: {
+        enabled: !!(licenseContractAddress && licenseId),
+      }
+    })
+  }
+
   const useGetNFTDetails = (nftId) => {
     return useReadContract({
       address: CONTRACTS.PRIMARY_MARKETPLACE.address,
@@ -244,6 +256,80 @@ export function useContract() {
     })
   }
 
+  const useGetUserTokens = (userAddress) => {
+    return useReadContract({
+      address: CONTRACTS.PRIMARY_MARKETPLACE.address,
+      abi: CONTRACTS.PRIMARY_MARKETPLACE.abi,
+      functionName: 'getUserTokens',
+      args: [userAddress],
+      query: {
+        enabled: !!userAddress,
+      }
+    })
+  }
+
+  const useApproveToken = () => {
+    const { writeContractAsync, isPending, error } = useWriteContract()
+    
+    const approveToken = async (licenseAddress, spender, tokenId) => {
+      console.log('🔧 useApproveToken called with:', { licenseAddress, spender, tokenId })
+      
+      try {
+        const hash = await writeContractAsync({
+          address: licenseAddress,
+          abi: CONTRACTS.LICENSE.abi,
+          functionName: 'approve',
+          args: [spender, tokenId]
+        })
+        
+        console.log('✅ Approve token transaction hash received:', hash)
+        return hash
+      } catch (error) {
+        console.error('💥 Approve token failed in hook:', error)
+        throw error
+      }
+    }
+    
+    return { approveToken, isPending, error }
+  }
+
+  const useIsApprovedForAll = (owner, operator) => {
+    // Note: This needs to be called with a specific license contract address
+    // Since we don't know which license contract, we'll need to modify this
+    return {
+      data: false, // Default fallback
+      isLoading: false,
+      error: null
+    }
+  }
+
+  // Set approval for all tokens
+  const useSetApprovalForAll = () => {
+    const { writeContractAsync, isPending, error } = useWriteContract()
+    
+    const setApprovalForAll = async (licenseAddress, operator, approved) => {
+      console.log('🔧 useSetApprovalForAll called with:', { licenseAddress, operator, approved })
+      
+      try {
+        const hash = await writeContractAsync({
+          address: licenseAddress,
+          abi: CONTRACTS.LICENSE.abi,
+          functionName: 'setApprovalForAll',
+          args: [operator, approved]
+        })
+        
+        console.log('✅ Set approval for all transaction hash received:', hash)
+        return hash
+      } catch (error) {
+        console.error('💥 Set approval for all failed in hook:', error)
+        throw error
+      }
+    }
+    
+    return { setApprovalForAll, isPending, error }
+  }
+
+
   return {
     isLoading,
     setIsLoading,
@@ -260,6 +346,11 @@ export function useContract() {
     useAcceptOffer,
     useGetOpenOffers,
     useRemoveOffer,
+    useGetLicenseTokenURI,
+    useGetUserTokens,
+    useApproveToken,
+    useIsApprovedForAll,
+    useSetApprovalForAll,
     // License Contract
     useApprove,
     useGetApproved,

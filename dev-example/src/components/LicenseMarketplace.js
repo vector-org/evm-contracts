@@ -1,5 +1,5 @@
 "use client";
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useMemo } from 'react'
 import { useAccount } from 'wagmi'
 import { Button } from './ui/button'
 import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from './ui/card'
@@ -14,7 +14,8 @@ export default function LicenseMarketplace() {
   const { 
     useGetAllLicenseIds, 
     useGetLicenseFromID, 
-    useMintLicense 
+    useMintLicense,
+    useGetLicenseTokenURI // You'll need to add this to your useContract hook
   } = useContract()
   const { addTransaction } = useTransactions()
 
@@ -50,59 +51,173 @@ export default function LicenseMarketplace() {
 
   const LicenseCard = ({ licenseId }) => {
     const { data: licenseData, isLoading } = useGetLicenseFromID(licenseId)
+    
+    // If you haven't implemented useGetLicenseTokenURI yet, comment out this line
+    // const { data: tokenURI } = useGetLicenseTokenURI(licenseData?.contractAddress, licenseId)
+    
     const [metadata, setMetadata] = useState(null)
     const [loadingMetadata, setLoadingMetadata] = useState(false)
     const [metadataError, setMetadataError] = useState(null)
+    const [metadataLoaded, setMetadataLoaded] = useState(false)
 
-    const loadMetadata = useCallback(async () => {
-      if (!licenseData?.contractAddress) return
+    // Memoize the metadata loading function to prevent recreation on every render
+    const loadMetadata = useCallback(async (uri) => {
+      if (!uri || loadingMetadata || metadataLoaded) return
       
       try {
         setLoadingMetadata(true)
         setMetadataError(null)
         
-        console.log('📋 Loading metadata for license:', licenseId)
+        console.log('📋 Loading metadata from URI:', uri)
         
-        // Create basic metadata from contract data
-        const newMetadata = {
-          name: licenseData.name,
-          description: `Gaming license for ${licenseData.name} (${licenseData.symbol})`,
-          image: null,
-          attributes: [
-            {
-              trait_type: "Developer",
-              value: shortenAddress(licenseData.developer)
-            },
-            {
-              trait_type: "Publisher", 
-              value: shortenAddress(licenseData.publisher)
-            },
-            {
-              trait_type: "Platform",
-              value: shortenAddress(licenseData.platform)
-            },
-            {
-              trait_type: "Active",
-              value: licenseData.isActive ? "Yes" : "No"
-            }
-          ]
+        let fetchedMetadata = null
+        
+        if (uri.startsWith('data:application/json;base64,')) {
+          // Handle base64 encoded metadata
+          const base64Data = uri.split(',')[1]
+          const decodedData = atob(base64Data)
+          fetchedMetadata = JSON.parse(decodedData)
+          console.log('✅ Metadata loaded from base64:', fetchedMetadata)
+        } else if (uri.startsWith('http')) {
+          // Handle HTTP/IPFS URLs
+          const response = await fetch(uri)
+          if (response.ok) {
+            fetchedMetadata = await response.json()
+            console.log('✅ Metadata loaded from URL:', fetchedMetadata)
+          } else {
+            throw new Error(`HTTP ${response.status}: ${response.statusText}`)
+          }
+        } else if (uri.startsWith('ipfs://')) {
+          // Handle IPFS URLs - convert to HTTP gateway
+          const ipfsHash = uri.replace('ipfs://', '')
+          const ipfsUrl = `https://ipfs.io/ipfs/${ipfsHash}`
+          const response = await fetch(ipfsUrl)
+          if (response.ok) {
+            fetchedMetadata = await response.json()
+            console.log('✅ Metadata loaded from IPFS:', fetchedMetadata)
+          } else {
+            throw new Error(`IPFS fetch failed: ${response.status}`)
+          }
+        } else {
+          // Try direct fetch for other URI formats
+          const response = await fetch(uri)
+          if (response.ok) {
+            fetchedMetadata = await response.json()
+            console.log('✅ Metadata loaded from direct URI:', fetchedMetadata)
+          } else {
+            throw new Error(`Failed to fetch URI: ${response.status}`)
+          }
+        }
+
+        if (fetchedMetadata) {
+          // Ensure image URLs are properly formatted for IPFS
+          if (fetchedMetadata.image && fetchedMetadata.image.startsWith('ipfs://')) {
+            fetchedMetadata.image = fetchedMetadata.image.replace('ipfs://', 'https://ipfs.io/ipfs/')
+          }
+          
+          setMetadata(fetchedMetadata)
+          setMetadataLoaded(true)
+          console.log('✅ Metadata successfully loaded with image:', fetchedMetadata.image)
+        } else {
+          throw new Error('No metadata found in response')
         }
         
-        setMetadata(newMetadata)
-        console.log('✅ Metadata loaded for license:', licenseId)
       } catch (error) {
         console.error('💥 Error loading metadata:', error)
         setMetadataError(error.message)
+        
+        // Create fallback metadata from license data
+        if (licenseData) {
+          const fallbackMetadata = {
+            name: licenseData?.name || `License #${licenseId}`,
+            description: `Gaming license for ${licenseData?.name || `License ${licenseId}`} (${licenseData?.symbol || 'N/A'})`,
+            image: null, // Will be null if we can't fetch from IPFS
+            attributes: [
+              {
+                trait_type: "Developer",
+                value: shortenAddress(licenseData.developer)
+              },
+              {
+                trait_type: "Publisher", 
+                value: shortenAddress(licenseData.publisher)
+              },
+              {
+                trait_type: "Platform",
+                value: shortenAddress(licenseData.platform)
+              },
+              {
+                trait_type: "Active",
+                value: licenseData.isActive ? "Yes" : "No"
+              }
+            ]
+          }
+          
+          setMetadata(fallbackMetadata)
+          setMetadataLoaded(true)
+          console.log('🔄 Set fallback metadata due to error:', fallbackMetadata)
+        }
       } finally {
         setLoadingMetadata(false)
       }
-    }, [licenseData, licenseId])
+    }, [licenseData, licenseId, loadingMetadata, metadataLoaded]) // Fixed dependencies
 
-    useEffect(() => {
-      if (licenseData?.contractAddress) {
-        loadMetadata()
+    // Create basic metadata when license data is available
+    const createBasicMetadata = useCallback(() => {
+      if (!licenseData || metadata || loadingMetadata || metadataLoaded) return
+      
+      const basicMetadata = {
+        name: licenseData.name || `License #${licenseId}`,
+        description: `Gaming license for ${licenseData.name || `License ${licenseId}`} (${licenseData.symbol || 'N/A'})`,
+        image: null,
+        attributes: [
+          {
+            trait_type: "Developer",
+            value: shortenAddress(licenseData.developer)
+          },
+          {
+            trait_type: "Publisher", 
+            value: shortenAddress(licenseData.publisher)
+          },
+          {
+            trait_type: "Platform",
+            value: shortenAddress(licenseData.platform)
+          },
+          {
+            trait_type: "Active",
+            value: licenseData.isActive ? "Yes" : "No"
+          }
+        ]
       }
-    }, [licenseData?.contractAddress, loadMetadata])
+      
+      setMetadata(basicMetadata)
+      setMetadataLoaded(true)
+      console.log('📋 Created basic metadata:', basicMetadata)
+    }, [licenseData, licenseId, metadata, loadingMetadata, metadataLoaded])
+
+    // Fixed useEffect with proper dependency management
+    useEffect(() => {
+      if (!licenseData?.contractAddress || metadataLoaded) return
+      
+      // If you have implemented useGetLicenseTokenURI and have tokenURI available:
+      // if (tokenURI) {
+      //   loadMetadata(tokenURI)
+      //   return
+      // }
+      
+      // For now, check if there's a way to get metadata URI from your contract
+      let potentialURI = null
+      
+      // Check if your license creation process stores metadata URI somewhere
+      // This is a placeholder - adapt based on your contract implementation
+      // potentialURI = licenseData.metadataURI
+      
+      if (potentialURI) {
+        loadMetadata(potentialURI)
+      } else {
+        // Create basic metadata if no URI is available
+        createBasicMetadata()
+      }
+    }, [licenseData?.contractAddress, metadataLoaded, loadMetadata, createBasicMetadata]) // Simplified dependencies
 
     const handleMint = useCallback(async () => {
       if (!isConnected) {
@@ -118,7 +233,7 @@ export default function LicenseMarketplace() {
         const nftMetadata = {
           name: `${licenseData.name} License`,
           description: `Gaming license NFT for ${licenseData.name}`,
-          image: "https://via.placeholder.com/400x400/3b82f6/ffffff?text=Gaming+License",
+          image: metadata?.image || "https://via.placeholder.com/400x400/3b82f6/ffffff?text=Gaming+License",
           attributes: [
             {
               trait_type: "Game",
@@ -179,9 +294,9 @@ export default function LicenseMarketplace() {
           alert(`Error minting license: ${error.message}`)
         }
       }
-    }, [isConnected, licenseId, licenseData, address, mintLicense, addTransaction])
+    }, [isConnected, licenseId, licenseData, address, mintLicense, addTransaction, metadata])
 
-    if (isLoading || loadingMetadata) {
+    if (isLoading || (loadingMetadata && !metadata)) {
       return (
         <Card className="animate-pulse">
           <div className="h-48 bg-gray-200 rounded-t-lg"></div>
@@ -208,13 +323,19 @@ export default function LicenseMarketplace() {
               src={metadata.image} 
               alt={licenseData.name}
               className="w-full h-full object-cover"
+              onError={(e) => {
+                console.log('🖼️ Image failed to load:', metadata.image)
+                e.target.style.display = 'none'
+                e.target.nextSibling.style.display = 'flex'
+              }}
             />
-          ) : (
-            <div className="text-center">
-              <ShoppingCart className="h-12 w-12 text-gray-400 mx-auto mb-2" />
-              <p className="text-gray-500 text-sm">Gaming License</p>
-            </div>
-          )}
+          ) : null}
+          
+          {/* Fallback display when no image or image fails to load */}
+          <div className={`text-center ${metadata?.image ? 'hidden' : 'flex'} flex-col items-center justify-center w-full h-full`}>
+            <ShoppingCart className="h-12 w-12 text-gray-400 mx-auto mb-2" />
+            <p className="text-gray-500 text-sm">Gaming License</p>
+          </div>
           
           {/* License ID Badge */}
           <div className="absolute top-2 right-2 bg-white/90 backdrop-blur-sm px-2 py-1 rounded-full text-xs font-medium">
@@ -278,7 +399,7 @@ export default function LicenseMarketplace() {
             <div className="bg-yellow-50 border border-yellow-200 rounded p-2">
               <div className="flex items-center space-x-2">
                 <AlertTriangle className="h-4 w-4 text-yellow-600" />
-                <p className="text-yellow-800 text-xs">Failed to load metadata</p>
+                <p className="text-yellow-800 text-xs">Metadata: {metadataError}</p>
               </div>
             </div>
           )}
