@@ -2,6 +2,8 @@
   "name": "hardhat-project",
   "devDependencies": {
     "@nomicfoundation/hardhat-toolbox": "^5.0.0",
+    "commitizen": "^4.3.1",
+    "cz-conventional-changelog": "^3.3.0",
     "hardhat": "^2.25.0",
     "prettier": "^3.6.2",
     "prettier-plugin-solidity": "^2.0.0"
@@ -22,5 +24,10 @@
     "check:format": "prettier --list-different --plugin=prettier-plugin-solidity 'contracts/**/*.sol'",
     "format": "npx prettier --write --plugin=prettier-plugin-solidity 'contracts/**/*.sol'",
     "dev-example": "cd dev-example && npm install --legacy-peer-deps && npm run dev"
+  },
+  "config": {
+    "commitizen": {
+      "path": "cz-conventional-changelog"
+    }
   }
 }
