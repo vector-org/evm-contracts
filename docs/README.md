@@ -215,22 +215,22 @@ Ensures only authorized marketplaces can transfer tokens.
 ### Contract Interaction Flow
 ```mermaid
 graph TD
-    Administrator[Administrator (Only Deployer)]
+    Admin[Administrator - Only Deployer]
     GameDev[Game Developer]
     User[User / Player]
     Seller[Seller]
     Buyer[Buyer]
 
-    Administrator -->|Deploys| LicenseFactory
+    Admin -->|Deploys| LicenseFactory
     GameDev -->|Requests License| LicenseFactory
-    LicenseFactory -->|createLicense(LicenseInput)| LicenseContract
-    LicenseContract -->|safeMint()| PrimaryMarketplace
-    PrimaryMarketplace -->|mintLicense()| User
+    LicenseFactory -->|createLicense| LicenseContract
+    LicenseContract -->|safeMint| PrimaryMarketplace
+    PrimaryMarketplace -->|mintLicense| User
 
     User -->|View Details| LicenseFactory
     User -->|Resell| SecondaryMarketplace
-    Seller -->|createOffer() + approve(LicenseContract)| SecondaryMarketplace
-    Buyer -->|acceptOffer() + send ETH| SecondaryMarketplace
+    Seller -->|createOffer + approve| SecondaryMarketplace
+    Buyer -->|acceptOffer + send ETH| SecondaryMarketplace
     SecondaryMarketplace -->|transferFrom| LicenseContract
     SecondaryMarketplace -->|ETH Payment| Seller
 
@@ -240,7 +240,6 @@ graph TD
         PrimaryMarketplace
         SecondaryMarketplace
     end
-
 ```
 ---
 
