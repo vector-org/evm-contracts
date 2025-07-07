@@ -1,153 +1,162 @@
 "use client";
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useAccount } from 'wagmi'
 import { Button } from './ui/button'
 import { Input } from './ui/input'
 import { Label } from './ui/label'
 import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from './ui/card'
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from './ui/dialog'
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from './ui/dialog'
 import { useContract } from '../hooks/useContract'
 import { useTransactions, useTransactionWatcher } from '../hooks/useTransactions'
 import { formatEther, parseEther, shortenAddress } from '../lib/utils'
-import { CONTRACT_ADDRESSES, CONTRACTS } from '../lib/contracts'
-import { Loader2, Package, Tag, ExternalLink, AlertCircle, CheckCircle, X } from 'lucide-react'
+import { CONTRACT_ADDRESSES } from '../lib/contracts'
+import { Loader2, Package, Tag, ExternalLink, AlertCircle } from 'lucide-react'
 
 export default function MyNFTs() {
   const { address, isConnected } = useAccount()
   const { 
     useGetAllNFTIds, 
     useGetNFTDetails,
+    useGetLicenseFromID,
     useApprove,
     useCreateOffer
   } = useContract()
   const { addTransaction } = useTransactions()
 
+  // Core state
   const [nfts, setNfts] = useState([])
   const [loading, setLoading] = useState(true)
-  const [listingNFT, setListingNFT] = useState(null)
+  
+  // Dialog state
+  const [dialogOpen, setDialogOpen] = useState(false)
+  const [selectedNFT, setSelectedNFT] = useState(null)
   const [listingPrice, setListingPrice] = useState('')
-  const [approvingNFT, setApprovingNFT] = useState(null)
-  const [currentApprovalTx, setCurrentApprovalTx] = useState(null)
-  const [currentOfferTx, setCurrentOfferTx] = useState(null)
-  const [showListingDialog, setShowListingDialog] = useState(false)
+  const [licenseData, setLicenseData] = useState(null)
+  
+  // Process state
+  const [processStatus, setProcessStatus] = useState('idle') // idle, approving, creating-offer
+  const [currentTxHash, setCurrentTxHash] = useState(null)
+  
+  // Refs to prevent infinite loops
+  const processedNFTs = useRef(new Set())
+  const isProcessingRef = useRef(false)
 
   const { data: allNFTIds, isLoading: loadingIds, refetch: refetchNFTIds } = useGetAllNFTIds()
-  const { approve, isPending: isApprovePending } = useApprove()
-  const { createOffer, isPending: isOfferPending } = useCreateOffer()
+  const { approve } = useApprove()
+  const { createOffer } = useCreateOffer()
 
-  useTransactionWatcher(
-    currentApprovalTx,
-    (receipt) => {
-      console.log('✅ NFT approval successful!', {
-        transactionHash: currentApprovalTx,
-        receipt: receipt
-      })
-      setApprovingNFT(null)
-      setCurrentApprovalTx(null)
-      
-      // After approval, create the offer
-      if (listingNFT && listingPrice) {
-        handleCreateOffer()
-      }
-    },
-    () => {
-      console.error('💥 NFT approval failed:', currentApprovalTx)
-      setApprovingNFT(null)
-      setCurrentApprovalTx(null)
-      setListingNFT(null)
+  // Load NFTs once
+  useEffect(() => {
+    if (allNFTIds?.length > 0) {
+      setNfts(allNFTIds.map(id => id.toString()))
+      setLoading(false)
+    } else if (!loadingIds) {
+      setLoading(false)
     }
-  )
+  }, [allNFTIds, loadingIds])
 
+  // Transaction watcher - simplified
   useTransactionWatcher(
-    currentOfferTx,
-    (receipt) => {
-      console.log('✅ Offer created successfully!', {
-        transactionHash: currentOfferTx,
-        receipt: receipt
-      })
-      setCurrentOfferTx(null)
-      setListingNFT(null)
+    currentTxHash,
+    () => {
+      // Success
+      console.log('✅ Transaction successful:', currentTxHash)
+      setProcessStatus('idle')
+      setCurrentTxHash(null)
+      setDialogOpen(false)
+      setSelectedNFT(null)
+      setLicenseData(null)
       setListingPrice('')
-      setShowListingDialog(false)
-      
-      // Refresh NFT data
-      setTimeout(() => {
-        refetchNFTIds()
-      }, 2000)
+      isProcessingRef.current = false
+      setTimeout(() => refetchNFTIds(), 3000)
     },
     () => {
-      console.error('💥 Offer creation failed:', currentOfferTx)
-      setCurrentOfferTx(null)
-      setListingNFT(null)
+      // Error
+      console.error('❌ Transaction failed:', currentTxHash)
+      setProcessStatus('idle')
+      setCurrentTxHash(null)
+      isProcessingRef.current = false
     }
   )
 
   const NFTCard = ({ nftId }) => {
-    const { data: nftDetails, isLoading, refetch } = useGetNFTDetails(nftId)
+    const { data: nftDetails } = useGetNFTDetails(nftId)
     const [metadata, setMetadata] = useState(null)
-    const [loadingMetadata, setLoadingMetadata] = useState(false)
-    
+    const [extractedLicenseId, setExtractedLicenseId] = useState(null)
+    const metadataLoaded = useRef(false)
+
+    // Load metadata once when nftDetails is available
     useEffect(() => {
-      if (nftDetails && nftDetails.uri) {
+      if (nftDetails?.uri && !metadataLoaded.current) {
+        metadataLoaded.current = true
         loadMetadata(nftDetails.uri)
       }
-    }, [nftDetails])
+    }, [nftDetails?.uri])
 
     const loadMetadata = async (uri) => {
       try {
-        setLoadingMetadata(true)
-        console.log('📋 Loading NFT metadata:', uri)
+        let metadata = null
         
         if (uri.startsWith('data:application/json;base64,')) {
-          // Handle base64 encoded metadata
           const base64Data = uri.split(',')[1]
           const decodedData = atob(base64Data)
-          const metadata = JSON.parse(decodedData)
+          metadata = JSON.parse(decodedData)
+        } else if (uri.startsWith('http') || uri.startsWith('ipfs://')) {
+          const fetchUrl = uri.startsWith('ipfs://') 
+            ? `https://ipfs.io/ipfs/${uri.replace('ipfs://', '')}`
+            : uri
+          const response = await fetch(fetchUrl)
+          metadata = await response.json()
+        }
+
+        if (metadata) {
+          // Fix IPFS image URLs
+          if (metadata.image && metadata.image.startsWith('ipfs://')) {
+            metadata.image = `https://ipfs.io/ipfs/${metadata.image.replace('ipfs://', '')}`
+          }
+          
           setMetadata(metadata)
-          console.log('✅ Metadata loaded from base64:', metadata)
-        } else if (uri.startsWith('http')) {
-          // Handle HTTP/IPFS URLs
-          const response = await fetch(uri)
-          const metadata = await response.json()
-          setMetadata(metadata)
-          console.log('✅ Metadata loaded from URL:', metadata)
-        } else {
-          // Fallback for other URI formats
-          setMetadata({
-            name: `Gaming License #${nftId}`,
-            description: "Gaming license NFT",
-            image: null
-          })
+          
+          // Extract license ID from metadata
+          let licenseId = null
+          if (metadata.attributes) {
+            const licenseAttr = metadata.attributes.find(attr => 
+              attr.trait_type === 'License ID' || attr.trait_type === 'License Id'
+            )
+            licenseId = licenseAttr?.value
+          }
+          
+          setExtractedLicenseId(licenseId || nftId)
+          console.log('📋 NFT metadata loaded:', metadata.name, 'License ID:', licenseId || nftId)
         }
       } catch (error) {
-        console.error('💥 Error loading metadata:', error)
+        console.error('Error loading metadata:', error)
         setMetadata({
           name: `Gaming License #${nftId}`,
           description: "Gaming license NFT",
           image: null
         })
-      } finally {
-        setLoadingMetadata(false)
+        setExtractedLicenseId(nftId)
       }
     }
 
-    if (isLoading || loadingMetadata) {
-      return (
-        <Card className="animate-pulse">
-          <div className="h-48 bg-gray-200 rounded-t-lg"></div>
-          <CardContent className="pt-4">
-            <div className="space-y-2">
-              <div className="h-4 bg-gray-200 rounded w-3/4"></div>
-              <div className="h-4 bg-gray-200 rounded w-1/2"></div>
-            </div>
-          </CardContent>
-        </Card>
-      )
+    const handleListForSale = () => {
+      if (!extractedLicenseId || isProcessingRef.current) return
+      
+      setSelectedNFT({
+        id: nftId,
+        ...nftDetails,
+        metadata,
+        licenseId: extractedLicenseId
+      })
+      setDialogOpen(true)
     }
 
-    if (!nftDetails || nftDetails.owner.toLowerCase() !== address?.toLowerCase()) {
-      return null // Don't show NFTs not owned by current user
+    if (!nftDetails || nftDetails.owner?.toLowerCase() !== address?.toLowerCase()) {
+      return null
     }
+
+    const isProcessing = processStatus !== 'idle'
 
     return (
       <Card className="overflow-hidden hover:shadow-lg transition-shadow">
@@ -157,6 +166,9 @@ export default function MyNFTs() {
               src={metadata.image} 
               alt={metadata.name}
               className="w-full h-full object-cover"
+              onError={(e) => {
+                e.target.style.display = 'none'
+              }}
             />
           ) : (
             <div className="text-center">
@@ -165,7 +177,6 @@ export default function MyNFTs() {
             </div>
           )}
           
-          {/* NFT ID Badge */}
           <div className="absolute top-2 right-2 bg-white/90 backdrop-blur-sm px-2 py-1 rounded-full text-xs font-medium">
             #{nftId}
           </div>
@@ -193,10 +204,10 @@ export default function MyNFTs() {
               <span className="text-gray-500">Token ID</span>
               <span className="font-medium">#{nftId}</span>
             </div>
-            {nftDetails.uri && (
+            {extractedLicenseId && (
               <div className="flex items-center justify-between mt-2">
-                <span className="text-gray-500">Metadata</span>
-                <span className="font-medium text-xs">Available</span>
+                <span className="text-gray-500">License ID</span>
+                <span className="font-medium">#{extractedLicenseId}</span>
               </div>
             )}
           </div>
@@ -218,14 +229,19 @@ export default function MyNFTs() {
 
         <CardFooter className="space-x-2">
           <Button 
-            onClick={() => handleStartListing(nftId, nftDetails, metadata)}
-            disabled={approvingNFT === nftId || currentApprovalTx || currentOfferTx || isApprovePending || isOfferPending}
+            onClick={handleListForSale}
+            disabled={isProcessing || !extractedLicenseId}
             className="flex-1"
           >
-            {(approvingNFT === nftId || isApprovePending || isOfferPending) ? (
+            {isProcessing ? (
               <>
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                 Processing...
+              </>
+            ) : !extractedLicenseId ? (
+              <>
+                <AlertCircle className="mr-2 h-4 w-4" />
+                No License ID
               </>
             ) : (
               <>
@@ -246,129 +262,111 @@ export default function MyNFTs() {
     )
   }
 
-  const handleStartListing = (nftId, nftDetails, metadata) => {
-    console.log('🏷️ Starting listing process for NFT:', nftId)
-    setListingNFT({ 
-      id: nftId, 
-      ...nftDetails, 
-      metadata,
-      licenseAddress: CONTRACT_ADDRESSES.PRIMARY_MARKETPLACE // This should be the actual license contract
-    })
-    setListingPrice('')
-    setShowListingDialog(true)
+  // License data fetcher component - simplified
+  const LicenseDataFetcher = ({ licenseId }) => {
+    const { data: fetchedLicenseData, isLoading, error } = useGetLicenseFromID(licenseId)
+    const hasProcessed = useRef(false)
+    
+    useEffect(() => {
+      if (fetchedLicenseData && !isLoading && !hasProcessed.current) {
+        hasProcessed.current = true
+        console.log('✅ License data fetched:', fetchedLicenseData.name)
+        setLicenseData(fetchedLicenseData)
+      } else if (error && !hasProcessed.current) {
+        hasProcessed.current = true
+        console.error('❌ License fetch error:', error)
+        alert('Failed to fetch license data')
+        setDialogOpen(false)
+      }
+    }, [fetchedLicenseData, isLoading, error])
+
+    if (isLoading) {
+      return (
+        <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
+          <div className="flex items-center space-x-2">
+            <Loader2 className="h-4 w-4 animate-spin text-blue-600" />
+            <p className="text-blue-800 text-sm">Fetching license data...</p>
+          </div>
+        </div>
+      )
+    }
+
+    return null
   }
 
+  // Handle listing process
   const handleListNFT = async () => {
-    if (!isConnected || !listingPrice || !listingNFT) return
+    if (!selectedNFT || !licenseData || !listingPrice || isProcessingRef.current) return
 
     try {
-      console.log('🚀 Starting NFT listing process:', {
-        nftId: listingNFT.id,
-        price: listingPrice,
-        licenseAddress: listingNFT.licenseAddress
+      isProcessingRef.current = true
+      setProcessStatus('approving')
+
+      console.log('🚀 Starting approval:', {
+        licenseContract: licenseData.contractAddress,
+        marketplace: CONTRACT_ADDRESSES.SECONDARY_MARKETPLACE,
+        tokenId: selectedNFT.id
       })
 
-      setApprovingNFT(listingNFT.id)
-
-      // First approve the secondary marketplace to transfer the NFT
       const approveTxHash = await approve(
-        listingNFT.licenseAddress,
+        licenseData.contractAddress,
         CONTRACT_ADDRESSES.SECONDARY_MARKETPLACE,
-        listingNFT.id
+        selectedNFT.id
       )
 
-      console.log('📝 Approval transaction submitted successfully:', approveTxHash)
-      console.log('🔗 View on Etherscan:', `https://sepolia.etherscan.io/tx/${approveTxHash}`)
-      
-      setCurrentApprovalTx(approveTxHash)
+      console.log('✅ Approval submitted:', approveTxHash)
+      setCurrentTxHash(approveTxHash)
 
       addTransaction(
         approveTxHash,
-        `Approving NFT #${listingNFT.id} for listing`,
+        `Approving NFT #${selectedNFT.id} for listing`,
         'approve-nft'
       )
 
+      // Wait then create offer
+      setTimeout(async () => {
+        try {
+          setProcessStatus('creating-offer')
+          
+          const offerTxHash = await createOffer(
+            selectedNFT.id,
+            licenseData.contractAddress,
+            parseEther(listingPrice)
+          )
+
+          console.log('✅ Offer created:', offerTxHash)
+          setCurrentTxHash(offerTxHash)
+
+          addTransaction(
+            offerTxHash,
+            `Creating offer for NFT #${selectedNFT.id} at ${listingPrice} ETH`,
+            'create-offer'
+          )
+        } catch (error) {
+          console.error('❌ Offer creation failed:', error)
+          setProcessStatus('idle')
+          isProcessingRef.current = false
+          alert(`Error creating offer: ${error.message}`)
+        }
+      }, 8000) // Wait 8 seconds for approval
+
     } catch (error) {
-      console.error('💥 Error approving NFT:', {
-        nftId: listingNFT.id,
-        error: error.message,
-        stack: error.stack
-      })
-      
-      setApprovingNFT(null)
-      setListingNFT(null)
-      setShowListingDialog(false)
-      
-      // Show user-friendly error message
-      if (error.message.includes('User rejected') || error.message.includes('user rejected')) {
-        alert('Transaction was cancelled by user')
-      } else if (error.message.includes('insufficient funds')) {
-        alert('Insufficient funds for transaction')
-      } else {
-        alert(`Error approving NFT: ${error.message}`)
-      }
+      console.error('❌ Approval failed:', error)
+      setProcessStatus('idle')
+      isProcessingRef.current = false
+      alert(`Error approving NFT: ${error.message}`)
     }
   }
 
-  const handleCreateOffer = async () => {
-    if (!listingNFT || !listingPrice) return
-
-    try {
-      console.log('🏪 Creating marketplace offer:', {
-        nftId: listingNFT.id,
-        price: listingPrice,
-        priceWei: parseEther(listingPrice)
-      })
-
-      const offerTxHash = await createOffer(
-        listingNFT.id,
-        listingNFT.licenseAddress,
-        parseEther(listingPrice)
-      )
-
-      console.log('📝 Offer creation transaction submitted successfully:', offerTxHash)
-      console.log('🔗 View on Etherscan:', `https://sepolia.etherscan.io/tx/${offerTxHash}`)
-      
-      setCurrentOfferTx(offerTxHash)
-
-      addTransaction(
-        offerTxHash,
-        `Creating offer for NFT #${listingNFT.id} at ${listingPrice} ETH`,
-        'create-offer'
-      )
-
-    } catch (error) {
-      console.error('💥 Error creating offer:', {
-        nftId: listingNFT.id,
-        error: error.message,
-        stack: error.stack
-      })
-      
-      setListingNFT(null)
-      setShowListingDialog(false)
-      
-      if (error.message.includes('User rejected') || error.message.includes('user rejected')) {
-        alert('Transaction was cancelled by user')
-      } else {
-        alert(`Error creating offer: ${error.message}`)
-      }
+  // Close dialog
+  const closeDialog = () => {
+    if (processStatus === 'idle') {
+      setDialogOpen(false)
+      setSelectedNFT(null)
+      setLicenseData(null)
+      setListingPrice('')
     }
   }
-
-  useEffect(() => {
-    console.log('📊 NFT IDs data updated:', allNFTIds)
-    
-    if (allNFTIds && allNFTIds.length > 0) {
-      const idStrings = allNFTIds.map(id => id.toString())
-      setNfts(idStrings)
-      setLoading(false)
-      
-      console.log('✅ Found NFTs:', idStrings)
-    } else if (!loadingIds) {
-      setLoading(false)
-      console.log('ℹ️ No NFTs found')
-    }
-  }, [allNFTIds, loadingIds])
 
   if (!isConnected) {
     return (
@@ -410,11 +408,7 @@ export default function MyNFTs() {
           <p className="text-sm text-gray-500">
             {nfts.length} NFT{nfts.length !== 1 ? 's' : ''} found
           </p>
-          <Button 
-            onClick={refetchNFTIds}
-            variant="outline"
-            size="sm"
-          >
+          <Button onClick={refetchNFTIds} variant="outline" size="sm">
             Refresh
           </Button>
         </div>
@@ -437,23 +431,36 @@ export default function MyNFTs() {
       )}
 
       {/* Listing Dialog */}
-      <Dialog open={showListingDialog} onOpenChange={setShowListingDialog}>
+      <Dialog open={dialogOpen} onOpenChange={(open) => !open && closeDialog()}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle>List NFT for Sale</DialogTitle>
             <DialogDescription>
-              {listingNFT && (
-                <>Set a price for {listingNFT.metadata?.name || `NFT #${listingNFT.id}`} on the secondary marketplace</>
-              )}
+              Set a price for your NFT on the secondary marketplace
             </DialogDescription>
           </DialogHeader>
           
           <div className="space-y-4">
-            {listingNFT?.metadata && (
+            {selectedNFT && (
               <div className="bg-gray-50 rounded-lg p-4">
-                <h4 className="font-medium">{listingNFT.metadata.name}</h4>
-                <p className="text-sm text-gray-600">{listingNFT.metadata.description}</p>
-                <p className="text-xs text-gray-500 mt-2">Token ID: #{listingNFT.id}</p>
+                <h4 className="font-medium">{selectedNFT.metadata?.name}</h4>
+                <p className="text-sm text-gray-600">{selectedNFT.metadata?.description}</p>
+                <p className="text-xs text-gray-500 mt-2">Token ID: #{selectedNFT.id}</p>
+                <p className="text-xs text-gray-500">License ID: #{selectedNFT.licenseId}</p>
+              </div>
+            )}
+
+            {/* License Data Fetcher */}
+            {selectedNFT && !licenseData && (
+              <LicenseDataFetcher licenseId={selectedNFT.licenseId} />
+            )}
+
+            {/* License Data Display */}
+            {licenseData && (
+              <div className="bg-green-50 border border-green-200 rounded-lg p-3">
+                <p className="text-green-800 text-sm font-medium">✅ License Contract Ready</p>
+                <p className="text-green-600 text-xs">Contract: {shortenAddress(licenseData.contractAddress)}</p>
+                <p className="text-green-600 text-xs">License: {licenseData.name} ({licenseData.symbol})</p>
               </div>
             )}
             
@@ -467,76 +474,42 @@ export default function MyNFTs() {
                 value={listingPrice}
                 onChange={(e) => setListingPrice(e.target.value)}
                 placeholder="Enter price in ETH"
-                disabled={approvingNFT || currentApprovalTx || currentOfferTx || isApprovePending || isOfferPending}
+                disabled={processStatus !== 'idle' || !licenseData}
               />
-              <p className="text-xs text-gray-500">
-                This will create a listing on the secondary marketplace
-              </p>
             </div>
 
             {/* Process Status */}
-            {(approvingNFT || currentApprovalTx || isApprovePending) && (
+            {processStatus !== 'idle' && (
               <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
                 <div className="flex items-center space-x-2">
                   <Loader2 className="h-4 w-4 animate-spin text-blue-600" />
-                  <div>
-                    <p className="text-blue-800 text-sm font-medium">Step 1: Approving NFT</p>
-                    <p className="text-blue-600 text-xs">Allowing marketplace to transfer your NFT...</p>
-                    {currentApprovalTx && (
-                      <a 
-                        href={`https://sepolia.etherscan.io/tx/${currentApprovalTx}`}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="text-blue-700 text-xs underline"
-                      >
-                        View on Etherscan
-                      </a>
-                    )}
-                  </div>
+                  <p className="text-blue-800 text-sm">
+                    {processStatus === 'approving' ? 'Approving NFT...' : 'Creating Offer...'}
+                  </p>
                 </div>
-              </div>
-            )}
-
-            {(currentOfferTx || isOfferPending) && (
-              <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3">
-                <div className="flex items-center space-x-2">
-                  <Loader2 className="h-4 w-4 animate-spin text-yellow-600" />
-                  <div>
-                    <p className="text-yellow-800 text-sm font-medium">Step 2: Creating Listing</p>
-                    <p className="text-yellow-600 text-xs">Publishing your NFT to the marketplace...</p>
-                    {currentOfferTx && (
-                      <a 
-                        href={`https://sepolia.etherscan.io/tx/${currentOfferTx}`}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="text-yellow-700 text-xs underline"
-                      >
-                        View on Etherscan
-                      </a>
-                    )}
-                  </div>
-                </div>
+                {currentTxHash && (
+                  <a 
+                    href={`https://sepolia.etherscan.io/tx/${currentTxHash}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-blue-700 text-xs underline block mt-2"
+                  >
+                    View on Etherscan
+                  </a>
+                )}
               </div>
             )}
           </div>
 
           <DialogFooter>
-            <Button 
-              variant="outline"
-              onClick={() => {
-                setShowListingDialog(false)
-                setListingNFT(null)
-                setListingPrice('')
-              }}
-              disabled={approvingNFT || currentApprovalTx || currentOfferTx || isApprovePending || isOfferPending}
-            >
+            <Button variant="outline" onClick={closeDialog} disabled={processStatus !== 'idle'}>
               Cancel
             </Button>
             <Button 
               onClick={handleListNFT}
-              disabled={!listingPrice || approvingNFT || currentApprovalTx || currentOfferTx || isApprovePending || isOfferPending}
+              disabled={!listingPrice || !licenseData || processStatus !== 'idle'}
             >
-              {(approvingNFT || currentApprovalTx || currentOfferTx || isApprovePending || isOfferPending) ? (
+              {processStatus !== 'idle' ? (
                 <>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                   Processing...

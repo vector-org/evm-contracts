@@ -77,6 +77,50 @@ export function useIPFS() {
     }
   }
 
+  // Generic upload function that can handle both files and blobs
+  const uploadToIPFS = async (data) => {
+    try {
+      setIsUploading(true)
+      setUploadProgress(0)
+
+      console.log('📤 Starting upload to IPFS:', {
+        type: data.constructor.name,
+        size: data.size || 'unknown'
+      })
+
+      const options = {}
+      
+      // Add progress tracking for files
+      if (data instanceof File && data.size) {
+        options.progress = (prog) => {
+          const progress = Math.round((prog / data.size) * 100)
+          setUploadProgress(progress)
+          console.log(`⏳ Upload progress: ${progress}%`)
+        }
+      }
+
+      const result = await ipfs_client.add(data, options)
+
+      console.log('✅ Data uploaded successfully to IPFS:', {
+        hash: result.path,
+        url: getIPFSUrl(result.path)
+      })
+
+      setUploadProgress(100)
+      return result.path // Return just the hash for compatibility
+
+    } catch (error) {
+      console.error('💥 Error uploading to IPFS:', {
+        error: error.message,
+        dataType: data.constructor.name
+      })
+      throw error
+    } finally {
+      setIsUploading(false)
+      setTimeout(() => setUploadProgress(0), 1000) // Reset progress after a delay
+    }
+  }
+
   const uploadGameMetadata = async (gameData, imageFile) => {
     try {
       setIsUploading(true)
@@ -172,6 +216,7 @@ export function useIPFS() {
   return {
     uploadFile,
     uploadJSON,
+    uploadToIPFS, // Added this function for compatibility
     uploadGameMetadata,
     isUploading,
     uploadProgress

@@ -15,7 +15,7 @@ import { Upload, Loader2, CheckCircle, AlertCircle, Image as ImageIcon } from 'l
 export default function CreateLicense() {
   const { address, isConnected } = useAccount()
   const { useCreateLicense } = useContract()
-  const { uploadGameMetadata, isUploading, uploadProgress } = useIPFS()
+  const { uploadToIPFS, isUploading, uploadProgress } = useIPFS()
   const { addTransaction } = useTransactions()
 
   const [formData, setFormData] = useState({
@@ -38,7 +38,8 @@ export default function CreateLicense() {
   const [isCreating, setIsCreating] = useState(false)
   const [creationStatus, setCreationStatus] = useState(null)
   const [currentTxHash, setCurrentTxHash] = useState(null)
-  const [metadataURI, setMetadataURI] = useState(null)
+  const [ipfsImageUrl, setIpfsImageUrl] = useState(null)
+  const [ipfsMetadataUrl, setIpfsMetadataUrl] = useState(null)
 
   // Update form when address changes
   useEffect(() => {
@@ -94,7 +95,8 @@ export default function CreateLicense() {
     })
     setImageFile(null)
     setImagePreview(null)
-    setMetadataURI(null)
+    setIpfsImageUrl(null)
+    setIpfsMetadataUrl(null)
     setCurrentTxHash(null)
   }
 
@@ -149,6 +151,98 @@ export default function CreateLicense() {
     return true
   }
 
+  const uploadImageToIPFS = async () => {
+    console.log('📤 Uploading image to IPFS...')
+    setCreationStatus('uploading-image')
+    
+    try {
+      const imageHash = await uploadToIPFS(imageFile)
+      const imageUrl = `ipfs://${imageHash}`
+      
+      console.log('✅ Image uploaded to IPFS:', {
+        hash: imageHash,
+        url: imageUrl
+      })
+      
+      setIpfsImageUrl(imageUrl)
+      return imageUrl
+    } catch (error) {
+      console.error('💥 Error uploading image to IPFS:', error)
+      throw new Error(`Failed to upload image: ${error.message}`)
+    }
+  }
+
+  const uploadMetadataToIPFS = async (imageUrl) => {
+    console.log('📤 Uploading metadata to IPFS...')
+    setCreationStatus('uploading-metadata')
+    
+    try {
+      // Create metadata JSON with IPFS image URL
+      const metadata = {
+        name: formData.name.trim(),
+        description: formData.description.trim() || `Gaming license for ${formData.name.trim()}`,
+        image: imageUrl,
+        external_url: formData.externalUrl.trim() || "",
+        animation_url: formData.youtubeUrl.trim() || "",
+        attributes: [
+          {
+            trait_type: "Symbol",
+            value: formData.symbol.trim().toUpperCase()
+          },
+          {
+            trait_type: "Genre", 
+            value: formData.genre.trim() || "Gaming"
+          },
+          {
+            trait_type: "Developer",
+            value: formData.developer.trim()
+          },
+          {
+            trait_type: "Publisher",
+            value: formData.publisher.trim()
+          },
+          {
+            trait_type: "Platform",
+            value: formData.platform.trim()
+          },
+          {
+            trait_type: "Developer Fee",
+            value: `${formData.developerFee || 0} ETH`
+          },
+          {
+            trait_type: "Platform Fee", 
+            value: `${formData.platformFee || 0} ETH`
+          },
+          {
+            trait_type: "Publisher Fee",
+            value: `${formData.publisherFee || 0} ETH`
+          }
+        ].filter(attr => attr.value && attr.value !== "0 ETH")
+      }
+
+      console.log('📋 Metadata prepared:', metadata)
+      
+      // Convert metadata to JSON string and upload
+      const metadataBlob = new Blob([JSON.stringify(metadata, null, 2)], {
+        type: 'application/json'
+      })
+      
+      const metadataHash = await uploadToIPFS(metadataBlob)
+      const metadataUrl = `ipfs://${metadataHash}`
+      
+      console.log('✅ Metadata uploaded to IPFS:', {
+        hash: metadataHash,
+        url: metadataUrl
+      })
+      
+      setIpfsMetadataUrl(metadataUrl)
+      return metadataUrl
+    } catch (error) {
+      console.error('💥 Error uploading metadata to IPFS:', error)
+      throw new Error(`Failed to upload metadata: ${error.message}`)
+    }
+  }
+
   const handleSubmit = async (e) => {
     e.preventDefault()
     
@@ -164,24 +258,18 @@ export default function CreateLicense() {
     try {
       console.log('🚀 Starting license creation process...')
       setIsCreating(true)
-      setCreationStatus('uploading')
       setCurrentTxHash(null)
 
-      // Step 1: Upload to IPFS
-      console.log('📤 Uploading metadata to IPFS...')
-      const ipfsResult = await uploadGameMetadata(formData, imageFile)
+      // Step 1: Upload image to IPFS
+      const imageUrl = await uploadImageToIPFS()
       
-      console.log('✅ IPFS upload successful:', {
-        imageHash: ipfsResult.imageHash,
-        imageUrl: ipfsResult.imageUrl,
-        metadataHash: ipfsResult.metadataHash,
-        metadataUrl: ipfsResult.metadataUrl
-      })
+      // Step 2: Upload metadata with image URL to IPFS
+      const metadataUrl = await uploadMetadataToIPFS(imageUrl)
       
-      setMetadataURI(ipfsResult.metadataUrl)
+      // Step 3: Create license on blockchain
       setCreationStatus('creating')
-
-      // Step 2: Prepare license input
+      console.log('⛓️ Creating license on blockchain with metadata URL:', metadataUrl)
+      
       const licenseInput = {
         name: formData.name.trim(),
         symbol: formData.symbol.trim().toUpperCase(),
@@ -197,9 +285,6 @@ export default function CreateLicense() {
       }
 
       console.log('📋 License input prepared:', licenseInput)
-
-      // Step 3: Create license on blockchain
-      console.log('⛓️ Creating license on blockchain...')
       
       const txHash = await createLicense(licenseInput)
       
@@ -468,17 +553,38 @@ export default function CreateLicense() {
             </div>
 
             {/* Status Display */}
-            {isUploading && (
+            {creationStatus === 'uploading-image' && (
               <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
                 <div className="flex items-center space-x-3">
                   <Loader2 className="h-5 w-5 animate-spin text-blue-600" />
                   <div>
                     <p className="text-blue-800 font-medium">
-                      Uploading to IPFS... {uploadProgress}%
+                      Uploading image to IPFS... {uploadProgress}%
                     </p>
                     <p className="text-blue-600 text-sm">
                       This may take a few moments depending on file size
                     </p>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {creationStatus === 'uploading-metadata' && (
+              <div className="bg-purple-50 border border-purple-200 rounded-lg p-4">
+                <div className="flex items-center space-x-3">
+                  <Loader2 className="h-5 w-5 animate-spin text-purple-600" />
+                  <div>
+                    <p className="text-purple-800 font-medium">
+                      Uploading metadata to IPFS...
+                    </p>
+                    <p className="text-purple-600 text-sm">
+                      Creating metadata JSON with IPFS image reference
+                    </p>
+                    {ipfsImageUrl && (
+                      <p className="text-purple-600 text-xs mt-1">
+                        Image: {ipfsImageUrl}
+                      </p>
+                    )}
                   </div>
                 </div>
               </div>
@@ -493,6 +599,11 @@ export default function CreateLicense() {
                     <p className="text-yellow-600 text-sm">
                       Please wait for transaction confirmation
                     </p>
+                    {ipfsMetadataUrl && (
+                      <p className="text-yellow-600 text-xs mt-1">
+                        Metadata: {ipfsMetadataUrl}
+                      </p>
+                    )}
                     {currentTxHash && (
                       <div className="mt-2">
                         <p className="text-yellow-600 text-xs">
@@ -522,9 +633,9 @@ export default function CreateLicense() {
                     <p className="text-green-600 text-sm">
                       Your game license is now available in the marketplace
                     </p>
-                    {metadataURI && (
+                    {ipfsMetadataUrl && (
                       <p className="text-green-600 text-xs mt-1">
-                        Metadata: {metadataURI}
+                        Metadata: {ipfsMetadataUrl}
                       </p>
                     )}
                   </div>
@@ -556,7 +667,9 @@ export default function CreateLicense() {
               {isCreating || isUploading || isContractPending ? (
                 <>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  {creationStatus === 'uploading' ? 'Uploading to IPFS...' : 'Creating License...'}
+                  {creationStatus === 'uploading-image' ? 'Uploading Image...' : 
+                   creationStatus === 'uploading-metadata' ? 'Uploading Metadata...' : 
+                   'Creating License...'}
                 </>
               ) : (
                 'Create License'

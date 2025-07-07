@@ -1,13 +1,12 @@
 "use client";
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { useAccount } from 'wagmi'
 import { Button } from './ui/button'
 import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from './ui/card'
 import { useContract } from '../hooks/useContract'
 import { useTransactions, useTransactionWatcher } from '../hooks/useTransactions'
 import { formatEther, shortenAddress } from '../lib/utils'
-import { CONTRACT_ADDRESSES, CONTRACTS } from '../lib/contracts'
-import { Loader2, ShoppingCart, User, Coins, ExternalLink, AlertCircle, X, RefreshCw } from 'lucide-react'
+import { Loader2, ShoppingCart, ExternalLink, User, Coins, Package, CheckCircle, AlertCircle } from 'lucide-react'
 
 export default function SecondaryMarketplace() {
   const { address, isConnected } = useAccount()
@@ -18,123 +17,95 @@ export default function SecondaryMarketplace() {
   } = useContract()
   const { addTransaction } = useTransactions()
 
-  const [offers, setOffers] = useState([])
+  const [allOffers, setAllOffers] = useState([]) // All offers including sold ones
   const [loading, setLoading] = useState(true)
-  const [buyingOffer, setBuyingOffer] = useState(null)
-  const [removingOffer, setRemovingOffer] = useState(null)
-  const [currentBuyTx, setCurrentBuyTx] = useState(null)
-  const [currentRemoveTx, setCurrentRemoveTx] = useState(null)
+  const [processingOffer, setProcessingOffer] = useState(null)
+  const [currentTxHash, setCurrentTxHash] = useState(null)
 
-  const { data: openOffers, isLoading: loadingOffers, refetch } = useGetOpenOffers()
-  const { acceptOffer, isPending: isBuyPending } = useAcceptOffer()
+  const { data: openOffers, isLoading: loadingOffers, refetch: refetchOffers } = useGetOpenOffers()
+  const { acceptOffer, isPending: isAcceptPending } = useAcceptOffer()
   const { removeOffer, isPending: isRemovePending } = useRemoveOffer()
 
-  useTransactionWatcher(
-    currentBuyTx,
-    (receipt) => {
-      console.log('🎉 NFT purchase successful!', {
-        transactionHash: currentBuyTx,
-        receipt: receipt
-      })
-      setBuyingOffer(null)
-      setCurrentBuyTx(null)
-      
-      // Refresh offers after successful purchase
-      setTimeout(() => {
-        refetch()
-      }, 2000)
-    },
-    () => {
-      console.error('💥 NFT purchase failed:', currentBuyTx)
-      setBuyingOffer(null)
-      setCurrentBuyTx(null)
+  // Load all offers (both active and sold)
+  useEffect(() => {
+    if (openOffers) {
+      // Show all offers, but we'll handle sold ones differently in the UI
+      setAllOffers(openOffers)
+      setLoading(false)
+      console.log('all offers', openOffers)
+      console.log('📊 Loaded offers:', openOffers.length, 'Active:', openOffers.filter(o => o.isActive).length)
+    } else if (!loadingOffers) {
+      setLoading(false)
     }
-  )
+  }, [openOffers, loadingOffers])
 
-  useTransactionWatcher(
-    currentRemoveTx,
-    (receipt) => {
-      console.log('✅ Offer removal successful!', {
-        transactionHash: currentRemoveTx,
-        receipt: receipt
-      })
-      setRemovingOffer(null)
-      setCurrentRemoveTx(null)
-      
-      // Refresh offers after successful removal
-      setTimeout(() => {
-        refetch()
-      }, 2000)
-    },
-    () => {
-      console.error('💥 Offer removal failed:', currentRemoveTx)
-      setRemovingOffer(null)
-      setCurrentRemoveTx(null)
-    }
-  )
+  // Transaction handlers
+  const handleTransactionSuccess = useCallback(() => {
+    console.log('✅ Transaction successful')
+    setProcessingOffer(null)
+    setCurrentTxHash(null)
+    setTimeout(() => refetchOffers(), 2000)
+  }, [refetchOffers])
 
-  const OfferCard = ({ offer, index }) => {
-    const isMyOffer = offer.seller.toLowerCase() === address?.toLowerCase()
-    const canBuy = isConnected && !isMyOffer && offer.isActive
-    const [metadata, setMetadata] = useState(null)
-    const [loadingMetadata, setLoadingMetadata] = useState(false)
+  const handleTransactionError = useCallback(() => {
+    console.error('❌ Transaction failed')
+    setProcessingOffer(null)
+    setCurrentTxHash(null)
+  }, [])
+
+  useTransactionWatcher(currentTxHash, handleTransactionSuccess, handleTransactionError)
+
+  const OfferCard = ({ offer }) => {
+    const [nftMetadata, setNftMetadata] = useState(null)
 
     useEffect(() => {
-      loadOfferMetadata()
+      // Create basic metadata for the NFT based on available data
+      const basicMetadata = {
+        name: `Gaming License NFT #${offer.tokenId}`,
+        description: `Gaming license NFT from contract ${shortenAddress(offer.licenseAddress)}`,
+        image: null,
+        attributes: [
+          {
+            trait_type: "Token ID",
+            value: offer.tokenId.toString()
+          },
+          {
+            trait_type: "License Contract", 
+            value: shortenAddress(offer.licenseAddress)
+          },
+          {
+            trait_type: "Price",
+            value: `${formatEther(offer.price)} ETH`
+          }
+        ]
+      }
+      setNftMetadata(basicMetadata)
     }, [offer])
 
-    const loadOfferMetadata = async () => {
-      try {
-        setLoadingMetadata(true)
-        console.log('📋 Loading metadata for offer:', offer.tokenId)
-        
-        // Create basic metadata for the offer
-        setMetadata({
-          name: `Gaming License #${offer.tokenId}`,
-          description: `Gaming license NFT available for purchase`,
-          image: null,
-          attributes: [
-            {
-              trait_type: "Token ID",
-              value: offer.tokenId.toString()
-            },
-            {
-              trait_type: "Price",
-              value: `${formatEther(offer.price)} ETH`
-            },
-            {
-              trait_type: "Seller",
-              value: shortenAddress(offer.seller)
-            }
-          ]
-        })
-        
-        console.log('✅ Metadata created for offer:', offer.tokenId)
-      } catch (error) {
-        console.error('💥 Error loading offer metadata:', error)
-      } finally {
-        setLoadingMetadata(false)
-      }
-    }
-
     const handleBuyOffer = async () => {
-      if (!canBuy) return
+      if (!isConnected) {
+        alert('Please connect your wallet')
+        return
+      }
+
+      if (!offer.isActive) {
+        alert('This offer is no longer available - it has already been sold!')
+        return
+      }
 
       try {
-        console.log('🚀 Starting purchase process:', {
+        console.log('🛒 Buying NFT:', {
           tokenId: offer.tokenId,
           price: formatEther(offer.price),
           seller: offer.seller
         })
 
-        setBuyingOffer(offer.tokenId)
-
-        const txHash = await acceptOffer(offer.tokenId, offer.price)
-
-        console.log('📝 Purchase transaction submitted successfully:', txHash)
-        console.log('🔗 View on Etherscan:', `https://sepolia.etherscan.io/tx/${txHash}`)
+        setProcessingOffer(offer.tokenId)
         
-        setCurrentBuyTx(txHash)
+        const txHash = await acceptOffer(offer.tokenId, offer.price)
+        
+        console.log('✅ Purchase submitted:', txHash)
+        setCurrentTxHash(txHash)
 
         addTransaction(
           txHash,
@@ -143,21 +114,16 @@ export default function SecondaryMarketplace() {
         )
 
       } catch (error) {
-        console.error('💥 Error buying NFT:', {
-          tokenId: offer.tokenId,
-          error: error.message,
-          stack: error.stack
-        })
+        console.error('❌ Purchase failed:', error)
+        setProcessingOffer(null)
         
-        setBuyingOffer(null)
-        
-        // Show user-friendly error message
-        if (error.message.includes('User rejected') || error.message.includes('user rejected')) {
+        if (error.message.includes('User rejected')) {
           alert('Transaction was cancelled by user')
         } else if (error.message.includes('insufficient funds')) {
-          alert('Insufficient funds for transaction (including gas fees)')
-        } else if (error.message.includes('Offer is not active')) {
-          alert('This offer is no longer active')
+          alert('Insufficient funds for transaction')
+        } else if (error.message.includes('not active') || error.message.includes('already sold')) {
+          alert('This NFT has already been sold!')
+          refetchOffers() // Refresh to update UI
         } else {
           alert(`Error buying NFT: ${error.message}`)
         }
@@ -165,22 +131,30 @@ export default function SecondaryMarketplace() {
     }
 
     const handleRemoveOffer = async () => {
-      if (!isMyOffer) return
+      if (!isConnected) {
+        alert('Please connect your wallet')
+        return
+      }
+
+      if (offer.seller.toLowerCase() !== address?.toLowerCase()) {
+        alert('You can only remove your own offers')
+        return
+      }
+
+      if (!offer.isActive) {
+        alert('This offer has already been sold and cannot be removed')
+        return
+      }
 
       try {
-        console.log('🗑️ Starting offer removal:', {
-          tokenId: offer.tokenId,
-          seller: offer.seller
-        })
+        console.log('🗑️ Removing offer:', offer.tokenId)
 
-        setRemovingOffer(offer.tokenId)
-
-        const txHash = await removeOffer(offer.tokenId)
-
-        console.log('📝 Removal transaction submitted successfully:', txHash)
-        console.log('🔗 View on Etherscan:', `https://sepolia.etherscan.io/tx/${txHash}`)
+        setProcessingOffer(offer.tokenId)
         
-        setCurrentRemoveTx(txHash)
+        const txHash = await removeOffer(offer.tokenId)
+        
+        console.log('✅ Removal submitted:', txHash)
+        setCurrentTxHash(txHash)
 
         addTransaction(
           txHash,
@@ -189,15 +163,10 @@ export default function SecondaryMarketplace() {
         )
 
       } catch (error) {
-        console.error('💥 Error removing offer:', {
-          tokenId: offer.tokenId,
-          error: error.message,
-          stack: error.stack
-        })
+        console.error('❌ Removal failed:', error)
+        setProcessingOffer(null)
         
-        setRemovingOffer(null)
-        
-        if (error.message.includes('User rejected') || error.message.includes('user rejected')) {
+        if (error.message.includes('User rejected')) {
           alert('Transaction was cancelled by user')
         } else {
           alert(`Error removing offer: ${error.message}`)
@@ -205,100 +174,143 @@ export default function SecondaryMarketplace() {
       }
     }
 
-    if (loadingMetadata) {
-      return (
-        <Card className="animate-pulse">
-          <div className="h-48 bg-gray-200 rounded-t-lg"></div>
-          <CardContent className="pt-4">
-            <div className="space-y-2">
-              <div className="h-4 bg-gray-200 rounded w-3/4"></div>
-              <div className="h-4 bg-gray-200 rounded w-1/2"></div>
-            </div>
-          </CardContent>
-        </Card>
-      )
-    }
+    const isOwnOffer = offer.seller.toLowerCase() === address?.toLowerCase()
+    const isProcessing = processingOffer === offer.tokenId
+    const isSold = !offer.isActive
+    const isPurchaser = offer.buyer?.toLowerCase() === address?.toLowerCase()
 
     return (
-      <Card className="overflow-hidden hover:shadow-lg transition-shadow">
+      <Card className={`overflow-hidden transition-shadow ${isSold ? 'opacity-75' : 'hover:shadow-lg'}`}>
         <div className="h-48 bg-gradient-to-br from-purple-100 to-pink-100 flex items-center justify-center relative">
-          {metadata?.image ? (
+          {nftMetadata?.image ? (
             <img 
-              src={metadata.image} 
-              alt={metadata.name}
+              src={nftMetadata.image} 
+              alt={nftMetadata.name}
               className="w-full h-full object-cover"
             />
           ) : (
             <div className="text-center">
-              <ShoppingCart className="h-12 w-12 text-gray-400 mx-auto mb-2" />
-              <p className="text-gray-500 text-sm">For Sale</p>
+              <Package className="h-12 w-12 text-gray-400 mx-auto mb-2" />
+              <p className="text-gray-500 text-sm">Gaming License NFT</p>
             </div>
           )}
           
+          {/* Sold Overlay */}
+          {isSold && (
+            <div className="absolute inset-0 bg-black/50 flex items-center justify-center">
+              <div className="bg-green-600 text-white px-4 py-2 rounded-lg font-bold text-lg">
+                <CheckCircle className="inline mr-2 h-5 w-5" />
+                SOLD
+              </div>
+            </div>
+          )}
+          
+          {/* Price Badge */}
+          <div className={`absolute top-2 right-2 backdrop-blur-sm px-3 py-2 rounded-full ${
+            isSold ? 'bg-gray-500/90 text-gray-200' : 'bg-white/90'
+          }`}>
+            <div className="text-center">
+              <p className="text-xs text-gray-500">Price</p>
+              <p className={`font-bold text-sm ${isSold ? 'line-through' : ''}`}>
+                {formatEther(offer.price)} ETH
+              </p>
+            </div>
+          </div>
+
           {/* Token ID Badge */}
-          <div className="absolute top-2 right-2 bg-white/90 backdrop-blur-sm px-2 py-1 rounded-full text-xs font-medium">
+          <div className="absolute top-2 left-2 bg-white/90 backdrop-blur-sm px-2 py-1 rounded-full text-xs font-medium">
             #{offer.tokenId}
           </div>
-          
-          {/* Status Badge */}
-          {isMyOffer && (
-            <div className="absolute top-2 left-2 bg-blue-500/90 text-white px-2 py-1 rounded-full text-xs font-medium">
-              Your Listing
-            </div>
-          )}
         </div>
         
         <CardHeader>
           <CardTitle className="flex items-center justify-between">
-            <span className="truncate">{metadata?.name || `NFT #${offer.tokenId}`}</span>
-            <div className="flex items-center space-x-1">
-              <Coins className="h-4 w-4 text-yellow-500" />
-              <span className="font-bold text-lg text-green-600">
-                {formatEther(offer.price)}
+            <span className="truncate">{nftMetadata?.name || `NFT #${offer.tokenId}`}</span>
+            {isSold ? (
+              <span className="text-xs bg-gray-100 text-gray-600 px-2 py-1 rounded">
+                Sold
               </span>
-              <span className="text-sm text-gray-500">ETH</span>
-            </div>
+            ) : isOwnOffer ? (
+              <span className="text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded">
+                My Offer
+              </span>
+            ) : (
+              <span className="text-xs bg-green-100 text-green-800 px-2 py-1 rounded">
+                Available
+              </span>
+            )}
           </CardTitle>
           <CardDescription>
-            {metadata?.description || "Gaming license NFT available for purchase"}
+            {isSold ? (
+              <span className="text-gray-500">
+                {isPurchaser ? 'You purchased this NFT' : 'This NFT has been sold'}
+              </span>
+            ) : (
+              nftMetadata?.description
+            )}
           </CardDescription>
         </CardHeader>
 
         <CardContent className="space-y-4">
-          <div className="flex items-center justify-between">
+          <div className="grid grid-cols-2 gap-4 text-sm">
             <div className="flex items-center space-x-2">
               <User className="h-4 w-4 text-gray-400" />
               <div>
-                <p className="text-sm text-gray-500">Seller</p>
+                <p className="text-gray-500">Seller</p>
                 <p className="font-medium">{shortenAddress(offer.seller)}</p>
               </div>
             </div>
-            <div className="text-right">
-              <p className="text-sm text-gray-500">Status</p>
-              <div className="flex items-center space-x-1">
-                <div className={`w-2 h-2 rounded-full ${offer.isActive ? 'bg-green-500' : 'bg-red-500'}`}></div>
-                <span className="text-sm font-medium">
-                  {offer.isActive ? 'Active' : 'Inactive'}
+            <div className="flex items-center space-x-2">
+              <Coins className="h-4 w-4 text-gray-400" />
+              <div>
+                <p className="text-gray-500">Price</p>
+                <p className={`font-medium text-lg ${isSold ? 'text-gray-500 line-through' : ''}`}>
+                  {formatEther(offer.price)} ETH
+                </p>
+              </div>
+            </div>
+          </div>
+
+          {/* Show buyer info if sold */}
+          {isSold && offer.buyer && (
+            <div className="border-t pt-3">
+              <div className="flex items-center space-x-2 text-sm">
+                <CheckCircle className="h-4 w-4 text-green-600" />
+                <div>
+                  <p className="text-gray-500">Purchased by</p>
+                  <p className="font-medium text-green-600">{shortenAddress(offer.buyer)}</p>
+                </div>
+              </div>
+            </div>
+          )}
+
+          <div className="border-t pt-3">
+            <div className="text-sm space-y-2">
+              <div className="flex justify-between">
+                <span className="text-gray-500">Token ID</span>
+                <span className="font-medium">#{offer.tokenId}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-gray-500">License Contract</span>
+                <span className="font-medium">{shortenAddress(offer.licenseAddress)}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-gray-500">Status</span>
+                <span className={`font-medium ${isSold ? 'text-gray-500' : 'text-green-600'}`}>
+                  {isSold ? 'Sold' : 'Available'}
                 </span>
               </div>
             </div>
           </div>
 
-          <div className="border-t pt-3">
-            <div className="flex items-center justify-between text-sm text-gray-500">
-              <span>License Contract</span>
-              <span className="font-mono text-xs">{shortenAddress(offer.licenseAddress)}</span>
-            </div>
-          </div>
-
-          {metadata?.attributes && (
+          {nftMetadata?.attributes && (
             <div className="border-t pt-3">
               <p className="text-sm text-gray-500 mb-2">Details</p>
-              <div className="grid grid-cols-2 gap-2">
-                {metadata.attributes.slice(0, 4).map((attr, index) => (
-                  <div key={index} className="text-xs">
+              <div className="space-y-1">
+                {nftMetadata.attributes.slice(0, 2).map((attr, index) => (
+                  <div key={index} className="flex justify-between text-xs">
                     <span className="text-gray-500">{attr.trait_type}</span>
-                    <p className="font-medium truncate">{attr.value}</p>
+                    <span className="font-medium">{attr.value}</span>
                   </div>
                 ))}
               </div>
@@ -307,32 +319,37 @@ export default function SecondaryMarketplace() {
         </CardContent>
 
         <CardFooter className="space-x-2">
-          {isMyOffer ? (
+          {isSold ? (
+            // Sold NFT - show sold status
+            <Button disabled className="flex-1 bg-gray-100 text-gray-500">
+              <CheckCircle className="mr-2 h-4 w-4" />
+              {isPurchaser ? 'You Own This' : 'Sold Out'}
+            </Button>
+          ) : isOwnOffer ? (
+            // Own offer - allow removal
             <Button 
               onClick={handleRemoveOffer}
-              disabled={removingOffer === offer.tokenId || isRemovePending}
+              disabled={isProcessing || isRemovePending}
               variant="destructive"
               className="flex-1"
             >
-              {(removingOffer === offer.tokenId || isRemovePending) ? (
+              {isProcessing ? (
                 <>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                   Removing...
                 </>
               ) : (
-                <>
-                  <X className="mr-2 h-4 w-4" />
-                  Remove Listing
-                </>
+                'Remove Offer'
               )}
             </Button>
           ) : (
+            // Available NFT - allow purchase
             <Button 
               onClick={handleBuyOffer}
-              disabled={!canBuy || buyingOffer === offer.tokenId || !offer.isActive || isBuyPending}
+              disabled={isProcessing || isAcceptPending}
               className="flex-1"
             >
-              {(buyingOffer === offer.tokenId || isBuyPending) ? (
+              {isProcessing ? (
                 <>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                   Buying...
@@ -345,6 +362,7 @@ export default function SecondaryMarketplace() {
               )}
             </Button>
           )}
+          
           <Button 
             variant="outline" 
             size="icon"
@@ -357,31 +375,16 @@ export default function SecondaryMarketplace() {
     )
   }
 
-  useEffect(() => {
-    console.log('📊 Open offers data updated:', openOffers)
-    
-    if (openOffers && openOffers.length > 0) {
-      const activeOffers = openOffers.filter(offer => offer.isActive)
-      setOffers(activeOffers)
-      setLoading(false)
-      
-      console.log('✅ Found active offers:', activeOffers.length)
-    } else if (!loadingOffers) {
-      setLoading(false)
-      console.log('ℹ️ No active offers found')
-    }
-  }, [openOffers, loadingOffers])
-
   if (!isConnected) {
     return (
       <div className="flex items-center justify-center min-h-[400px]">
         <Card className="w-full max-w-md">
           <CardContent className="pt-6">
             <div className="text-center">
-              <AlertCircle className="mx-auto h-12 w-12 text-yellow-500 mb-4" />
-              <h3 className="text-lg font-semibold mb-2">Wallet Not Connected</h3>
+              <ShoppingCart className="mx-auto h-12 w-12 text-blue-500 mb-4" />
+              <h3 className="text-lg font-semibold mb-2">Connect Your Wallet</h3>
               <p className="text-gray-600 mb-4">
-                Please connect your wallet to access the secondary marketplace
+                Please connect your wallet to view and buy NFTs from the secondary marketplace
               </p>
             </div>
           </CardContent>
@@ -401,27 +404,23 @@ export default function SecondaryMarketplace() {
     )
   }
 
-  if (offers.length === 0) {
+  if (allOffers.length === 0) {
     return (
       <div className="max-w-7xl mx-auto p-6">
         <div className="mb-8">
           <h1 className="text-3xl font-bold text-gray-900 mb-2">Secondary Marketplace</h1>
           <p className="text-gray-600">
-            Buy and sell gaming license NFTs with other users
+            Buy gaming license NFTs from other collectors
           </p>
         </div>
         
         <div className="text-center py-12">
           <ShoppingCart className="h-12 w-12 text-gray-400 mx-auto mb-4" />
           <h3 className="text-lg font-semibold text-gray-900 mb-2">No Offers Available</h3>
-          <p className="text-gray-600 mb-4">
-            No NFTs are currently listed for sale. Be the first to list your NFT!
+          <p className="text-gray-600">
+            No NFTs are currently listed for sale. Check back later or list your own!
           </p>
-          <Button 
-            onClick={refetch}
-            variant="outline"
-          >
-            <RefreshCw className="mr-2 h-4 w-4" />
+          <Button onClick={refetchOffers} variant="outline" className="mt-4">
             Refresh
           </Button>
         </div>
@@ -429,62 +428,77 @@ export default function SecondaryMarketplace() {
     )
   }
 
+  const activeOffers = allOffers.filter(offer => offer.isActive)
+  const soldOffers = allOffers.filter(offer => !offer.isActive)
+
   return (
     <div className="max-w-7xl mx-auto p-6">
       <div className="mb-8">
         <h1 className="text-3xl font-bold text-gray-900 mb-2">Secondary Marketplace</h1>
         <p className="text-gray-600">
-          Buy and sell gaming license NFTs with other users
+          Buy gaming license NFTs from other collectors
         </p>
         <div className="mt-4 flex items-center justify-between">
-          <div className="text-sm text-gray-500">
-            {offers.length} active offer{offers.length !== 1 ? 's' : ''} available
+          <div className="flex items-center space-x-4 text-sm text-gray-500">
+            <span>{allOffers.length} total offer{allOffers.length !== 1 ? 's' : ''}</span>
+            <span>•</span>
+            <span className="text-green-600">{activeOffers.length} available</span>
+            <span>•</span>
+            <span className="text-gray-400">{soldOffers.length} sold</span>
           </div>
-          <Button 
-            onClick={refetch}
-            variant="outline"
-            size="sm"
-            disabled={loadingOffers}
-          >
-            {loadingOffers ? (
-              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-            ) : (
-              <RefreshCw className="mr-2 h-4 w-4" />
-            )}
+          <Button onClick={refetchOffers} variant="outline" size="sm">
             Refresh
           </Button>
         </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {offers.map((offer, index) => (
-          <OfferCard key={`${offer.tokenId}-${offer.seller}-${index}`} offer={offer} index={index} />
-        ))}
-      </div>
+      {/* Active Offers Section */}
+      {activeOffers.length > 0 && (
+        <div className="mb-8">
+          <h2 className="text-xl font-semibold text-gray-900 mb-4">Available Now</h2>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {activeOffers.map((offer, index) => (
+              <OfferCard key={`active-offer-${offer.tokenId}-${index}`} offer={offer} />
+            ))}
+          </div>
+        </div>
+      )}
 
-      {/* Loading overlay during transactions */}
-      {(buyingOffer || removingOffer || isBuyPending || isRemovePending) && (
+      {/* Sold Offers Section */}
+      {soldOffers.length > 0 && (
+        <div>
+          <h2 className="text-xl font-semibold text-gray-500 mb-4">Recently Sold</h2>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {soldOffers.slice(0, 6).map((offer, index) => (
+              <OfferCard key={`sold-offer-${offer.tokenId}-${index}`} offer={offer} />
+            ))}
+          </div>
+          {soldOffers.length > 6 && (
+            <div className="text-center mt-6">
+              <p className="text-gray-500 text-sm">+ {soldOffers.length - 6} more sold items</p>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Loading overlay during transaction */}
+      {processingOffer && (
         <div className="fixed inset-0 bg-black/20 backdrop-blur-sm z-50 flex items-center justify-center">
           <Card className="max-w-sm mx-4">
             <CardContent className="pt-6">
               <div className="text-center">
                 <Loader2 className="h-8 w-8 animate-spin mx-auto mb-4" />
-                <h3 className="font-semibold mb-2">
-                  {buyingOffer || isBuyPending ? 'Processing Purchase' : 'Removing Offer'}
-                </h3>
+                <h3 className="font-semibold mb-2">Processing Transaction</h3>
                 <p className="text-sm text-gray-600">
-                  {buyingOffer || isBuyPending
-                    ? 'Please wait while your purchase is being processed...'
-                    : 'Please wait while your offer is being removed...'
-                  }
+                  Please wait while your transaction is being processed...
                 </p>
-                {(currentBuyTx || currentRemoveTx) && (
+                {currentTxHash && (
                   <div className="mt-2">
                     <p className="text-xs text-gray-500 break-all">
-                      TX: {currentBuyTx || currentRemoveTx}
+                      TX: {currentTxHash}
                     </p>
                     <a 
-                      href={`https://sepolia.etherscan.io/tx/${currentBuyTx || currentRemoveTx}`}
+                      href={`https://sepolia.etherscan.io/tx/${currentTxHash}`}
                       target="_blank"
                       rel="noopener noreferrer"
                       className="text-blue-600 text-xs underline"

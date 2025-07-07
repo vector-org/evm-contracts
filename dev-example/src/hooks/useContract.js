@@ -162,11 +162,13 @@ export function useContract() {
   }
 
   const useGetOpenOffers = () => {
-    return useReadContract({
+    const data = useReadContract({
       address: CONTRACTS.SECONDARY_MARKETPLACE.address,
       abi: CONTRACTS.SECONDARY_MARKETPLACE.abi,
       functionName: 'getOpenOffers',
     })
+    console.log('data', data)
+    return data;
   }
 
   const useRemoveOffer = () => {
