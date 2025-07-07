@@ -213,56 +213,35 @@ Ensures only authorized marketplaces can transfer tokens.
 ##  Flow diagram
 
 ### Contract Interaction Flow
-     [Administrator]
-           |
-           | deploys
-           v
-   ┌────────────────────┐
-   │  LicenseFactory     │ <--- Stores all the license Contracts for new games
-   └────────────────────┘
-           |
-           | createLicense(LicenseInput)
-           v
-   ┌────────────────────┐
-   │  LicenseContract    │◄──────┐
-   └────────────────────┘       │
-           ▲                    │
-           │                    │
-           │ safeMint(...)      │ user buys an NFT License for that game
-           │                    │
-   ┌────────────────────┐       │
-   │ PrimaryMarketplace  │──────┘
-   └────────────────────┘
-           │
-           │ mintLicense()
-           ▼
-         [User]
+```mermaid
+graph TD
+    Administrator[Administrator (Only Deployer)]
+    GameDev[Game Developer]
+    User[User / Player]
+    Seller[Seller]
+    Buyer[Buyer]
 
-[GameDev] ───request──> LicenseFactory
+    Administrator -->|Deploys| LicenseFactory
+    GameDev -->|Requests License| LicenseFactory
+    LicenseFactory -->|createLicense(LicenseInput)| LicenseContract
+    LicenseContract -->|safeMint()| PrimaryMarketplace
+    PrimaryMarketplace -->|mintLicense()| User
 
-[User] ─────mint─────> PrimaryMarketplace
-[User] ─────view─────> LicenseFactory.getLicenseFromID()
-[User] ─────resell───> SecondaryMarketplace
-                          ^
-                          │ createOffer(price)
-                          |
-                        [Seller]
-[User] ─────resell───> SecondaryMarketplace
-                          │
-                          │ approve(SecondaryMarketplace)
-                          ▼
-                        [Buyer]
+    User -->|View Details| LicenseFactory
+    User -->|Resell| SecondaryMarketplace
+    Seller -->|createOffer() + approve(LicenseContract)| SecondaryMarketplace
+    Buyer -->|acceptOffer() + send ETH| SecondaryMarketplace
+    SecondaryMarketplace -->|transferFrom| LicenseContract
+    SecondaryMarketplace -->|ETH Payment| Seller
 
-                        ETH Payment
-                          │
-                          ▼
-                 SecondaryMarketplace (Stores all reselling data and performs transfers)
-                  ┌────────────────┐
-NFT Transfer ◄────┤ LicenseContract│
-ETH Transfer ─────>  [Seller]      │
-                  └────────────────┘
+    subgraph On-Chain Data
+        LicenseFactory
+        LicenseContract
+        PrimaryMarketplace
+        SecondaryMarketplace
+    end
 
-
+```
 ---
 
 ##  Suggested File Structure
