@@ -212,22 +212,56 @@ Ensures only authorized marketplaces can transfer tokens.
 
 ##  Flow diagram
 
-You may add diagrams like:
-
 ### Contract Interaction Flow
+     [Administrator]
+           |
+           | deploys
+           v
+   ┌────────────────────┐
+   │  LicenseFactory     │ <--- Stores all the license Contracts for new games
+   └────────────────────┘
+           |
+           | createLicense(LicenseInput)
+           v
+   ┌────────────────────┐
+   │  LicenseContract    │◄──────┐
+   └────────────────────┘       │
+           ▲                    │
+           │                    │
+           │ safeMint(...)      │ user buys an NFT License for that game
+           │                    │
+   ┌────────────────────┐       │
+   │ PrimaryMarketplace  │──────┘
+   └────────────────────┘
+           │
+           │ mintLicense()
+           ▼
+         [User]
 
-```text
-Game Dev
-   |
-   v
-LicenseFactory ---> LicenseContract
-   |                     ^
-   |                     |
-PrimaryMarketplace       |
-   |                     |
-User <-------------------
+[GameDev] ───request──> LicenseFactory
 
-```
+[User] ─────mint─────> PrimaryMarketplace
+[User] ─────view─────> LicenseFactory.getLicenseFromID()
+[User] ─────resell───> SecondaryMarketplace
+                          ^
+                          │ createOffer(price)
+                          |
+                        [Seller]
+[User] ─────resell───> SecondaryMarketplace
+                          │
+                          │ approve(SecondaryMarketplace)
+                          ▼
+                        [Buyer]
+
+                        ETH Payment
+                          │
+                          ▼
+                 SecondaryMarketplace (Stores all reselling data and performs transfers)
+                  ┌────────────────┐
+NFT Transfer ◄────┤ LicenseContract│
+ETH Transfer ─────>  [Seller]      │
+                  └────────────────┘
+
 
 ---
 
