@@ -6,6 +6,12 @@ import {ILicenseContract} from "./interfaces/ILicenseContract.sol";
 import {Counters} from "@openzeppelin/contracts/utils/Counters.sol";
 import {Addresses} from "./constants/Addresses.sol";
 import {License, LicenseInput} from "./types/Types.sol";
+import {onlyAdmin, onlyCoordinator, onlyOwner} from "./errors/Common.sol";
+import {
+    notAdminOrOwner,
+    licenseNotFound,
+    cannotUpdateLicense
+} from "./errors/LicenseFactory.sol";
 
 contract LicenseFactory is Addresses {
     mapping(uint256 => License) public licenseContracts;
@@ -31,17 +37,23 @@ contract LicenseFactory is Addresses {
     event AddCoordinator(address indexed coordinator, uint256 timestamp);
 
     modifier checkAccess() {
-        require(msg.sender == Addresses.ADMINISTRATOR, "Not authorized");
+        if (msg.sender != ADMINISTRATOR) {
+            revert onlyAdmin(msg.sender);
+        }
         _;
     }
 
-    modifier onlyCoordinator() {
-        require(coordinators[msg.sender] == true, "Not authorized");
+    modifier checkIsCoordinator() {
+        if (coordinators[msg.sender] == false) {
+            revert onlyCoordinator(msg.sender);
+        }
         _;
     }
 
-    modifier onlyOwner() {
-        require(msg.sender == owner, "You are not the owner");
+    modifier checkIsOwner() {
+        if (msg.sender != owner) {
+            revert onlyOwner(msg.sender);
+        }
         _;
     }
 
@@ -52,7 +64,7 @@ contract LicenseFactory is Addresses {
 
     function createLicense(
         LicenseInput memory licenseInput
-    ) external onlyCoordinator returns (address) {
+    ) external checkIsCoordinator returns (address) {
         address newLicenseAddress = address(
             new LicenseContract(
                 licenseInput.name,
@@ -95,26 +107,31 @@ contract LicenseFactory is Addresses {
 
     function changeLicenseStatus(uint256 licenseId, bool status) external {
         address license_owner = licenseContracts[licenseId].owner;
-        require(
-            license_owner == msg.sender || msg.sender == Addresses.ADMINISTRATOR
-        );
+        if (
+            license_owner != msg.sender && msg.sender != Addresses.ADMINISTRATOR
+        ) {
+            revert notAdminOrOwner(msg.sender);
+        }
         licenseContracts[licenseId].isActive = status;
     }
 
     function updateLicense(uint256 licenseId, string memory uri) external {
         address license_address = licenseContracts[licenseId].contractAddress;
-        require(license_address != address(0), "License does not exist");
-        require(
-            msg.sender == licenseContracts[licenseId].owner ||
-                msg.sender == Addresses.ADMINISTRATOR ||
-                coordinators[msg.sender] == true,
-            "Not authorized to update license"
-        );
+        if (license_address == address(0)) {
+            revert licenseNotFound(licenseId);
+        }
+        if (
+            msg.sender != licenseContracts[licenseId].owner &&
+            msg.sender != Addresses.ADMINISTRATOR &&
+            coordinators[msg.sender] != true
+        ) {
+            revert cannotUpdateLicense(msg.sender);
+        }
         ILicenseContract licenseContract = ILicenseContract(license_address);
         licenseContract.updateTokenURI(licenseId, uri);
     }
 
-    function setOwner(address newOwner) external onlyOwner {
+    function setOwner(address newOwner) external checkIsOwner {
         owner = newOwner;
         emit OwnerChanged(newOwner, msg.sender, block.timestamp);
     }
@@ -122,7 +139,7 @@ contract LicenseFactory is Addresses {
     function setCoordinator(
         address _coordinator,
         bool status
-    ) external onlyOwner {
+    ) external checkIsOwner {
         coordinators[_coordinator] = status;
         emit AddCoordinator(_coordinator, block.timestamp);
     }
