@@ -1,12 +1,16 @@
 # EVM Based Contracts
 
 ## Running 
+To run a demo ui with already deployed contracts and everything 
+```sh
+npm run dev-example
+```
+
 1. Make sure to configure your `.env` with your private key 
 ```sh
 cp .env.example .env
 ```
 
-2. 
 ```sh
 npx hardhat compile
 npx hardhat ignition deploy ignition/modules/LicenseFactory.js --network sepolia #deploys the licensefactory
