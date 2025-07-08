@@ -6,6 +6,7 @@ To run a demo ui with already deployed contracts and everything
 npm run dev-example
 ```
 
+**For Development**
 1. Make sure to configure your `.env` with your private key 
 ```sh
 cp .env.example .env
