@@ -6,6 +6,11 @@ import {
     ERC721URIStorage
 } from "@openzeppelin/contracts/token/ERC721/extensions/ERC721URIStorage.sol";
 import {Addresses} from "./constants/Addresses.sol";
+import {
+    notFactory,
+    notOwnerOrFactory,
+    notPrimaryOrSecondary
+} from "./errors/LicenseContract.sol";
 
 contract LicenseContract is ERC721URIStorage, Addresses {
     address public owner;
@@ -14,7 +19,9 @@ contract LicenseContract is ERC721URIStorage, Addresses {
     address public immutable SECONDARYMARKETPLACE;
 
     modifier onlyFactory(address _factory) {
-        require(msg.sender == _factory, "Only factory can call this function");
+        if (msg.sender != _factory) {
+            revert notFactory(msg.sender);
+        }
         _;
     }
 
@@ -43,12 +50,13 @@ contract LicenseContract is ERC721URIStorage, Addresses {
     }
 
     function updateTokenURI(uint256 licenseId, string memory newUri) public {
-        require(
-            msg.sender == owner ||
-                msg.sender == factory ||
-                msg.sender == Addresses.ADMINISTRATOR,
-            "Only owner or factory can update URI"
-        );
+        if (
+            msg.sender != owner &&
+            msg.sender != factory &&
+            msg.sender != Addresses.ADMINISTRATOR
+        ) {
+            revert notOwnerOrFactory(msg.sender);
+        }
         _setTokenURI(licenseId, newUri);
     }
 
@@ -57,12 +65,13 @@ contract LicenseContract is ERC721URIStorage, Addresses {
         address to,
         uint256 licenseId
     ) internal virtual override {
-        require(
-            from == address(0) ||
-                msg.sender == PRIMARYMARKETPLACE ||
-                msg.sender == SECONDARYMARKETPLACE,
-            "not an authorized marketplace"
-        );
+        if (
+            from != address(0) &&
+            msg.sender != PRIMARYMARKETPLACE &&
+            msg.sender != SECONDARYMARKETPLACE
+        ) {
+            revert notPrimaryOrSecondary(msg.sender);
+        }
         super._beforeTokenTransfer(from, to, licenseId);
     }
 }
