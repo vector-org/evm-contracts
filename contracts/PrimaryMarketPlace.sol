@@ -6,6 +6,8 @@ import {ILicenseFactory} from "./interfaces/ILicenseFactory.sol";
 import {Counters} from "@openzeppelin/contracts/utils/Counters.sol";
 import {Addresses} from "./constants/Addresses.sol";
 import {GameNFT} from "./types/Types.sol";
+import {onlyAdmin, onlyOwner} from "./errors/Common.sol";
+import {licenseNotActive} from "./errors/PrimaryMarketPlace.sol";
 
 contract PrimaryMarketPlace is Addresses {
     address private immutable primaryMarketplace = address(this);
@@ -25,16 +27,17 @@ contract PrimaryMarketPlace is Addresses {
         uint256 timestamp
     );
 
-    modifier onlyAdmin() {
-        require(
-            msg.sender == Addresses.ADMINISTRATOR,
-            "You are not the administrator"
-        );
+    modifier checkIsAdmin() {
+        if (msg.sender != Addresses.ADMINISTRATOR) {
+            revert onlyAdmin(msg.sender);
+        }
         _;
     }
 
-    modifier onlyOwner() {
-        require(msg.sender == owner, "You are not the owner");
+    modifier checkIsOwner() {
+        if (msg.sender != owner) {
+            revert onlyOwner(msg.sender);
+        }
         _;
     }
 
@@ -42,7 +45,7 @@ contract PrimaryMarketPlace is Addresses {
         address _owner,
         address _coordinator,
         address _factory
-    ) onlyAdmin {
+    ) checkIsAdmin() {
         owner = _owner;
         coordinator = _coordinator;
         factory = _factory;
@@ -56,7 +59,9 @@ contract PrimaryMarketPlace is Addresses {
         ILicenseFactory licenseFactory = ILicenseFactory(factory);
         ILicenseFactory.License memory License = licenseFactory
             .getLicenseFromID(licenseId);
-        require(License.isActive, "License is not active to be minted");
+        if (License.isActive) {
+            revert licenseNotActive(licenseId);
+        }
         address licenseAddress = License.contractAddress;
 
         ILicenseContract licenseContract = ILicenseContract(licenseAddress);
