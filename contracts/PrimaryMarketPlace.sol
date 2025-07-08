@@ -35,7 +35,7 @@ contract PrimaryMarketPlace is Addresses {
     }
 
     modifier checkIsOwner() {
-        if (msg.sender == owner) {
+        if (msg.sender != owner) {
             revert onlyOwner(msg.sender);
         }
         _;
