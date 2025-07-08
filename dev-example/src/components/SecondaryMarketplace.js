@@ -4,7 +4,7 @@ import { useAccount } from 'wagmi'
 import { Button } from './ui/button'
 import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from './ui/card'
 import { useContract } from '../hooks/useContract'
-import { useTransactions, useTransactionWatcher } from '../hooks/useTransactions'
+import { useTransactions } from '../hooks/useTransactions'
 import { formatEther, shortenAddress } from '../lib/utils'
 import { Loader2, ShoppingCart, ExternalLink, User, Coins, Package, CheckCircle, AlertCircle } from 'lucide-react'
 
@@ -17,49 +17,29 @@ export default function SecondaryMarketplace() {
   } = useContract()
   const { addTransaction } = useTransactions()
 
-  const [allOffers, setAllOffers] = useState([]) // All offers including sold ones
+  const [allOffers, setAllOffers] = useState([])
   const [loading, setLoading] = useState(true)
   const [processingOffer, setProcessingOffer] = useState(null)
-  const [currentTxHash, setCurrentTxHash] = useState(null)
 
   const { data: openOffers, isLoading: loadingOffers, refetch: refetchOffers } = useGetOpenOffers()
   const { acceptOffer, isPending: isAcceptPending } = useAcceptOffer()
   const { removeOffer, isPending: isRemovePending } = useRemoveOffer()
 
-  // Load all offers (both active and sold)
+  // Load all offers
   useEffect(() => {
     if (openOffers) {
-      // Show all offers, but we'll handle sold ones differently in the UI
       setAllOffers(openOffers)
       setLoading(false)
-      console.log('all offers', openOffers)
       console.log('📊 Loaded offers:', openOffers.length, 'Active:', openOffers.filter(o => o.isActive).length)
     } else if (!loadingOffers) {
       setLoading(false)
     }
   }, [openOffers, loadingOffers])
 
-  // Transaction handlers
-  const handleTransactionSuccess = useCallback(() => {
-    console.log('✅ Transaction successful')
-    setProcessingOffer(null)
-    setCurrentTxHash(null)
-    setTimeout(() => refetchOffers(), 2000)
-  }, [refetchOffers])
-
-  const handleTransactionError = useCallback(() => {
-    console.error('❌ Transaction failed')
-    setProcessingOffer(null)
-    setCurrentTxHash(null)
-  }, [])
-
-  useTransactionWatcher(currentTxHash, handleTransactionSuccess, handleTransactionError)
-
   const OfferCard = ({ offer }) => {
     const [nftMetadata, setNftMetadata] = useState(null)
 
     useEffect(() => {
-      // Create basic metadata for the NFT based on available data
       const basicMetadata = {
         name: `Gaming License NFT #${offer.tokenId}`,
         description: `Gaming license NFT from contract ${shortenAddress(offer.licenseAddress)}`,
@@ -97,21 +77,28 @@ export default function SecondaryMarketplace() {
         console.log('🛒 Buying NFT:', {
           tokenId: offer.tokenId,
           price: formatEther(offer.price),
+          priceWei: offer.price.toString(),
           seller: offer.seller
         })
 
         setProcessingOffer(offer.tokenId)
         
+        // CRITICAL FIX: Send exact BigInt price, not formatted ether
         const txHash = await acceptOffer(offer.tokenId, offer.price)
         
         console.log('✅ Purchase submitted:', txHash)
-        setCurrentTxHash(txHash)
 
         addTransaction(
           txHash,
           `Buying NFT #${offer.tokenId} for ${formatEther(offer.price)} ETH`,
           'buy-nft'
         )
+
+        // Wait for transaction confirmation
+        setTimeout(() => {
+          setProcessingOffer(null)
+          refetchOffers()
+        }, 3000)
 
       } catch (error) {
         console.error('❌ Purchase failed:', error)
@@ -123,7 +110,7 @@ export default function SecondaryMarketplace() {
           alert('Insufficient funds for transaction')
         } else if (error.message.includes('not active') || error.message.includes('already sold')) {
           alert('This NFT has already been sold!')
-          refetchOffers() // Refresh to update UI
+          refetchOffers()
         } else {
           alert(`Error buying NFT: ${error.message}`)
         }
@@ -154,13 +141,18 @@ export default function SecondaryMarketplace() {
         const txHash = await removeOffer(offer.tokenId)
         
         console.log('✅ Removal submitted:', txHash)
-        setCurrentTxHash(txHash)
 
         addTransaction(
           txHash,
           `Removing offer for NFT #${offer.tokenId}`,
           'remove-offer'
         )
+
+        // Wait for transaction confirmation
+        setTimeout(() => {
+          setProcessingOffer(null)
+          refetchOffers()
+        }, 3000)
 
       } catch (error) {
         console.error('❌ Removal failed:', error)
@@ -195,7 +187,6 @@ export default function SecondaryMarketplace() {
             </div>
           )}
           
-          {/* Sold Overlay */}
           {isSold && (
             <div className="absolute inset-0 bg-black/50 flex items-center justify-center">
               <div className="bg-green-600 text-white px-4 py-2 rounded-lg font-bold text-lg">
@@ -205,7 +196,6 @@ export default function SecondaryMarketplace() {
             </div>
           )}
           
-          {/* Price Badge */}
           <div className={`absolute top-2 right-2 backdrop-blur-sm px-3 py-2 rounded-full ${
             isSold ? 'bg-gray-500/90 text-gray-200' : 'bg-white/90'
           }`}>
@@ -217,7 +207,6 @@ export default function SecondaryMarketplace() {
             </div>
           </div>
 
-          {/* Token ID Badge */}
           <div className="absolute top-2 left-2 bg-white/90 backdrop-blur-sm px-2 py-1 rounded-full text-xs font-medium">
             #{offer.tokenId}
           </div>
@@ -267,11 +256,14 @@ export default function SecondaryMarketplace() {
                 <p className={`font-medium text-lg ${isSold ? 'text-gray-500 line-through' : ''}`}>
                   {formatEther(offer.price)} ETH
                 </p>
+                {/* DEBUG INFO - Remove in production */}
+                <p className="text-xs text-gray-400">
+                  Wei: {offer.price.toString()}
+                </p>
               </div>
             </div>
           </div>
 
-          {/* Show buyer info if sold */}
           {isSold && offer.buyer && (
             <div className="border-t pt-3">
               <div className="flex items-center space-x-2 text-sm">
@@ -302,31 +294,15 @@ export default function SecondaryMarketplace() {
               </div>
             </div>
           </div>
-
-          {nftMetadata?.attributes && (
-            <div className="border-t pt-3">
-              <p className="text-sm text-gray-500 mb-2">Details</p>
-              <div className="space-y-1">
-                {nftMetadata.attributes.slice(0, 2).map((attr, index) => (
-                  <div key={index} className="flex justify-between text-xs">
-                    <span className="text-gray-500">{attr.trait_type}</span>
-                    <span className="font-medium">{attr.value}</span>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
         </CardContent>
 
         <CardFooter className="space-x-2">
           {isSold ? (
-            // Sold NFT - show sold status
             <Button disabled className="flex-1 bg-gray-100 text-gray-500">
               <CheckCircle className="mr-2 h-4 w-4" />
               {isPurchaser ? 'You Own This' : 'Sold Out'}
             </Button>
           ) : isOwnOffer ? (
-            // Own offer - allow removal
             <Button 
               onClick={handleRemoveOffer}
               disabled={isProcessing || isRemovePending}
@@ -343,7 +319,6 @@ export default function SecondaryMarketplace() {
               )}
             </Button>
           ) : (
-            // Available NFT - allow purchase
             <Button 
               onClick={handleBuyOffer}
               disabled={isProcessing || isAcceptPending}
@@ -452,7 +427,6 @@ export default function SecondaryMarketplace() {
         </div>
       </div>
 
-      {/* Active Offers Section */}
       {activeOffers.length > 0 && (
         <div className="mb-8">
           <h2 className="text-xl font-semibold text-gray-900 mb-4">Available Now</h2>
@@ -464,7 +438,6 @@ export default function SecondaryMarketplace() {
         </div>
       )}
 
-      {/* Sold Offers Section */}
       {soldOffers.length > 0 && (
         <div>
           <h2 className="text-xl font-semibold text-gray-500 mb-4">Recently Sold</h2>
@@ -478,38 +451,6 @@ export default function SecondaryMarketplace() {
               <p className="text-gray-500 text-sm">+ {soldOffers.length - 6} more sold items</p>
             </div>
           )}
-        </div>
-      )}
-
-      {/* Loading overlay during transaction */}
-      {processingOffer && (
-        <div className="fixed inset-0 bg-black/20 backdrop-blur-sm z-50 flex items-center justify-center">
-          <Card className="max-w-sm mx-4">
-            <CardContent className="pt-6">
-              <div className="text-center">
-                <Loader2 className="h-8 w-8 animate-spin mx-auto mb-4" />
-                <h3 className="font-semibold mb-2">Processing Transaction</h3>
-                <p className="text-sm text-gray-600">
-                  Please wait while your transaction is being processed...
-                </p>
-                {currentTxHash && (
-                  <div className="mt-2">
-                    <p className="text-xs text-gray-500 break-all">
-                      TX: {currentTxHash}
-                    </p>
-                    <a 
-                      href={`https://sepolia.etherscan.io/tx/${currentTxHash}`}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="text-blue-600 text-xs underline"
-                    >
-                      View on Etherscan
-                    </a>
-                  </div>
-                )}
-              </div>
-            </CardContent>
-          </Card>
         </div>
       )}
     </div>

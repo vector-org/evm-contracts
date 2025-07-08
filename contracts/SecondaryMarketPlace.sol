@@ -25,6 +25,7 @@ contract SecondaryMarketPlace is Addresses {
     address private primaryMarketPlace;
     Offer[] public offers;
     mapping(uint256 => Offer) public offerById;
+    mapping(uint256 => uint256) public tokenIdToOfferIndex;
 
     event NewOfferCreated(
         address indexed seller,
@@ -83,6 +84,9 @@ contract SecondaryMarketPlace is Addresses {
         address licenseAddress,
         uint256 price
     ) external {
+        if (offerById[tokenId].isActive) {
+            revert offerInactive(tokenId);
+        }
         IPrimaryMarketPlace primaryMarket = IPrimaryMarketPlace(
             primaryMarketPlace
         );
@@ -104,6 +108,8 @@ contract SecondaryMarketPlace is Addresses {
             licenseAddress: licenseAddress,
             isActive: true
         });
+
+        tokenIdToOfferIndex[tokenId] = offers.length;
 
         offers.push(newOffer);
         offerById[tokenId] = newOffer;
@@ -127,6 +133,8 @@ contract SecondaryMarketPlace is Addresses {
         }
 
         offer.isActive = false;
+        uint256 arrayIndex = tokenIdToOfferIndex[tokenId];
+        offers[arrayIndex].isActive = false;
 
         emit OfferRemoved(
             msg.sender,
@@ -158,12 +166,9 @@ contract SecondaryMarketPlace is Addresses {
         offer.buyer = msg.sender;
         offer.isActive = false;
 
-        emit OfferRemoved(
-            offer.seller,
-            tokenId,
-            offer.licenseAddress,
-            block.timestamp
-        );
+        uint256 arrayIndex = tokenIdToOfferIndex[tokenId];
+        offers[arrayIndex].buyer = msg.sender;
+        offers[arrayIndex].isActive = false;
 
         emit OfferAccepted(
             offer.seller,
