@@ -7,6 +7,15 @@ import {IPrimaryMarketPlace} from "./interfaces/IPrimaryMarketPlace.sol";
 import {Counters} from "@openzeppelin/contracts/utils/Counters.sol";
 import {Addresses} from "./constants/Addresses.sol";
 import {Offer} from "./types/Types.sol";
+import {onlyOwner, onlyAdmin} from "./errors/Common.sol";
+import {
+    notNFTOwner,
+    priceIsNotPositive,
+    offerInactive,
+    notSeller,
+    cannotBuyYourOwnOffer,
+    insufficientPayment
+} from "./errors/SecondaryMarketPlace.sol";
 
 contract SecondaryMarketPlace is Addresses {
     address private immutable secondary_marketplace = address(this);
@@ -52,22 +61,20 @@ contract SecondaryMarketPlace is Addresses {
         address _coordinator,
         address _factory,
         address _primaryMarketPlace
-    ) Addresses() {
-        require(
-            msg.sender == Addresses.ADMINISTRATOR,
-            "You are not the administrator"
-        );
+    ) {
+        if (msg.sender != Addresses.ADMINISTRATOR) {
+            revert onlyAdmin(msg.sender);
+        }
         owner = _owner;
         coordinator = _coordinator;
         factory = _factory;
         primaryMarketPlace = _primaryMarketPlace;
     }
 
-    modifier onlyOwner() {
-        require(
-            msg.sender == owner,
-            "You are not the owner to call the function"
-        );
+    modifier checkIsOwner() {
+        if (msg.sender != owner) {
+            revert onlyOwner(msg.sender);
+        }
         _;
     }
 
@@ -81,12 +88,13 @@ contract SecondaryMarketPlace is Addresses {
         );
         IPrimaryMarketPlace.GameNFT memory gameNFT = primaryMarket
             .getNFTDetails(tokenId);
-        require(
-            gameNFT.owner == msg.sender,
-            "You are not the owner of this token"
-        );
+        if (gameNFT.owner != msg.sender) {
+            revert notNFTOwner(msg.sender);
+        }
         // here should be a logic to check if the game NFT is tradeable or not
-        require(price > 0, "Price must be greater than zero");
+        if (price <= 0) {
+            revert priceIsNotPositive(price);
+        }
 
         Offer memory newOffer = Offer({
             seller: msg.sender,
@@ -111,11 +119,12 @@ contract SecondaryMarketPlace is Addresses {
 
     function removeOffer(uint256 tokenId) external {
         Offer storage offer = offerById[tokenId];
-        require(offer.isActive, "Offer is not active");
-        require(
-            offer.seller == msg.sender || msg.sender == coordinator,
-            "You are not the seller of this offer"
-        );
+        if (offer.isActive == false) {
+            revert offerInactive(tokenId);
+        }
+        if (offer.seller != msg.sender && msg.sender != coordinator) {
+            revert notSeller(msg.sender);
+        }
 
         offer.isActive = false;
 
@@ -129,9 +138,15 @@ contract SecondaryMarketPlace is Addresses {
 
     function acceptOffer(uint256 tokenId) external payable {
         Offer storage offer = offerById[tokenId];
-        require(offer.isActive, "Offer is not active");
-        require(msg.value >= offer.price, "Insufficient payment");
-        require(offer.seller != msg.sender, "You cannot buy your own offer");
+        if (offer.isActive == false) {
+            revert offerInactive(tokenId);
+        }
+        if (msg.value < offer.price) {
+            revert insufficientPayment(tokenId, msg.value);
+        }
+        if (offer.seller == msg.sender) {
+            revert cannotBuyYourOwnOffer(msg.sender);
+        }
 
         ILicenseContract licenseContract = ILicenseContract(
             offer.licenseAddress
@@ -160,11 +175,11 @@ contract SecondaryMarketPlace is Addresses {
         );
     }
 
-    function setOwner(address newOwner) external onlyOwner {
+    function setOwner(address newOwner) external checkIsOwner {
         owner = newOwner;
     }
 
-    function setCoordinator(address newCoordinator) external onlyOwner {
+    function setCoordinator(address newCoordinator) external checkIsOwner {
         coordinator = newCoordinator;
     }
 
