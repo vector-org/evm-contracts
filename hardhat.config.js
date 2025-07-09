@@ -23,6 +23,20 @@ module.exports = {
         `0x${process.env.PRIVATE_KEY}`
       ],
       chainId: 11155111,
-    }
+    },
+    arbitrumSepolia: {
+      url: "https://arbitrum-sepolia.infura.io/v3/2WCbZ8YpmuPxUtM6PzbFOfY5k4B",
+      accounts: [
+        `0x${process.env.PRIVATE_KEY}`
+      ],
+      chainId: 421614,
+    },
+    baseSepolia: {
+      url: "https://base-sepolia.infura.io/v3/2WCbZ8YpmuPxUtM6PzbFOfY5k4B",
+      accounts: [
+        `0x${process.env.PRIVATE_KEY}`
+      ],
+      chainId: 84532,
+    },
   },
 };
