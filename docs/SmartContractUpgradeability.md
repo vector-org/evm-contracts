@@ -1,262 +1,577 @@
-Here is a complete **in-depth markdown POC guide** for implementing **smart contract upgradeability** in Solidity using industry best practices, **with comparisons, architectural diagrams (Mermaid-compatible), pros and cons**, and a **UUPS-based upgradeable system tailored to your setup** (e.g., `LicenseFactory`, `LicenseContract`, `PrimaryMarketplace`, `SecondaryMarketplace`).
+# Smart Contract Upgradeability with UUPS Pattern
 
----
+## Overview
 
-## Proof of Concept: Smart Contract Upgradeability with Proxies
+### Objective
 
----
+Implement a robust upgradeability system for smart contracts using the Universal Upgradeable Proxy Standard (UUPS) pattern, ensuring persistent proxy addresses, secure upgrade mechanisms, and maintainable code architecture.
 
-### **Objective**
+### Problem Statement
 
-Implement upgradeability for your modular contract system using a **UUPS proxy pattern**, ensuring:
+Traditional smart contracts are immutable once deployed. Business requirements evolve, requiring:
+- Bug fixes and security patches
+- Feature enhancements
+- Fee structure modifications
+- Access control updates
 
-* Persistent proxy address
-* Flexible upgradability of logic (LicenseFactory, etc.)
-* Industry best practices (OpenZeppelin + EIP-1967/UUPS)
-* Modular contracts with clear ownership and upgrade permissions
+### Solution
 
----
+UUPS proxy pattern provides:
+- Persistent contract addresses
+- Upgradeable business logic
+- Gas-efficient operations
+- Secure upgrade authorization
 
-## Why Upgradeability?
+## UUPS Architecture
 
-In Ethereum:
-
-* Contracts are **immutable**
-* But business logic evolves (bugfixes, fees, roles, marketplaces, etc.)
-* We want to **change logic** while **preserving storage and contract address**
-
----
-
-## Upgradeability Options: Summary
-
-| Method             | Description                              | Pros                             | Cons                            | Status          |
-| ------------------ | ---------------------------------------- | -------------------------------- | ------------------------------- | --------------- |
-| **Proxy (UUPS)**   | Logic in implementation, proxy owns data | Gas-efficient, clean, flexible   | Requires careful access control | ✅ Recommended   |
-| Transparent Proxy  | Admin vs user context split              | Time-tested, widely used         | Slightly more overhead          | ✅ Common        |
-| Beacon Proxy       | Multiple proxies share a single impl     | Good for multi-instance upgrades | More complex setup              | ⚠️ Niche        |
-| Diamond (EIP-2535) | Modular function-based upgrades          | Highly flexible, modular         | Complex to reason/debug         | 🧪 Experimental |
-
-> **UUPS** is preferred by OpenZeppelin for modern use.
-
----
-
-## What We’ll Build
-
-We’ll apply UUPS upgradeability to:
-
-* `LicenseFactory` → upgradeable
-* `LicenseContract` → regular logic contract created by factory
-* `PrimaryMarketplace`, `SecondaryMarketplace` → regular logic
-
-Only the **factory** needs to be upgradeable.
-
----
-
-## UUPS Proxy Architecture
+### High-Level Architecture
 
 ```mermaid
 graph TD
-  user(User)
-  proxy(Proxy Contract)
-  v1(Logic: LicenseFactory V1)
-  v2(Logic: LicenseFactory V2)
-
-  user --> proxy
-  proxy --> v1
-
-  click v1 "#"
-  click v2 "#"
-
-  classDef logic fill:#ffe0b2
-  class v1,v2 logic
-
-  subgraph Upgrade Flow
-    upgradeCmd[upgradeTo(V2)]
-    proxy -.-> upgradeCmd -.-> v2
-    proxy --> v2
-  end
+    A[User] --> B[Proxy Contract]
+    B --> C[Implementation V1]
+    B -.-> D[Implementation V2]
+    B -.-> E[Implementation V3]
+    
+    subgraph "Storage Layer"
+        F[State Variables]
+        G[Contract Data]
+    end
+    
+    subgraph "Logic Layer"
+        C --> H[Business Logic V1]
+        D --> I[Business Logic V2]
+        E --> J[Business Logic V3]
+    end
+    
+    B --> F
+    B --> G
+    
+    style A fill:#e1f5fe
+    style B fill:#fff3e0
+    style C fill:#f3e5f5
+    style D fill:#f3e5f5
+    style E fill:#f3e5f5
 ```
 
----
+### Component Interaction
 
-## Code Structure
-
+```mermaid
+sequenceDiagram
+    participant User
+    participant Proxy
+    participant Implementation
+    participant Storage
+    
+    User->>Proxy: function call
+    Proxy->>Implementation: delegatecall
+    Implementation->>Storage: read/write state
+    Storage-->>Implementation: return data
+    Implementation-->>Proxy: return result
+    Proxy-->>User: return response
 ```
-contracts/
-│
-├── LicenseFactory.sol          <-- upgradeable (UUPS)
-├── LicenseFactoryV2.sol        <-- upgraded logic
-├── LicenseContract.sol         <-- created from factory (not upgradeable)
-├── PrimaryMarketplace.sol      <-- standalone contract
-├── SecondaryMarketplace.sol    <-- standalone contract
+
+### Storage Layout
+
+```mermaid
+graph LR
+    subgraph "Proxy Contract Storage"
+        A[Slot 0: Implementation Address]
+        B[Slot 1: Admin Address]
+        C[Slot 2: Custom Data]
+        D[Slot 3: Custom Data]
+        E[Slot N: Custom Data]
+    end
+    
+    subgraph "Implementation Contract"
+        F[Business Logic Only]
+        G[No State Variables]
+    end
+    
+    A -.-> F
+    C -.-> F
+    D -.-> F
+    E -.-> F
 ```
 
----
+## Implementation Strategy
 
-## LicenseFactory (V1) - Upgradeable Version
+### Contract Hierarchy
+
+```mermaid
+graph TD
+    A[ERC1967Proxy] --> B[LicenseFactory]
+    B --> C[UUPSUpgradeable]
+    B --> D[OwnableUpgradeable]
+    B --> E[Initializable]
+    
+    F[LicenseFactoryV2] --> B
+    G[LicenseFactoryV3] --> F
+    
+    style A fill:#ffeb3b
+    style B fill:#4caf50
+    style C fill:#2196f3
+    style D fill:#2196f3
+    style E fill:#2196f3
+    style F fill:#ff9800
+    style G fill:#f44336
+```
+
+### Upgrade Process Flow
+
+```mermaid
+flowchart TD
+    A[Start Upgrade] --> B{Admin Authorization?}
+    B -->|No| C[Revert: Unauthorized]
+    B -->|Yes| D[Deploy New Implementation]
+    D --> E[Validate New Implementation]
+    E --> F{Validation Passed?}
+    F -->|No| G[Revert: Invalid Implementation]
+    F -->|Yes| H[Update Implementation Address]
+    H --> I[Emit Upgrade Event]
+    I --> J[Upgrade Complete]
+    
+    style A fill:#e8f5e8
+    style C fill:#ffebee
+    style G fill:#ffebee
+    style J fill:#e8f5e8
+```
+
+## Contract Design
+
+### Base Upgradeable Contract
 
 ```solidity
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.20;
+pragma solidity ^0.8.28;
 
 import "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 
-contract LicenseFactory is Initializable, OwnableUpgradeable, UUPSUpgradeable {
-    address public owner;
+contract LicenseFactory is 
+    Initializable, 
+    UUPSUpgradeable, 
+    OwnableUpgradeable 
+{
+    // State variables
+    mapping(uint256 => License) public licenseContracts;
+    address[] public allLicenses;
+    uint256[] public tokenIds;
+    mapping(address => bool) private coordinators;
+    
+    using Counters for Counters.Counter;
+    Counters.Counter private _tokenIdCounter;
+    
+    // Storage gap for future variables
+    uint256[45] private __gap;
+    
+    // Events
+    event NewLicenseContract(address indexed contractAddress, uint256 tokenId);
+    event ContractUpgraded(address indexed newImplementation);
+    
+    // Modifiers
+    modifier onlyCoordinator() {
+        require(coordinators[msg.sender], "Not a coordinator");
+        _;
+    }
+    
+    /// @custom:oz-upgrades-unsafe-allow constructor
+    constructor() {
+        _disableInitializers();
+    }
     
     function initialize(address _admin) public initializer {
-        __Ownable_init();
+        __Ownable_init(_admin);
         __UUPSUpgradeable_init();
-        owner = _admin;
+        coordinators[_admin] = true;
     }
-
-    function _authorizeUpgrade(address newImplementation) internal override onlyOwner {}
-
-    function version() public pure returns (string memory) {
-        return "v1";
+    
+    function _authorizeUpgrade(address newImplementation) 
+        internal 
+        override 
+        onlyOwner 
+    {
+        emit ContractUpgraded(newImplementation);
     }
-
-    // Factory logic here...
+    
+    function version() public pure virtual returns (string memory) {
+        return "1.0.0";
+    }
 }
 ```
 
----
-
-## LicenseFactoryV2 (Upgraded Logic)
+### Upgrade Implementation Example
 
 ```solidity
-// SPDX-License-Identifier: MIT
-pragma solidity ^0.8.20;
-
-import "./LicenseFactory.sol";
-
 contract LicenseFactoryV2 is LicenseFactory {
+    // New state variables (append only)
+    uint256 public newFeature;
+    mapping(address => uint256) public userMetrics;
+    
+    // Storage gap adjustment
+    uint256[43] private __gap;
+    
     function version() public pure override returns (string memory) {
-        return "v2";
+        return "2.0.0";
     }
-
-    // New methods or changes...
+    
+    function setNewFeature(uint256 _value) external onlyOwner {
+        newFeature = _value;
+    }
+    
+    function updateUserMetrics(address user, uint256 value) external onlyCoordinator {
+        userMetrics[user] = value;
+    }
 }
 ```
 
----
+## Deployment Workflow
 
-## Deployment Workflow (Using Hardhat or Remix)
-
-### Step 1: Deploy `LicenseFactory` (V1 logic)
-
-### Step 2: Deploy UUPS Proxy
-
-Use `ERC1967Proxy` and pass encoded `initialize(...)` as calldata:
-
-```bash
-// ABI encoding for initialize(address)
-web3.eth.abi.encodeFunctionCall({
-  name: "initialize",
-  type: "function",
-  inputs: [{ type: "address", name: "_admin" }]
-}, ["0xYourAddress"])
-```
-
-Use that calldata when deploying `ERC1967Proxy(logic, data)`
-
-### Step 3: Interact With Proxy
-
-Call `version()` via proxy — should return `"v1"`
-
-### Step 4: Deploy `LicenseFactoryV2`
-
-### Step 5: Call `upgradeTo(address of V2)` using proxy ABI
-
-Call `version()` again — now returns `"v2"`
-
----
-
-## Access Control Best Practices
-
-* Use `OwnableUpgradeable`
-* Only allow upgrade by `owner`
-* Consider timelocks or multisigs for real deployments
-
----
-
-## How UUPS Works Under the Hood
-
-### Proxy Delegation Flow
-
-```mermaid
-graph LR
-  Caller --> Proxy -->|delegatecall| Logic
-```
-
-* Storage lives in **proxy**
-* Logic lives in **implementation**
-* `delegatecall` runs code in logic but in context of proxy’s storage
-
----
-
-### UUPS Upgrade Flow
+### Initial Deployment Process
 
 ```mermaid
 sequenceDiagram
-  participant Admin
-  participant Proxy
-  participant LogicV1
-  participant LogicV2
-
-  Admin->>Proxy: upgradeTo(LogicV2)
-  Proxy->>LogicV1: delegatecall _authorizeUpgrade()
-  LogicV1->>Proxy: OK
-  Proxy->>LogicV2: Save new implementation slot (ERC1967)
+    participant Dev as Developer
+    participant Factory as Implementation
+    participant Proxy as ERC1967Proxy
+    participant Storage as Blockchain
+    
+    Dev->>Factory: Deploy LicenseFactory
+    Factory-->>Dev: Implementation Address
+    Dev->>Proxy: Deploy with (implementation, initData)
+    Proxy->>Factory: delegatecall initialize()
+    Factory->>Storage: Set initial state
+    Storage-->>Factory: Confirmation
+    Factory-->>Proxy: Initialization complete
+    Proxy-->>Dev: Proxy Address
 ```
 
----
+### Upgrade Process
 
-## Pros and Cons of UUPS
+```mermaid
+sequenceDiagram
+    participant Admin
+    participant Proxy as Proxy Contract
+    participant OldImpl as Old Implementation
+    participant NewImpl as New Implementation
+    participant Storage as Storage Layer
+    
+    Admin->>NewImpl: Deploy V2
+    NewImpl-->>Admin: New Address
+    Admin->>Proxy: upgradeToAndCall(newAddr, data)
+    Proxy->>OldImpl: delegatecall _authorizeUpgrade()
+    OldImpl->>OldImpl: Check authorization
+    OldImpl-->>Proxy: Authorization OK
+    Proxy->>Storage: Update implementation slot
+    Storage-->>Proxy: Updated
+    Proxy->>NewImpl: delegatecall with data (if any)
+    NewImpl-->>Proxy: Execution complete
+    Proxy-->>Admin: Upgrade successful
+```
 
-| Pros                               | Cons                                     |
-| ---------------------------------- | ---------------------------------------- |
-| Gas-efficient                      | Misconfigured upgrade breaks proxy       |
-| Single storage layout (proxy)      | Logic must have upgrade guard            |
-| Clean delegation (just 1 proxy)    | Requires deeper understanding            |
-| Industry standard via OpenZeppelin | Only logic contract can initiate upgrade |
+### State Migration Workflow
 
----
+```mermaid
+flowchart TD
+    A[Upgrade Initiated] --> B[Validate New Implementation]
+    B --> C[Check Storage Compatibility]
+    C --> D{Compatible?}
+    D -->|Yes| E[Perform Upgrade]
+    D -->|No| F[Calculate Migration Needs]
+    F --> G[Execute State Migration]
+    G --> E
+    E --> H[Update Implementation Address]
+    H --> I[Verify Upgrade Success]
+    I --> J[Emit Events]
+    J --> K[Upgrade Complete]
+    
+    style A fill:#e3f2fd
+    style D fill:#fff3e0
+    style K fill:#e8f5e8
+```
 
-## Testing Tips
+## Testing Framework
 
-* Use scripts to test:
+### Test Categories
 
-  * Deployment
-  * Proxy behavior
-  * Upgrade to V2
-  * Storage persistence
-* Always check `version()` or test data to confirm upgrade
+```mermaid
+mindmap
+  root((Testing Strategy))
+    Unit Tests
+      Contract Functions
+      Modifier Behavior
+      Event Emissions
+      Error Handling
+    Integration Tests
+      Proxy Delegation
+      Storage Persistence
+      Upgrade Process
+      Access Control
+    End-to-End Tests
+      Complete Workflows
+      Multi-Contract Interaction
+      Real-world Scenarios
+    Security Tests
+      Authorization Checks
+      Reentrancy Protection
+      Storage Collision
+      Upgrade Validation
+```
 
----
+### Test Execution Flow
 
-## Deliverables for Your Contracts
+```mermaid
+flowchart TD
+    A[Start Testing] --> B[Deploy Test Environment]
+    B --> C[Execute Unit Tests]
+    C --> D{All Pass?}
+    D -->|No| E[Fix Issues]
+    E --> C
+    D -->|Yes| F[Execute Integration Tests]
+    F --> G{All Pass?}
+    G -->|No| H[Debug Integration]
+    H --> F
+    G -->|Yes| I[Execute E2E Tests]
+    I --> J{All Pass?}
+    J -->|No| K[Fix E2E Issues]
+    K --> I
+    J -->|Yes| L[Security Audit]
+    L --> M[Deploy to Production]
+```
 
-| Contract               | Upgradeable? | Notes               |
-| ---------------------- | ------------ | ------------------- |
-| `LicenseFactory`       | ✅ Yes        | via UUPS            |
-| `LicenseFactoryV2`     | ✅ Yes        | extended            |
-| `LicenseContract`      | ❌ No         | Deployed by factory |
-| `PrimaryMarketplace`   | ❌ No         | Standalone          |
-| `SecondaryMarketplace` | ❌ No         | Standalone          |
+### Deployment Testing Checklist
 
----
+```mermaid
+graph LR
+    subgraph "Pre-Deployment"
+        A[Code Review]
+        B[Static Analysis]
+        C[Unit Tests]
+        D[Integration Tests]
+    end
+    
+    subgraph "Deployment"
+        E[Testnet Deploy]
+        F[Functionality Verification]
+        G[Upgrade Testing]
+        H[Performance Testing]
+    end
+    
+    subgraph "Post-Deployment"
+        I[Monitoring Setup]
+        J[Access Control Verification]
+        K[Event Logging Check]
+        L[Documentation Update]
+    end
+    
+    A --> E
+    B --> E
+    C --> E
+    D --> E
+    E --> I
+    F --> I
+    G --> I
+    H --> I
+```
 
-## Recommendation
+## Security Considerations
 
-Use **UUPS** with OpenZeppelin + `@openzeppelin/contracts-upgradeable`, and restrict `_authorizeUpgrade()` to `onlyOwner`.
+### Authorization Matrix
 
----
+```mermaid
+graph TD
+    subgraph "Roles"
+        A[Owner]
+        B[Coordinator]
+        C[User]
+    end
+    
+    subgraph "Functions"
+        D[upgradeToAndCall]
+        E[initialize]
+        F[setCoordinator]
+        G[createLicense]
+        H[getLicense]
+    end
+    
+    A --> D
+    A --> E
+    A --> F
+    B --> G
+    A --> G
+    C --> H
+    B --> H
+    A --> H
+    
+    style A fill:#f44336
+    style B fill:#ff9800
+    style C fill:#4caf50
+```
 
-## Final Notes
+### Security Validation Process
 
-* UUPS = upgrade logic inside logic contract itself
-* Only one proxy = minimal gas
-* Uses standard ERC1967 storage layout
+```mermaid
+sequenceDiagram
+    participant Caller
+    participant Proxy
+    participant Implementation
+    participant AccessControl
+    
+    Caller->>Proxy: Function Call
+    Proxy->>Implementation: delegatecall
+    Implementation->>AccessControl: Check Permissions
+    AccessControl-->>Implementation: Authorization Result
+    
+    alt Authorized
+        Implementation->>Implementation: Execute Function
+        Implementation-->>Proxy: Return Success
+        Proxy-->>Caller: Success Response
+    else Unauthorized
+        Implementation-->>Proxy: Revert
+        Proxy-->>Caller: Error Response
+    end
+```
+
+### Storage Collision Prevention
+
+```mermaid
+graph LR
+    subgraph "V1 Storage Layout"
+        A[Slot 0: licenseContracts]
+        B[Slot 1: allLicenses]
+        C[Slot 2: tokenIds]
+        D[Slot 3: coordinators]
+        E[Slot 4: _tokenIdCounter]
+    end
+    
+    subgraph "V2 Storage Layout"
+        F[Slot 0: licenseContracts]
+        G[Slot 1: allLicenses]
+        H[Slot 2: tokenIds]
+        I[Slot 3: coordinators]
+        J[Slot 4: _tokenIdCounter]
+        K[Slot 5: newFeature]
+        L[Slot 6: userMetrics]
+    end
+    
+    A --> F
+    B --> G
+    C --> H
+    D --> I
+    E --> J
+    
+    style K fill:#4caf50
+    style L fill:#4caf50
+```
+
+## Best Practices
+
+### Development Guidelines
+
+1. **Storage Layout Management**
+   - Never reorder existing variables
+   - Always append new variables
+   - Use storage gaps for future expansion
+   - Document storage layout changes
+
+2. **Initialization Patterns**
+   - Use `initializer` modifier for setup functions
+   - Disable initializers in implementation constructor
+   - Validate initialization parameters
+   - Handle re-initialization scenarios
+
+3. **Upgrade Authorization**
+   - Implement strict access controls
+   - Use multi-signature for critical upgrades
+   - Add upgrade delay mechanisms
+   - Log all upgrade events
+
+4. **Version Management**
+   - Implement version tracking
+   - Document changes between versions
+   - Maintain upgrade compatibility matrix
+   - Test upgrade paths thoroughly
+
+### Code Quality Standards
+
+```mermaid
+graph TD
+    A[Code Quality] --> B[Documentation]
+    A --> C[Testing]
+    A --> D[Security]
+    A --> E[Maintainability]
+    
+    B --> F[NatSpec Comments]
+    B --> G[Architecture Diagrams]
+    B --> H[Upgrade Guides]
+    
+    C --> I[Unit Tests]
+    C --> J[Integration Tests]
+    C --> K[Upgrade Tests]
+    
+    D --> L[Access Controls]
+    D --> M[Input Validation]
+    D --> N[Audit Reports]
+    
+    E --> O[Clean Code]
+    E --> P[Modular Design]
+    E --> Q[Gas Optimization]
+```
+
+### Monitoring and Maintenance
+
+```mermaid
+sequenceDiagram
+    participant System as Monitoring System
+    participant Contract as Smart Contract
+    participant Admin as Administrator
+    participant Users as End Users
+    
+    loop Continuous Monitoring
+        System->>Contract: Check Contract Health
+        Contract-->>System: Status Report
+        
+        alt Issue Detected
+            System->>Admin: Alert Notification
+            Admin->>Contract: Investigate Issue
+            Admin->>Admin: Plan Upgrade
+            Admin->>Contract: Deploy Fix
+            Contract-->>Users: Service Restored
+        else Normal Operation
+            System->>System: Log Metrics
+        end
+    end
+```
+
+### Deployment Strategies
+
+```mermaid
+graph TD
+    subgraph "Development"
+        A[Local Testing]
+        B[Unit Tests]
+        C[Integration Tests]
+    end
+    
+    subgraph "Staging"
+        D[Testnet Deployment]
+        E[End-to-End Testing]
+        F[Security Audit]
+    end
+    
+    subgraph "Production"
+        G[Mainnet Deployment]
+        H[Monitoring Setup]
+        I[User Acceptance]
+    end
+    
+    A --> D
+    B --> D
+    C --> D
+    D --> G
+    E --> G
+    F --> G
+    G --> H
+    H --> I
+```
