@@ -1,5 +1,5 @@
 {
-    "address": "0xC82a815602E1552347bb29944e5Fe44a4da438Fb",
+    "address": "0x12Bb415B87354598F5cd3aeaD095068A348195Af",
     "abi": [
     {
       "inputs": [],
@@ -225,6 +225,11 @@
               "type": "string"
             },
             {
+              "internalType": "string",
+              "name": "uri",
+              "type": "string"
+            },
+            {
               "internalType": "bool",
               "name": "isActive",
               "type": "bool"
@@ -356,6 +361,11 @@
               "type": "string"
             },
             {
+              "internalType": "string",
+              "name": "uri",
+              "type": "string"
+            },
+            {
               "internalType": "bool",
               "name": "isActive",
               "type": "bool"
@@ -456,6 +466,11 @@
         {
           "internalType": "string",
           "name": "symbol",
+          "type": "string"
+        },
+        {
+          "internalType": "string",
+          "name": "uri",
           "type": "string"
         },
         {

@@ -7,6 +7,7 @@ struct License {
     address coordinator;
     string name;
     string symbol;
+    string uri;
     bool isActive;
     uint256 timestamp;
     uint256 developerFee;
@@ -20,6 +21,7 @@ struct License {
 struct LicenseInput {
     string name;
     string symbol;
+    string uri;
     bool isActive;
     uint256 developerFee;
     uint256 platformFee;
