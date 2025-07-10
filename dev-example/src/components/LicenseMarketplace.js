@@ -8,14 +8,15 @@ import { useLicenseMetadata } from '../hooks/useMetadata'
 import { useSimpleTransactions, useSimpleTransactionWatcher } from '../hooks/useSimpleTransactionWatcher'
 import { formatEther, shortenAddress } from '../lib/utils'
 import { MetadataUtils } from '../lib/metadataUtils'
-import { Loader2, ShoppingCart, ExternalLink, User, Calendar, Coins, AlertTriangle, RefreshCw } from 'lucide-react'
+import { Loader2, ShoppingCart, ExternalLink, User, Calendar, Coins, AlertTriangle, RefreshCw, CheckCircle } from 'lucide-react'
 
 export default function LicenseMarketplace() {
   const { address, isConnected } = useAccount()
   const { 
     useGetAllLicenseIds, 
     useGetLicenseFromID, 
-    useMintLicense
+    useMintLicense,
+    useCheckUserOwnsLicense
   } = useContract()
   const { addTransaction, updateTransaction } = useSimpleTransactions()
 
@@ -58,6 +59,7 @@ export default function LicenseMarketplace() {
 
   const LicenseCard = ({ licenseId }) => {
     const { data: licenseData, isLoading: isLoadingLicense } = useGetLicenseFromID(licenseId)
+    const { ownsLicense, isChecking: checkingOwnership } = useCheckUserOwnsLicense(address, licenseId)
     
     // Create stable license data for the hook to prevent re-renders
     const stableLicenseData = useMemo(() => {
@@ -76,7 +78,7 @@ export default function LicenseMarketplace() {
     const showMetadataLoading = loadingMetadata
     const hasMetadataError = !!metadataError
 
-    // Debug log to track metadata changes
+    // Debug log to track metadata changes and ownership
     useEffect(() => {
       console.log(`🎯 License ${licenseId} state:`, {
         loadingMetadata,
@@ -84,9 +86,13 @@ export default function LicenseMarketplace() {
         hasImage,
         metadataName: metadata?.name,
         metadataImage: metadata?.image,
-        imageUrl: metadata?.image
+        imageUrl: metadata?.image,
+        ownsLicense,
+        checkingOwnership,
+        licenseContract: licenseData?.contractAddress,
+        userAddress: address
       })
-    }, [metadata, loadingMetadata, licenseId, hasMetadata, hasImage])
+    }, [metadata, loadingMetadata, licenseId, hasMetadata, hasImage, ownsLicense, checkingOwnership, licenseData?.contractAddress, address])
 
     const handleMint = useCallback(async () => {
       if (!isConnected) {
@@ -165,7 +171,7 @@ export default function LicenseMarketplace() {
         <div className="h-48 bg-gradient-to-br from-blue-100 to-purple-100 flex items-center justify-center relative flex-shrink-0">
           {/* Debug: Show current state */}
           <div className="absolute top-2 left-2 bg-black/70 text-white text-xs p-1 rounded z-10">
-            M:{hasMetadata ? '✓' : '✗'} I:{hasImage ? '✓' : '✗'} L:{loadingMetadata ? '⏳' : '✓'}
+            M:{hasMetadata ? '✓' : '✗'} I:{hasImage ? '✓' : '✗'} L:{loadingMetadata ? '⏳' : '✓'} O:{ownsLicense ? '✓' : '✗'}
           </div>
           
           {hasImage ? (
@@ -329,6 +335,16 @@ export default function LicenseMarketplace() {
                 <ExternalLink className="h-3 w-3 flex-shrink-0" />
               </a>
             </div>
+            {/* Enhanced debug ownership info */}
+            {/* <div className="mt-1 text-xs">
+              {checkingOwnership ? (
+                <span className="text-blue-500">🔍 Checking ownership...</span>
+              ) : ownsLicense ? (
+                <span className="text-green-600">You own this license</span>
+              ) : (
+                <span className="text-red-500">Not owned</span>
+              )}
+            </div> */}
           </div>
 
           {metadata?.attributes && (
@@ -366,23 +382,44 @@ export default function LicenseMarketplace() {
         </CardContent>
 
         <CardFooter className="flex-shrink-0">
-          <Button 
-            onClick={handleMint}
-            disabled={mintingLicense === licenseId || isMintPending || !isConnected}
-            className="w-full"
-          >
-            {mintingLicense === licenseId ? (
-              <>
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                Minting...
-              </>
-            ) : (
-              <>
-                <ShoppingCart className="mr-2 h-4 w-4" />
-                Mint License
-              </>
-            )}
-          </Button>
+          {!isConnected ? (
+            <Button disabled className="w-full">
+              Connect wallet to mint
+            </Button>
+          ) : checkingOwnership ? (
+            <Button disabled className="w-full">
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              Checking ownership...
+            </Button>
+          ) : ownsLicense ? (
+            <div className="w-full">
+              <Button disabled className="w-full mb-2 bg-green-100 text-green-800 hover:bg-green-100">
+                <CheckCircle className="mr-2 h-4 w-4" />
+                You own this license
+              </Button>
+              <p className="text-xs text-center text-gray-500">
+                You already have this gaming license
+              </p>
+            </div>
+          ) : (
+            <Button 
+              onClick={handleMint}
+              disabled={mintingLicense === licenseId || isMintPending}
+              className="w-full"
+            >
+              {mintingLicense === licenseId ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Minting...
+                </>
+              ) : (
+                <>
+                  <ShoppingCart className="mr-2 h-4 w-4" />
+                  Mint License
+                </>
+              )}
+            </Button>
+          )}
         </CardFooter>
       </Card>
     )

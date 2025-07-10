@@ -39,7 +39,7 @@ export default function Navbar({ activeTab, setActiveTab }) {
                 V
               </div>
               <span className="ml-2 text-xl font-bold text-gray-900">
-                <img 
+                <img
                 src="/vector.png" 
                 alt="Vector Logo" 
                 className="h-20 w-25 object-contain"

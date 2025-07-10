@@ -1,5 +1,5 @@
 import { useReadContract, useWriteContract } from 'wagmi'
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { CONTRACTS } from '../lib/contracts'
 
 export function useContract() {
@@ -282,6 +282,55 @@ export function useContract() {
     })
   }
 
+  // Check if user owns a specific license using existing contract functions
+  const useCheckUserOwnsLicense = (userAddress, licenseId) => {
+    const { data: userTokens } = useGetUserTokens(userAddress)
+    
+    // Custom hook logic to check ownership
+    const [ownsLicense, setOwnsLicense] = useState(false)
+    const [checkingOwnership, setCheckingOwnership] = useState(false)
+    
+    useEffect(() => {
+      const checkOwnership = async () => {
+        if (!userTokens || !licenseId || !userAddress) {
+          setOwnsLicense(false)
+          return
+        }
+        
+        setCheckingOwnership(true)
+        
+        try {
+          // Check each user token to see if it corresponds to this license
+          for (const tokenId of userTokens) {
+            try {
+              // This would need to be implemented based on your contract structure
+              // For now, we'll use a simpler approach with metadata parsing
+              const nftDetails = await fetch(`/api/nft-details/${tokenId}`)
+              if (nftDetails.licenseId === licenseId) {
+                setOwnsLicense(true)
+                setCheckingOwnership(false)
+                return
+              }
+            } catch (error) {
+              console.log(`Error checking token ${tokenId}:`, error)
+            }
+          }
+          
+          setOwnsLicense(false)
+        } catch (error) {
+          console.error('Error checking license ownership:', error)
+          setOwnsLicense(false)
+        } finally {
+          setCheckingOwnership(false)
+        }
+      }
+      
+      checkOwnership()
+    }, [userTokens, licenseId, userAddress])
+    
+    return { ownsLicense, checkingOwnership }
+  }
+
   return {
     isLoading,
     setIsLoading,
@@ -295,6 +344,7 @@ export function useContract() {
     useGetAllNFTIds,
     useGetNFTDetails,
     useGetUserTokens,
+    useCheckUserOwnsLicense,
     // Secondary Marketplace
     useCreateOffer,
     useAcceptOffer,
