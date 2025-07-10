@@ -16,6 +16,7 @@
   "scripts": {
     "prepare": "husky",
     "compile": "npx hardhat compile",
+    "deploy:master": "npx hardhat ignition deploy './ignition/modules/MasterDeployment.js' --network sepolia",
     "deploy:license": "npx hardhat ignition deploy './ignition/modules/LicenseContract.js' --network sepolia",
     "deploy:license-factory": "npx hardhat ignition deploy './ignition/modules/LicenseFactory.js' --network sepolia",
     "deploy:primary-marketplace": "npx hardhat ignition deploy './ignition/modules/PrimaryMarketPlace.js' --network sepolia",

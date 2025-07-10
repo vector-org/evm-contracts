@@ -86,6 +86,7 @@ contract LicenseFactory is Addresses {
         licenseSlot.coordinator = Addresses.ADMINISTRATOR;
         licenseSlot.name = licenseInput.name;
         licenseSlot.symbol = licenseInput.symbol;
+        licenseSlot.uri = licenseInput.uri;
         licenseSlot.isActive = licenseInput.isActive;
         licenseSlot.timestamp = block.timestamp;
         licenseSlot.developerFee = licenseInput.developerFee;
