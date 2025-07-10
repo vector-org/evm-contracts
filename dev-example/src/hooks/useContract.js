@@ -254,6 +254,19 @@ export function useContract() {
     })
   }
 
+  // Add this specific function for license token URI fetching
+  const useGetLicenseTokenURI = (contractAddress, licenseId) => {
+    return useReadContract({
+      address: contractAddress,
+      abi: CONTRACTS.LICENSE.abi,
+      functionName: 'tokenURI',
+      args: [licenseId],
+      query: {
+        enabled: !!(contractAddress && licenseId),
+      }
+    })
+  }
+
   const useGetUserTokens = (userAddress) => {
     return useReadContract({
       address: CONTRACTS.PRIMARY_MARKETPLACE.address,
@@ -288,5 +301,6 @@ export function useContract() {
     useGetApproved,
     useOwnerOf,
     useTokenURI,
+    useGetLicenseTokenURI, // Add this to the exports
   }
 }

@@ -3,7 +3,7 @@ pragma solidity ^0.8.28;
 
 import {ILicenseContract} from "./interfaces/ILicenseContract.sol";
 import {ILicenseFactory} from "./interfaces/ILicenseFactory.sol";
-import {Counters} from "@openzeppelin/contracts/utils/Counters.sol";
+import {Counters} from "./utils/Counters.sol";
 import {Addresses} from "./constants/Addresses.sol";
 import {GameNFT} from "./types/Types.sol";
 import {onlyAdmin, onlyOwner} from "./errors/Common.sol";

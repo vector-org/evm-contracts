@@ -12,7 +12,7 @@ import {
     notPrimaryOrSecondary
 } from "./errors/LicenseContract.sol";
 
-contract LicenseContract is ERC721URIStorage, Addresses {
+contract LicenseContract is ERC721, ERC721URIStorage, Addresses {
     address public owner;
     address public immutable factory;
     address public immutable PRIMARYMARKETPLACE;
@@ -45,7 +45,7 @@ contract LicenseContract is ERC721URIStorage, Addresses {
 
     function tokenURI(
         uint256 licenseId
-    ) public view override returns (string memory) {
+    ) public view override(ERC721, ERC721URIStorage) returns (string memory) {
         return super.tokenURI(licenseId);
     }
 
@@ -63,7 +63,8 @@ contract LicenseContract is ERC721URIStorage, Addresses {
     function _beforeTokenTransfer(
         address from,
         address to,
-        uint256 licenseId
+        uint256 licenseId,
+        uint256 batchSize
     ) internal virtual override {
         if (
             from != address(0) &&
@@ -72,6 +73,18 @@ contract LicenseContract is ERC721URIStorage, Addresses {
         ) {
             revert notPrimaryOrSecondary(msg.sender);
         }
-        super._beforeTokenTransfer(from, to, licenseId);
+        super._beforeTokenTransfer(from, to, licenseId, batchSize);
+    }
+
+    function _burn(
+        uint256 tokenId
+    ) internal virtual override(ERC721, ERC721URIStorage) {
+        super._burn(tokenId);
+    }
+
+    function supportsInterface(
+        bytes4 interfaceId
+    ) public view override(ERC721, ERC721URIStorage) returns (bool) {
+        return super.supportsInterface(interfaceId);
     }
 }
