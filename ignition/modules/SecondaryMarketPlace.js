@@ -5,8 +5,8 @@ module.exports = buildModule("SecondaryMarketPlaceModule", (m) => {
   const SecondaryMarketPlaceModule = m.contract("SecondaryMarketPlace",[
     "0x1d72B383cd2F783e4f2eDafE9D7544A3355507C2",
     "0x1d72B383cd2F783e4f2eDafE9D7544A3355507C2",
-    "0xC82a815602E1552347bb29944e5Fe44a4da438Fb",
-    "0xc7FaF3455f3D8F3d413b2E7c8739775E57f958B6"
+    "0x12Bb415B87354598F5cd3aeaD095068A348195Af",
+    "0x36C77304a25ec71Cb074e03e11699c7360B3Fcd5"
   ]);
 
   return { SecondaryMarketPlaceModule };
