@@ -1,5 +1,5 @@
 import { useReadContract, useWriteContract } from 'wagmi'
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import { CONTRACTS } from '../lib/contracts'
 
 export function useContract() {
@@ -10,8 +10,6 @@ export function useContract() {
     const { writeContractAsync, isPending, error } = useWriteContract()
     
     const createLicense = async (licenseInput) => {
-      console.log('🔧 useCreateLicense called with:', licenseInput)
-      
       try {
         const hash = await writeContractAsync({
           address: CONTRACTS.FACTORY.address,
@@ -20,10 +18,8 @@ export function useContract() {
           args: [licenseInput]
         })
         
-        console.log('✅ License creation transaction hash received:', hash)
         return hash
       } catch (error) {
-        console.error('💥 License creation failed in hook:', error)
         throw error
       }
     }
@@ -32,34 +28,32 @@ export function useContract() {
   }
 
   const useGetAllLicenseIds = () => {
-    return useReadContract({
+    const result = useReadContract({
       address: CONTRACTS.FACTORY.address,
       abi: CONTRACTS.FACTORY.abi,
       functionName: 'getAllLicenseIds',
     })
+
+    // Convert BigInt array to regular numbers
+    const data = result.data ? result.data.map(id => Number(id)) : result.data
+
+    return {
+      ...result,
+      data
+    }
   }
 
   const useGetLicenseFromID = (licenseId) => {
+    // Convert BigInt to number if needed
+    const numericId = typeof licenseId === 'bigint' ? Number(licenseId) : licenseId
+    
     return useReadContract({
       address: CONTRACTS.FACTORY.address,
       abi: CONTRACTS.FACTORY.abi,
       functionName: 'getLicenseFromID',
-      args: [licenseId],
+      args: [numericId],
       query: {
-        enabled: !!licenseId,
-      }
-    })
-  }
-
-  // Helper function to get license URI directly
-  const useGetLicenseURI = (licenseId) => {
-    return useReadContract({
-      address: CONTRACTS.FACTORY.address,
-      abi: CONTRACTS.FACTORY.abi,
-      functionName: 'getLicenseURI',
-      args: [licenseId],
-      query: {
-        enabled: !!licenseId,
+        enabled: numericId !== null && numericId !== undefined,
       }
     })
   }
@@ -68,21 +62,20 @@ export function useContract() {
   const useMintLicense = () => {
     const { writeContractAsync, isPending, error } = useWriteContract()
     
-    const mintLicense = async (licenseId, receiver, uri) => {
-      console.log('🔧 useMintLicense called with:', { licenseId, receiver, uri })
-      
+    const mintLicense = async ({ licenseId, metadataURI, value }) => {
       try {
+        const numericId = typeof licenseId === 'bigint' ? Number(licenseId) : licenseId
+        
         const hash = await writeContractAsync({
           address: CONTRACTS.PRIMARY_MARKETPLACE.address,
           abi: CONTRACTS.PRIMARY_MARKETPLACE.abi,
           functionName: 'mintLicense',
-          args: [licenseId, receiver, uri]
+          args: [numericId, metadataURI],
+          value: BigInt(value)
         })
         
-        console.log('✅ Mint transaction hash received:', hash)
-        return hash
+        return { hash }
       } catch (error) {
-        console.error('💥 Mint failed in hook:', error)
         throw error
       }
     }
@@ -91,33 +84,30 @@ export function useContract() {
   }
 
   const useGetAllNFTIds = () => {
-    return useReadContract({
+    const result = useReadContract({
       address: CONTRACTS.PRIMARY_MARKETPLACE.address,
       abi: CONTRACTS.PRIMARY_MARKETPLACE.abi,
       functionName: 'getAllNFTIds',
     })
+
+    const data = result.data ? result.data.map(id => Number(id)) : result.data
+
+    return {
+      ...result,
+      data
+    }
   }
 
   const useGetNFTDetails = (nftId) => {
+    const numericId = typeof nftId === 'bigint' ? Number(nftId) : nftId
+    
     return useReadContract({
       address: CONTRACTS.PRIMARY_MARKETPLACE.address,
       abi: CONTRACTS.PRIMARY_MARKETPLACE.abi,
       functionName: 'getNFTDetails',
-      args: [nftId],
+      args: [numericId],
       query: {
-        enabled: !!nftId,
-      }
-    })
-  }
-
-  const useGetUserTokens = (userAddress) => {
-    return useReadContract({
-      address: CONTRACTS.PRIMARY_MARKETPLACE.address,
-      abi: CONTRACTS.PRIMARY_MARKETPLACE.abi,
-      functionName: 'getUserTokens',
-      args: [userAddress],
-      query: {
-        enabled: !!userAddress,
+        enabled: numericId !== null && numericId !== undefined,
       }
     })
   }
@@ -126,21 +116,19 @@ export function useContract() {
   const useCreateOffer = () => {
     const { writeContractAsync, isPending, error } = useWriteContract()
     
-    const createOffer = async (tokenId, licenseAddress, price) => {
-      console.log('🔧 useCreateOffer called with:', { tokenId, licenseAddress, price })
-      
+    const createOffer = async (licenseAddress, tokenId, price) => {
       try {
+        const numericTokenId = typeof tokenId === 'bigint' ? Number(tokenId) : tokenId
+        
         const hash = await writeContractAsync({
           address: CONTRACTS.SECONDARY_MARKETPLACE.address,
           abi: CONTRACTS.SECONDARY_MARKETPLACE.abi,
           functionName: 'createOffer',
-          args: [tokenId, licenseAddress, price]
+          args: [licenseAddress, numericTokenId, BigInt(price)]
         })
         
-        console.log('✅ Create offer transaction hash received:', hash)
         return hash
       } catch (error) {
-        console.error('💥 Create offer failed in hook:', error)
         throw error
       }
     }
@@ -152,21 +140,19 @@ export function useContract() {
     const { writeContractAsync, isPending, error } = useWriteContract()
     
     const acceptOffer = async (tokenId, value) => {
-      console.log('🔧 useAcceptOffer called with:', { tokenId, value })
-      
       try {
+        const numericTokenId = typeof tokenId === 'bigint' ? Number(tokenId) : tokenId
+        
         const hash = await writeContractAsync({
           address: CONTRACTS.SECONDARY_MARKETPLACE.address,
           abi: CONTRACTS.SECONDARY_MARKETPLACE.abi,
           functionName: 'acceptOffer',
-          args: [tokenId],
-          value: value
+          args: [numericTokenId],
+          value: BigInt(value)
         })
         
-        console.log('✅ Accept offer transaction hash received:', hash)
         return hash
       } catch (error) {
-        console.error('💥 Accept offer failed in hook:', error)
         throw error
       }
     }
@@ -186,20 +172,18 @@ export function useContract() {
     const { writeContractAsync, isPending, error } = useWriteContract()
     
     const removeOffer = async (tokenId) => {
-      console.log('🔧 useRemoveOffer called with:', { tokenId })
-      
       try {
+        const numericTokenId = typeof tokenId === 'bigint' ? Number(tokenId) : tokenId
+        
         const hash = await writeContractAsync({
           address: CONTRACTS.SECONDARY_MARKETPLACE.address,
           abi: CONTRACTS.SECONDARY_MARKETPLACE.abi,
           functionName: 'removeOffer',
-          args: [tokenId]
+          args: [numericTokenId]
         })
         
-        console.log('✅ Remove offer transaction hash received:', hash)
         return hash
       } catch (error) {
-        console.error('💥 Remove offer failed in hook:', error)
         throw error
       }
     }
@@ -211,21 +195,19 @@ export function useContract() {
   const useApprove = () => {
     const { writeContractAsync, isPending, error } = useWriteContract()
     
-    const approve = async (contractAddress, to, tokenId) => {
-      console.log('🔧 useApprove called with:', { contractAddress, to, tokenId })
-      
+    const approve = async (licenseAddress, spender, tokenId) => {
       try {
+        const numericTokenId = typeof tokenId === 'bigint' ? Number(tokenId) : tokenId
+        
         const hash = await writeContractAsync({
-          address: contractAddress,
+          address: licenseAddress,
           abi: CONTRACTS.LICENSE.abi,
           functionName: 'approve',
-          args: [to, tokenId]
+          args: [spender, numericTokenId]
         })
         
-        console.log('✅ Approve transaction hash received:', hash)
         return hash
       } catch (error) {
-        console.error('💥 Approve failed in hook:', error)
         throw error
       }
     }
@@ -233,124 +215,88 @@ export function useContract() {
     return { approve, isPending, error }
   }
 
-  const useGetApproved = (contractAddress, tokenId) => {
+  const useGetApproved = (licenseAddress, tokenId) => {
+    const numericId = typeof tokenId === 'bigint' ? Number(tokenId) : tokenId
+    
     return useReadContract({
-      address: contractAddress,
+      address: licenseAddress,
       abi: CONTRACTS.LICENSE.abi,
       functionName: 'getApproved',
-      args: [tokenId],
+      args: [numericId],
       query: {
-        enabled: !!(contractAddress && tokenId),
+        enabled: !!(licenseAddress && numericId !== null && numericId !== undefined),
       }
     })
   }
 
-  const useOwnerOf = (contractAddress, tokenId) => {
+  const useOwnerOf = (licenseAddress, tokenId) => {
+    const numericId = typeof tokenId === 'bigint' ? Number(tokenId) : tokenId
+    
     return useReadContract({
-      address: contractAddress,
+      address: licenseAddress,
       abi: CONTRACTS.LICENSE.abi,
       functionName: 'ownerOf',
-      args: [tokenId],
+      args: [numericId],
       query: {
-        enabled: !!(contractAddress && tokenId),
+        enabled: !!(licenseAddress && numericId !== null && numericId !== undefined),
       }
     })
   }
 
-  const useTokenURI = (contractAddress, tokenId) => {
+  const useTokenURI = (licenseAddress, tokenId) => {
+    const numericId = typeof tokenId === 'bigint' ? Number(tokenId) : tokenId
+    
     return useReadContract({
-      address: contractAddress,
+      address: licenseAddress,
       abi: CONTRACTS.LICENSE.abi,
       functionName: 'tokenURI',
-      args: [tokenId],
+      args: [numericId],
       query: {
-        enabled: !!(contractAddress && tokenId),
+        enabled: !!(licenseAddress && numericId !== null && numericId !== undefined),
       }
     })
   }
 
-  // Function to get license token URI for marketplace display
   const useGetLicenseTokenURI = (contractAddress, licenseId) => {
+    const numericId = typeof licenseId === 'bigint' ? Number(licenseId) : licenseId
+    
     return useReadContract({
       address: contractAddress,
       abi: CONTRACTS.LICENSE.abi,
       functionName: 'tokenURI',
-      args: [licenseId],
+      args: [numericId],
       query: {
-        enabled: !!(contractAddress && licenseId),
+        enabled: !!(contractAddress && numericId !== null && numericId !== undefined),
       }
     })
   }
 
-  // Check if user owns a specific license using existing contract functions
-  const useCheckUserOwnsLicense = (userAddress, licenseId) => {
-    const { data: userTokens } = useGetUserTokens(userAddress)
-    
-    // Custom hook logic to check ownership
-    const [ownsLicense, setOwnsLicense] = useState(false)
-    const [checkingOwnership, setCheckingOwnership] = useState(false)
-    
-    useEffect(() => {
-      const checkOwnership = async () => {
-        if (!userTokens || !licenseId || !userAddress) {
-          setOwnsLicense(false)
-          return
-        }
-        
-        setCheckingOwnership(true)
-        
-        try {
-          // Check each user token to see if it corresponds to this license
-          for (const tokenId of userTokens) {
-            try {
-              // This would need to be implemented based on your contract structure
-              // For now, we'll use a simpler approach with metadata parsing
-              const nftDetails = await fetch(`/api/nft-details/${tokenId}`)
-              if (nftDetails.licenseId === licenseId) {
-                setOwnsLicense(true)
-                setCheckingOwnership(false)
-                return
-              }
-            } catch (error) {
-              console.log(`Error checking token ${tokenId}:`, error)
-            }
-          }
-          
-          setOwnsLicense(false)
-        } catch (error) {
-          console.error('Error checking license ownership:', error)
-          setOwnsLicense(false)
-        } finally {
-          setCheckingOwnership(false)
-        }
+  const useGetUserTokens = (userAddress) => {
+    return useReadContract({
+      address: CONTRACTS.PRIMARY_MARKETPLACE.address,
+      abi: CONTRACTS.PRIMARY_MARKETPLACE.abi,
+      functionName: 'getUserTokens',
+      args: [userAddress],
+      query: {
+        enabled: !!userAddress,
       }
-      
-      checkOwnership()
-    }, [userTokens, licenseId, userAddress])
-    
-    return { ownsLicense, checkingOwnership }
+    })
   }
 
   return {
     isLoading,
     setIsLoading,
-    // Factory
     useCreateLicense,
     useGetAllLicenseIds,
     useGetLicenseFromID,
-    useGetLicenseURI,
-    // Primary Marketplace
     useMintLicense,
     useGetAllNFTIds,
     useGetNFTDetails,
-    useGetUserTokens,
-    useCheckUserOwnsLicense,
-    // Secondary Marketplace
     useCreateOffer,
     useAcceptOffer,
     useGetOpenOffers,
     useRemoveOffer,
-    // License Contract
+    useGetUserTokens,
     useApprove,
     useGetApproved,
     useOwnerOf,

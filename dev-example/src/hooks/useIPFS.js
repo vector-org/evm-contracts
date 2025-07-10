@@ -1,5 +1,12 @@
 import { useState } from 'react'
-import { ipfs_client, getIPFSUrl } from '../lib/ipfs'
+import { 
+  pinata_client, 
+  getPinataUrl, 
+  getIPFSUrl,
+  uploadFileWithProgress,
+  uploadJSONData,
+  uploadData
+} from '../lib/pinata'
 
 export function useIPFS() {
   const [isUploading, setIsUploading] = useState(false)
@@ -10,33 +17,31 @@ export function useIPFS() {
       setIsUploading(true)
       setUploadProgress(0)
 
-      console.log('📤 Starting file upload to IPFS:', {
+      console.log('📤 Starting file upload to Pinata:', {
         name: file.name,
         size: file.size,
         type: file.type
       })
 
-      const result = await ipfs_client.add(file, {
-        progress: (prog) => {
-          const progress = Math.round((prog / file.size) * 100)
-          setUploadProgress(progress)
-          console.log(`⏳ Upload progress: ${progress}%`)
-        }
+      const result = await uploadFileWithProgress(file, (progress) => {
+        setUploadProgress(progress)
+        console.log(`⏳ Upload progress: ${progress}%`)
       })
 
       console.log('✅ File uploaded successfully:', {
-        hash: result.path,
-        url: getIPFSUrl(result.path),
+        cid: result.cid,
+        url: result.url,
         size: file.size
       })
 
       setUploadProgress(100)
       return {
-        hash: result.path,
-        url: getIPFSUrl(result.path)
+        hash: result.cid, // For backward compatibility
+        cid: result.cid,
+        url: result.url
       }
     } catch (error) {
-      console.error('💥 Error uploading file to IPFS:', {
+      console.error('💥 Error uploading file to Pinata:', {
         error: error.message,
         fileName: file.name,
         fileSize: file.size
@@ -44,7 +49,7 @@ export function useIPFS() {
       throw error
     } finally {
       setIsUploading(false)
-      setUploadProgress(0)
+      setTimeout(() => setUploadProgress(0), 1000)
     }
   }
 
@@ -52,22 +57,23 @@ export function useIPFS() {
     try {
       setIsUploading(true)
       
-      console.log('📤 Starting JSON upload to IPFS:', jsonObject)
+      console.log('📤 Starting JSON upload to Pinata:', jsonObject)
       
-      const result = await ipfs_client.add(JSON.stringify(jsonObject, null, 2))
+      const result = await uploadJSONData(jsonObject)
       
       console.log('✅ JSON uploaded successfully:', {
-        hash: result.path,
-        url: getIPFSUrl(result.path),
+        cid: result.cid,
+        url: result.url,
         data: jsonObject
       })
       
       return {
-        hash: result.path,
-        url: getIPFSUrl(result.path)
+        hash: result.cid, // For backward compatibility
+        cid: result.cid,
+        url: result.url
       }
     } catch (error) {
-      console.error('💥 Error uploading JSON to IPFS:', {
+      console.error('💥 Error uploading JSON to Pinata:', {
         error: error.message,
         data: jsonObject
       })
@@ -83,34 +89,28 @@ export function useIPFS() {
       setIsUploading(true)
       setUploadProgress(0)
 
-      console.log('📤 Starting upload to IPFS:', {
+      console.log('📤 Starting upload to Pinata:', {
         type: data.constructor.name,
         size: data.size || 'unknown'
       })
 
-      const options = {}
-      
-      // Add progress tracking for files
-      if (data instanceof File && data.size) {
-        options.progress = (prog) => {
-          const progress = Math.round((prog / data.size) * 100)
+      let result
+      if (data instanceof File) {
+        // Use the file upload function with progress
+        result = await uploadFileWithProgress(data, (progress) => {
           setUploadProgress(progress)
           console.log(`⏳ Upload progress: ${progress}%`)
-        }
+        })
+        return result.cid // Return just the CID for compatibility
+      } else {
+        // Use the generic data upload
+        const cid = await uploadData(data)
+        setUploadProgress(100)
+        return cid // Return just the CID for compatibility
       }
 
-      const result = await ipfs_client.add(data, options)
-
-      console.log('✅ Data uploaded successfully to IPFS:', {
-        hash: result.path,
-        url: getIPFSUrl(result.path)
-      })
-
-      setUploadProgress(100)
-      return result.path // Return just the hash for compatibility
-
     } catch (error) {
-      console.error('💥 Error uploading to IPFS:', {
+      console.error('💥 Error uploading to Pinata:', {
         error: error.message,
         dataType: data.constructor.name
       })
@@ -141,71 +141,41 @@ export function useIPFS() {
       // Step 2: Create and upload the metadata
       console.log('📋 Step 2: Creating metadata...')
       const metadata = {
-        name: gameData.name,
-        description: gameData.description || `Gaming license for ${gameData.name}`,
-        image: imageResult.url,
-        attributes: [
-          {
-            trait_type: "Developer",
-            value: gameData.developer || "Unknown"
-          },
-          {
-            trait_type: "Publisher", 
-            value: gameData.publisher || "Unknown"
-          },
-          {
-            trait_type: "Platform",
-            value: gameData.platform || "Unknown"
-          },
-          {
-            trait_type: "Genre",
-            value: gameData.genre || "Gaming"
-          },
-          {
-            trait_type: "Symbol",
-            value: gameData.symbol || ""
-          }
-        ],
-        external_url: gameData.externalUrl || "",
-        animation_url: gameData.animationUrl || "",
-        youtube_url: gameData.youtubeUrl || "",
-        created_at: new Date().toISOString(),
-        developer_fee: gameData.developerFee || "0",
-        platform_fee: gameData.platformFee || "0",
-        publisher_fee: gameData.publisherFee || "0"
+        ...gameData,
+        image: imageResult.url, // Use the Pinata URL
+        imageHash: imageResult.cid,
+        uploadedAt: new Date().toISOString(),
+        version: "1.0"
       }
-
-      console.log('📋 Metadata created:', metadata)
-      console.log('📤 Step 3: Uploading metadata to IPFS...')
       
+      console.log('📋 Step 3: Uploading metadata...')
       const metadataResult = await uploadJSON(metadata)
       
-      const result = {
-        imageHash: imageResult.hash,
+      console.log('🎉 Game metadata upload complete:', {
+        imageHash: imageResult.cid,
         imageUrl: imageResult.url,
-        metadataHash: metadataResult.hash,
-        metadataUrl: metadataResult.url,
-        metadata
-      }
-      
-      console.log('🎉 Game metadata upload completed successfully:', {
-        imageHash: result.imageHash,
-        metadataHash: result.metadataHash,
-        imageUrl: result.imageUrl,
-        metadataUrl: result.metadataUrl
+        metadataHash: metadataResult.cid,
+        metadataUrl: metadataResult.url
       })
       
-      return result
+      return {
+        image: {
+          hash: imageResult.cid,
+          url: imageResult.url
+        },
+        metadata: {
+          hash: metadataResult.cid,
+          url: metadataResult.url
+        },
+        // For backward compatibility
+        imageHash: imageResult.cid,
+        metadataHash: metadataResult.cid
+      }
     } catch (error) {
       console.error('💥 Error uploading game metadata:', {
         error: error.message,
-        stack: error.stack,
-        gameData: gameData,
-        imageFile: imageFile ? {
-          name: imageFile.name,
-          size: imageFile.size,
-          type: imageFile.type
-        } : null
+        gameName: gameData.name,
+        imageFile: imageFile.name
       })
       throw error
     } finally {
@@ -213,12 +183,77 @@ export function useIPFS() {
     }
   }
 
+  // Additional helper function to get URL from CID
+  const getCIDUrl = (cid, usePublicGateway = false) => {
+    return usePublicGateway ? getIPFSUrl(cid) : getPinataUrl(cid)
+  }
+
+  // Function to upload metadata with image reference
+  const uploadMetadataWithImage = async (metadata, imageCid) => {
+    try {
+      setIsUploading(true)
+      
+      const metadataWithImage = {
+        ...metadata,
+        image: `ipfs://${imageCid}`, // Standard IPFS format
+        imageUrl: getPinataUrl(imageCid), // Direct URL for display
+        uploadedAt: new Date().toISOString()
+      }
+      
+      const result = await uploadJSON(metadataWithImage)
+      
+      return {
+        hash: result.cid,
+        cid: result.cid,
+        url: result.url,
+        metadata: metadataWithImage
+      }
+    } catch (error) {
+      console.error('💥 Error uploading metadata with image:', error)
+      throw error
+    } finally {
+      setIsUploading(false)
+    }
+  }
+
+  // Function to upload file and get both IPFS URI and HTTP URL
+  const uploadFileWithURIs = async (file) => {
+    try {
+      const result = await uploadFile(file)
+      
+      return {
+        cid: result.cid,
+        ipfsUri: `ipfs://${result.cid}`,
+        httpUrl: result.url,
+        pinataUrl: getPinataUrl(result.cid),
+        publicUrl: getIPFSUrl(result.cid),
+        // For backward compatibility
+        hash: result.cid,
+        url: result.url
+      }
+    } catch (error) {
+      console.error('💥 Error uploading file with URIs:', error)
+      throw error
+    }
+  }
+
   return {
+    // Core functions (same interface as before)
     uploadFile,
     uploadJSON,
-    uploadToIPFS, // Added this function for compatibility
+    uploadToIPFS,
     uploadGameMetadata,
+    
+    // New Pinata-specific functions
+    uploadMetadataWithImage,
+    uploadFileWithURIs,
+    getCIDUrl,
+    
+    // State
     isUploading,
-    uploadProgress
+    uploadProgress,
+    
+    // Client access (for advanced usage)
+    pinataClient: pinata_client
   }
 }

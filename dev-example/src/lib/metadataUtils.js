@@ -2,374 +2,461 @@ import { getIPFSConfig } from './ipfsConfig'
 
 export const MetadataUtils = {
   /**
-   * Get configured IPFS gateways
+   * Create metadata object for NFT/License
+   * @param {Object} data - The metadata data
+   * @param {string} imageCid - The CID of the uploaded image
+   * @returns {Object} - Formatted metadata object
    */
-  getIPFSGateways: () => {
+  createMetadata: (data, imageCid = null) => {
     const config = getIPFSConfig()
-    return config.ALL_GATEWAYS
+    
+    const metadata = {
+      name: data.name || 'Untitled',
+      description: data.description || '',
+      external_url: data.externalUrl || data.external_url || '',
+      attributes: data.attributes || [],
+      ...data
+    }
+
+    // Add image if CID is provided
+    if (imageCid) {
+      metadata.image = `ipfs://${imageCid}`
+      metadata.imageUrl = config.getUrl(imageCid)
+    }
+
+    // Add timestamp
+    metadata.created_at = new Date().toISOString()
+    
+    return metadata
   },
 
   /**
-   * Convert IPFS URI to HTTP URL for fetching with multiple gateway support
-   * @param {string} uri - The URI to convert
-   * @returns {string[]} Array of HTTP URLs to try
+   * Upload metadata to Pinata
+   * @param {Object} metadata - The metadata object to upload
+   * @returns {Promise<Object>} - Upload result with CID and URL
    */
-  convertURIToFetchURLs: (uri) => {
-    if (!uri) return []
+  uploadMetadata: async (metadata) => {
+    const config = getIPFSConfig()
     
-    let hash = uri
-    if (uri.startsWith('ipfs://')) {
-      hash = uri.replace('ipfs://', '')
-    } else if (!uri.match(/^Qm[1-9A-HJ-NP-Za-km-z]{44}/) && !uri.match(/^ba[A-Za-z2-7]{56}/)) {
-      // Not an IPFS hash, return as-is for HTTP URLs
-      return uri.startsWith('http') ? [uri] : []
-    }
-
-    // Return multiple gateway URLs to try
-    const gateways = MetadataUtils.getIPFSGateways()
-    return gateways.map(gateway => `${gateway}/${hash}`)
-  },
-
-  /**
-   * Convert IPFS image URL to HTTP URL for display
-   * @param {string} imageUrl - The image URL to convert
-   * @returns {string} HTTP URL for displaying images
-   */
-  convertImageURL: (imageUrl) => {
-    if (!imageUrl) return null
-    
-    console.log('🔍 Converting image URL:', imageUrl)
-    
-    const gateways = MetadataUtils.getIPFSGateways()
-    const primaryGateway = gateways[0] // Use Infura as primary
-    
-    if (imageUrl.startsWith('ipfs://')) {
-      const hash = imageUrl.replace('ipfs://', '')
-      const converted = `${primaryGateway}/${hash}`
-      console.log('✅ IPFS:// URL converted to gateway:', converted)
-      return converted
-    }
-    
-    // Handle bare IPFS hashes (QmXXX... or baXXX...)
-    if (imageUrl.match(/^Qm[1-9A-HJ-NP-Za-km-z]{44}/) || imageUrl.match(/^ba[A-Za-z2-7]{56}/)) {
-      const converted = `${primaryGateway}/${imageUrl}`
-      console.log('✅ Bare IPFS hash converted to gateway:', converted)
-      return converted
-    }
-    
-    console.log('➡️ URL returned as-is:', imageUrl)
-    return imageUrl
-  },
-
-  /**
-   * Fetch and parse metadata from a URI with gateway fallbacks
-   * @param {string} uri - The metadata URI
-   * @returns {Promise<Object>} Parsed metadata object
-   */
-  fetchMetadata: async (uri) => {
-    if (!uri) {
-      throw new Error('No URI provided')
-    }
-
     try {
-      // Handle base64 encoded JSON
-      if (uri.startsWith('data:application/json;base64,')) {
-        const base64Data = uri.split(',')[1]
-        const decodedData = atob(base64Data)
-        return JSON.parse(decodedData)
-      }
-
-      // Get multiple URLs to try
-      const urlsToTry = MetadataUtils.convertURIToFetchURLs(uri)
+      console.log('📋 Uploading metadata to Pinata:', metadata)
+      const result = await config.upload.json(metadata)
       
-      if (urlsToTry.length === 0) {
-        throw new Error('Invalid URI format')
-      }
-
-      console.log('🔍 Trying IPFS gateways for metadata:', urlsToTry)
-
-      // Try each gateway until one works
-      let lastError = null
-      for (let i = 0; i < urlsToTry.length; i++) {
-        const fetchUrl = urlsToTry[i]
-        
-        try {
-          console.log(`🌐 Attempting gateway ${i + 1}/${urlsToTry.length}:`, fetchUrl)
-          
-          const controller = new AbortController()
-          const timeoutId = setTimeout(() => controller.abort(), getIPFSConfig().TIMEOUT)
-          
-          const response = await fetch(fetchUrl, {
-            signal: controller.signal,
-            headers: {
-              'Accept': 'application/json',
-            }
-          })
-          
-          clearTimeout(timeoutId)
-          
-          if (!response.ok) {
-            throw new Error(`HTTP error! status: ${response.status}`)
-          }
-
-          const metadata = await response.json()
-          
-          // Process image URLs in metadata - convert IPFS hashes to HTTP URLs
-          if (metadata.image) {
-            const originalImage = metadata.image
-            metadata.image = MetadataUtils.convertImageURL(metadata.image)
-            console.log('🖼️ Image URL converted:', {
-              original: originalImage,
-              converted: metadata.image
-            })
-          }
-
-          console.log('✅ Metadata fetched successfully from gateway:', fetchUrl)
-          console.log('📋 Final processed metadata:', metadata)
-          return metadata
-
-        } catch (error) {
-          console.log(`❌ Gateway ${i + 1} failed:`, fetchUrl, error.message)
-          lastError = error
-          
-          // If this isn't the last gateway, continue to next one
-          if (i < urlsToTry.length - 1) {
-            console.log(`🔄 Trying next gateway...`)
-            continue
-          }
-        }
-      }
-
-      // If we get here, all gateways failed
-      throw new Error(`All IPFS gateways failed. Last error: ${lastError?.message}`)
-
+      console.log('✅ Metadata uploaded successfully:', {
+        cid: result.cid,
+        url: result.url
+      })
+      
+      return result
     } catch (error) {
-      console.error('Error fetching metadata:', error)
+      console.error('💥 Error uploading metadata:', error)
       throw error
     }
   },
 
   /**
-   * Extract license ID from metadata attributes
-   * @param {Object} metadata - The metadata object
-   * @param {string} fallbackId - Fallback ID if not found in metadata
-   * @returns {string} License ID
+   * Upload image and create metadata with image reference
+   * @param {File} imageFile - The image file to upload
+   * @param {Object} metadataData - The metadata data
+   * @returns {Promise<Object>} - Complete upload result
    */
-  extractLicenseId: (metadata, fallbackId) => {
-    if (!metadata || !metadata.attributes) {
-      return fallbackId
+  uploadImageAndMetadata: async (imageFile, metadataData) => {
+    const config = getIPFSConfig()
+    
+    try {
+      console.log('📸 Starting image and metadata upload process')
+      
+      // Step 1: Upload the image
+      console.log('📸 Step 1: Uploading image...')
+      const imageResult = await config.upload.file(imageFile)
+      
+      // Step 2: Create metadata with image reference
+      console.log('📋 Step 2: Creating metadata with image reference...')
+      const metadata = MetadataUtils.createMetadata(metadataData, imageResult.cid)
+      
+      // Step 3: Upload metadata
+      console.log('📋 Step 3: Uploading metadata...')
+      const metadataResult = await MetadataUtils.uploadMetadata(metadata)
+      
+      const result = {
+        image: {
+          cid: imageResult.cid,
+          url: imageResult.url,
+          hash: imageResult.cid // For backward compatibility
+        },
+        metadata: {
+          cid: metadataResult.cid,
+          url: metadataResult.url,
+          hash: metadataResult.cid, // For backward compatibility
+          data: metadata
+        }
+      }
+      
+      console.log('🎉 Complete upload successful:', result)
+      return result
+      
+    } catch (error) {
+      console.error('💥 Error in uploadImageAndMetadata:', error)
+      throw error
     }
+  },
 
-    const licenseAttr = metadata.attributes.find(attr => 
-      attr.trait_type === 'License ID' || 
-      attr.trait_type === 'License Id' ||
-      attr.trait_type === 'LicenseID'
-    )
-
-    if (licenseAttr) {
-      return licenseAttr.value
+  /**
+   * Fetch metadata from URI
+   * @param {string} uri - The metadata URI (can be IPFS, HTTP, or data URI)
+   * @returns {Promise<Object>} - The fetched metadata
+   */
+  fetchMetadata: async (uri) => {
+    try {
+      console.log('📋 Fetching metadata from URI:', uri)
+      
+      if (uri.startsWith('data:application/json;base64,')) {
+        // Handle base64 encoded metadata
+        const base64Data = uri.split(',')[1]
+        const decodedData = atob(base64Data)
+        const metadata = JSON.parse(decodedData)
+        console.log('✅ Metadata loaded from base64')
+        return metadata
+        
+      } else if (uri.startsWith('ipfs://')) {
+        // Handle IPFS URLs
+        const config = getIPFSConfig()
+        const cid = uri.replace('ipfs://', '')
+        const httpUrl = config.getUrl(cid)
+        
+        const response = await fetch(httpUrl)
+        if (!response.ok) {
+          throw new Error(`IPFS fetch failed: ${response.status}`)
+        }
+        
+        const metadata = await response.json()
+        console.log('✅ Metadata loaded from IPFS')
+        return metadata
+        
+      } else if (uri.startsWith('http')) {
+        // Handle HTTP URLs
+        const response = await fetch(uri)
+        if (!response.ok) {
+          throw new Error(`HTTP ${response.status}: ${response.statusText}`)
+        }
+        
+        const metadata = await response.json()
+        console.log('✅ Metadata loaded from HTTP')
+        return metadata
+        
+      } else {
+        throw new Error(`Unsupported URI format: ${uri}`)
+      }
+      
+    } catch (error) {
+      console.error('💥 Error fetching metadata:', error)
+      throw error
     }
+  },
 
-    // Try to extract from name
-    if (metadata.name) {
-      const nameMatch = metadata.name.match(/#(\d+)/)
-      if (nameMatch) {
-        return nameMatch[1]
+  /**
+   * Normalize image URLs in metadata for display
+   * @param {Object} metadata - The metadata object
+   * @returns {Object} - Metadata with normalized image URLs
+   */
+  normalizeImageUrls: (metadata) => {
+    if (!metadata) return metadata
+    
+    const config = getIPFSConfig()
+    const normalized = { ...metadata }
+    
+    // Handle image field
+    if (normalized.image) {
+      if (normalized.image.startsWith('ipfs://')) {
+        const cid = normalized.image.replace('ipfs://', '')
+        normalized.imageUrl = config.getUrl(cid)
+        normalized.publicImageUrl = config.getPublicUrl(cid)
+      } else if (!normalized.imageUrl) {
+        normalized.imageUrl = normalized.image
       }
     }
-
-    return fallbackId
+    
+    // Handle animation_url field
+    if (normalized.animation_url && normalized.animation_url.startsWith('ipfs://')) {
+      const cid = normalized.animation_url.replace('ipfs://', '')
+      normalized.animationUrl = config.getUrl(cid)
+    }
+    
+    return normalized
   },
 
   /**
-   * Create fallback metadata when URI loading fails
-   * @param {string} name - Name for the fallback metadata
-   * @param {string} description - Description for the fallback metadata
-   * @param {string} id - ID to include in attributes
-   * @returns {Object} Fallback metadata object
+   * Validate metadata object
+   * @param {Object} metadata - The metadata to validate
+   * @returns {Object} - Validation result
    */
-  createFallbackMetadata: (name, description, id) => {
+  validateMetadata: (metadata) => {
+    const errors = []
+    const warnings = []
+    
+    if (!metadata) {
+      errors.push('Metadata is null or undefined')
+      return { valid: false, errors, warnings }
+    }
+    
+    // Required fields
+    if (!metadata.name) {
+      errors.push('Missing required field: name')
+    }
+    
+    // Recommended fields
+    if (!metadata.description) {
+      warnings.push('Missing recommended field: description')
+    }
+    
+    if (!metadata.image && !metadata.imageUrl) {
+      warnings.push('No image provided')
+    }
+    
+    // Validate attributes
+    if (metadata.attributes && !Array.isArray(metadata.attributes)) {
+      errors.push('Attributes must be an array')
+    }
+    
     return {
-      name: name || `Gaming License #${id}`,
-      description: description || "Gaming license NFT",
-      image: null,
-      attributes: [
-        {
-          trait_type: "ID",
-          value: id
-        },
-        {
-          trait_type: "Type",
-          value: "Gaming License"
-        }
-      ]
+      valid: errors.length === 0,
+      errors,
+      warnings
     }
   },
 
   /**
-   * Create metadata for a new license
-   * @param {Object} licenseData - License data from form
-   * @param {string} imageUrl - IPFS URL of the uploaded image
-   * @returns {Object} Complete metadata object
+   * Create fallback metadata when URI fetch fails
+   * @param {string} name - Name for the metadata
+   * @param {string} description - Description for the metadata  
+   * @param {string|number} id - ID for the metadata
+   * @param {Object} additionalData - Any additional data to include
+   * @returns {Object} - Fallback metadata object
    */
-  createLicenseMetadata: (licenseData, imageUrl) => {
+  createFallbackMetadata: (name, description, id, additionalData = {}) => {
     return {
-      name: licenseData.name,
-      description: licenseData.description || `Gaming license for ${licenseData.name}`,
-      image: imageUrl,
+      name: name || `Item #${id}`,
+      description: description || `Item ${id}`,
+      image: null,
+      external_url: '',
+      attributes: [],
+      created_at: new Date().toISOString(),
+      fallback: true,
+      ...additionalData
+    }
+  },
+
+  /**
+   * Create license fallback metadata specifically
+   * @param {Object} licenseData - License data object
+   * @param {string|number} licenseId - License ID
+   * @returns {Object} - License fallback metadata
+   */
+  createLicenseFallbackMetadata: (licenseData, licenseId) => {
+    if (!licenseData) {
+      return MetadataUtils.createFallbackMetadata(
+        `License #${licenseId}`,
+        `Gaming license #${licenseId}`,
+        licenseId
+      )
+    }
+
+    return {
+      name: licenseData.name || `License #${licenseId}`,
+      description: `Gaming license for ${licenseData.name || `License ${licenseId}`} (${licenseData.symbol || 'N/A'})`,
+      image: null,
       external_url: licenseData.externalUrl || '',
-      youtube_url: licenseData.youtubeUrl || '',
       attributes: [
         {
-          trait_type: "Symbol",
-          value: licenseData.symbol
-        },
-        {
           trait_type: "Developer",
-          value: licenseData.developer
+          value: MetadataUtils.shortenAddress(licenseData.developer)
         },
         {
           trait_type: "Publisher", 
-          value: licenseData.publisher
+          value: MetadataUtils.shortenAddress(licenseData.publisher)
         },
         {
           trait_type: "Platform",
-          value: licenseData.platform
-        },
-        {
-          trait_type: "Genre",
-          value: licenseData.genre || 'Gaming'
-        },
-        {
-          trait_type: "Developer Fee",
-          value: licenseData.developerFee || '0'
-        },
-        {
-          trait_type: "Platform Fee",
-          value: licenseData.platformFee || '0'
-        },
-        {
-          trait_type: "Publisher Fee",
-          value: licenseData.publisherFee || '0'
+          value: MetadataUtils.shortenAddress(licenseData.platform)
         },
         {
           trait_type: "Active",
-          value: "Yes"
+          value: licenseData.isActive ? "Yes" : "No"
+        },
+        {
+          trait_type: "Symbol",
+          value: licenseData.symbol || 'N/A'
         }
-      ]
+      ],
+      created_at: new Date().toISOString(),
+      fallback: true,
+      licenseId: licenseId
     }
   },
 
   /**
-   * Create NFT metadata for minting (inherits from license but adds NFT-specific data)
-   * @param {Object} licenseMetadata - Original license metadata
-   * @param {string} licenseId - License ID
-   * @param {string} nftId - NFT ID (if known)
-   * @returns {Object} NFT metadata object
+   * Enhanced fetch metadata with Pinata support
+   * @param {string} uri - The metadata URI
+   * @returns {Promise<Object>} - The fetched metadata
    */
-  createNFTMetadata: (licenseMetadata, licenseId, nftId = null) => {
-    const nftMetadata = {
-      ...licenseMetadata,
-      name: `${licenseMetadata.name} License #${licenseId}`,
-      description: `${licenseMetadata.description} - This is a unique gaming license NFT.`,
-      attributes: [
-        ...licenseMetadata.attributes,
-        {
-          trait_type: "License ID",
-          value: licenseId
+  fetchMetadataEnhanced: async (uri) => {
+    try {
+      console.log('📋 Fetching metadata from URI:', uri)
+      
+      if (uri.startsWith('data:application/json;base64,')) {
+        // Handle base64 encoded metadata
+        const base64Data = uri.split(',')[1]
+        const decodedData = atob(base64Data)
+        const metadata = JSON.parse(decodedData)
+        console.log('✅ Metadata loaded from base64')
+        return metadata
+        
+      } else if (uri.startsWith('ipfs://')) {
+        // Handle IPFS URLs - use Pinata gateway
+        const config = getIPFSConfig()
+        const cid = uri.replace('ipfs://', '')
+        
+        // Try Pinata gateway first
+        try {
+          const pinataUrl = config.getUrl(cid)
+          const response = await fetch(pinataUrl)
+          if (response.ok) {
+            const metadata = await response.json()
+            console.log('✅ Metadata loaded from Pinata gateway')
+            return metadata
+          }
+        } catch (pinataError) {
+          console.warn('⚠️ Pinata gateway failed, trying public gateway')
         }
-      ]
+        
+        // Fallback to public IPFS gateway
+        const publicUrl = config.getPublicUrl(cid)
+        const response = await fetch(publicUrl)
+        if (!response.ok) {
+          throw new Error(`IPFS fetch failed: ${response.status}`)
+        }
+        
+        const metadata = await response.json()
+        console.log('✅ Metadata loaded from public IPFS gateway')
+        return metadata
+        
+      } else if (uri.startsWith('http')) {
+        // Handle HTTP URLs
+        const response = await fetch(uri)
+        if (!response.ok) {
+          throw new Error(`HTTP ${response.status}: ${response.statusText}`)
+        }
+        
+        const metadata = await response.json()
+        console.log('✅ Metadata loaded from HTTP')
+        return metadata
+        
+      } else {
+        throw new Error(`Unsupported URI format: ${uri}`)
+      }
+      
+    } catch (error) {
+      console.error('💥 Error fetching metadata:', error)
+      throw error
     }
+  },
 
-    if (nftId) {
-      nftMetadata.attributes.push({
-        trait_type: "NFT ID",
-        value: nftId
+  /**
+   * Shorten a URI for display purposes
+   * @param {string} uri - The URI to shorten
+   * @param {number} maxLength - Maximum length (default: 40)
+   * @returns {string} - Shortened URI
+   */
+  shortenURI: (uri, maxLength = 40) => {
+    if (!uri) return ''
+    if (uri.length <= maxLength) return uri
+    
+    const start = Math.floor((maxLength - 3) / 2)
+    const end = maxLength - 3 - start
+    
+    return `${uri.slice(0, start)}...${uri.slice(-end)}`
+  },
+
+  /**
+   * Shorten an address for display purposes
+   * @param {string} address - The address to shorten
+   * @returns {string} - Shortened address
+   */
+  shortenAddress: (address) => {
+    if (!address) return ''
+    return `${address.slice(0, 6)}...${address.slice(-4)}`
+  },
+
+  /**
+   * Create game license metadata
+   * @param {Object} gameData - The game data
+   * @param {string} imageCid - The image CID
+   * @returns {Object} - Game license metadata
+   */
+  createGameLicenseMetadata: (gameData, imageCid = null) => {
+    const attributes = [
+      {
+        trait_type: "Developer",
+        value: gameData.developer || 'Unknown'
+      },
+      {
+        trait_type: "Publisher", 
+        value: gameData.publisher || 'Unknown'
+      },
+      {
+        trait_type: "Platform",
+        value: gameData.platform || 'Unknown'
+      },
+      {
+        trait_type: "Genre",
+        value: gameData.genre || 'Unknown'
+      },
+      {
+        trait_type: "Symbol",
+        value: gameData.symbol || 'N/A'
+      }
+    ]
+
+    // Add fee attributes if present
+    if (gameData.developerFee) {
+      attributes.push({
+        trait_type: "Developer Fee",
+        value: gameData.developerFee,
+        display_type: "number"
+      })
+    }
+    
+    if (gameData.platformFee) {
+      attributes.push({
+        trait_type: "Platform Fee", 
+        value: gameData.platformFee,
+        display_type: "number"
       })
     }
 
-    return nftMetadata
-  },
-
-  /**
-   * Validate metadata object structure
-   * @param {Object} metadata - Metadata to validate
-   * @returns {boolean} True if valid
-   */
-  validateMetadata: (metadata) => {
-    if (!metadata || typeof metadata !== 'object') {
-      return false
+    const metadata = {
+      name: gameData.name,
+      description: gameData.description || `Gaming license for ${gameData.name}`,
+      external_url: gameData.externalUrl || gameData.youtubeUrl || '',
+      attributes,
+      license_type: "gaming",
+      version: "1.0",
+      created_at: new Date().toISOString()
     }
 
-    // Check required fields
-    if (!metadata.name || typeof metadata.name !== 'string') {
-      return false
-    }
-
-    if (metadata.description && typeof metadata.description !== 'string') {
-      return false
-    }
-
-    if (metadata.image && typeof metadata.image !== 'string') {
-      return false
-    }
-
-    if (metadata.attributes && !Array.isArray(metadata.attributes)) {
-      return false
-    }
-
-    // Validate attributes structure
-    if (metadata.attributes) {
-      for (const attr of metadata.attributes) {
-        if (!attr.trait_type || !attr.value) {
-          return false
-        }
-      }
-    }
-
-    return true
-  },
-
-  /**
-   * Check if a URI is an IPFS URI
-   * @param {string} uri - URI to check
-   * @returns {boolean} True if IPFS URI
-   */
-  isIPFSURI: (uri) => {
-    return uri && uri.startsWith('ipfs://')
-  },
-
-  /**
-   * Check if a URI is a data URI
-   * @param {string} uri - URI to check
-   * @returns {boolean} True if data URI
-   */
-  isDataURI: (uri) => {
-    return uri && uri.startsWith('data:')
-  },
-
-  /**
-   * Get a short display version of a URI
-   * @param {string} uri - URI to shorten
-   * @param {number} maxLength - Maximum length (default: 50)
-   * @returns {string} Shortened URI for display
-   */
-  shortenURI: (uri, maxLength = 50) => {
-    if (!uri || uri.length <= maxLength) {
-      return uri
-    }
-
-    if (uri.startsWith('ipfs://')) {
-      const hash = uri.replace('ipfs://', '')
-      return `ipfs://${hash.slice(0, 8)}...${hash.slice(-8)}`
-    }
-
-    if (uri.startsWith('http')) {
-      return `${uri.slice(0, maxLength - 3)}...`
-    }
-
-    return `${uri.slice(0, maxLength - 3)}...`
+    return MetadataUtils.createMetadata(metadata, imageCid)
   }
 }
+
+// Legacy exports
+export const createMetadata = MetadataUtils.createMetadata
+export const uploadMetadata = MetadataUtils.uploadMetadata
+export const fetchMetadata = MetadataUtils.fetchMetadataEnhanced // Use enhanced version
+export const normalizeImageUrls = MetadataUtils.normalizeImageUrls
+export const shortenURI = MetadataUtils.shortenURI
+export const shortenAddress = MetadataUtils.shortenAddress
+export const createFallbackMetadata = MetadataUtils.createFallbackMetadata
+export const createLicenseFallbackMetadata = MetadataUtils.createLicenseFallbackMetadata
+export const fetchMetadataEnhanced = MetadataUtils.fetchMetadataEnhanced
 
 export default MetadataUtils

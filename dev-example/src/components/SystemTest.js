@@ -4,7 +4,7 @@ import { useAccount } from 'wagmi'
 import { Button } from './ui/button'
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from './ui/card'
 import { useContract } from '../hooks/useContract'
-import { testIPFSConnection } from '../lib/ipfs'
+import { testPinataConnection } from '@/lib/pinata';
 import { CONTRACT_ADDRESSES, CONTRACTS } from '../lib/contracts'
 import { CheckCircle, AlertCircle, Loader2, Play, ExternalLink } from 'lucide-react'
 
@@ -63,7 +63,7 @@ export default function SystemTest() {
       name: 'IPFS Connection',
       description: 'Test IPFS upload functionality',
       test: async () => {
-        const result = await testIPFSConnection()
+        const result = await testPinataConnection()
         if (!result) throw new Error('IPFS connection failed')
         return { connected: true }
       }

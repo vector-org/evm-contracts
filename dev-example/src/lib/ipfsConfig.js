@@ -1,39 +1,101 @@
-export const IPFS_CONFIG = {
-  // Your Infura IPFS credentials
-  INFURA_PROJECT_ID: '2WCbZ8YpmuPxUtM6PzbFOfY5k4B',
-  INFURA_PROJECT_SECRET: 'c8b676d8bfe769b19d88d8c77a9bd1e2',
-  
-  // Primary gateway (Infura dedicated gateway) - REMOVED /ipfs from here
-  PRIMARY_GATEWAY: 'https://2WCbZ8YpmuPxUtM6PzbFOfY5k4B.ipfs.dweb.link',
-  
-  // Fallback gateways in order of preference - REMOVED /ipfs from all
-  FALLBACK_GATEWAYS: [
-    'https://gateway.pinata.cloud/ipfs',
-    'https://cloudflare-ipfs.com/ipfs', 
-    'https://dweb.link/ipfs',
-    'https://ipfs.io/ipfs'
-  ],
+import { 
+  pinata_client, 
+  getPinataUrl, 
+  getIPFSUrl, 
+  testPinataConnection 
+} from './pinata'
 
-  TIMEOUT: 10000,
-
-  RETRY_ATTEMPTS: 2
-}
-
+// Main configuration object - replaces the old IPFS config
 export const getIPFSConfig = () => {
-  const projectId = process.env.NEXT_PUBLIC_INFURA_PROJECT_ID || IPFS_CONFIG.INFURA_PROJECT_ID
-  const projectSecret = process.env.NEXT_PUBLIC_INFURA_PROJECT_SECRET || IPFS_CONFIG.INFURA_PROJECT_SECRET
-  
   return {
-    ...IPFS_CONFIG,
-    INFURA_PROJECT_ID: projectId,
-    INFURA_PROJECT_SECRET: projectSecret,
-    PRIMARY_GATEWAY: `https://${projectId}.ipfs.dweb.link`,
+    // Client instance
+    client: pinata_client,
     
-    ALL_GATEWAYS: [
-      `https://${projectId}.ipfs.dweb.link/ipfs`,
-      ...IPFS_CONFIG.FALLBACK_GATEWAYS
-    ]
+    // URL generation functions
+    getUrl: getPinataUrl,
+    getPublicUrl: getIPFSUrl,
+    
+    // Connection testing
+    testConnection: testPinataConnection,
+    
+    // Gateway URLs
+    gateway: process.env.NEXT_PUBLIC_PINATA_GATEWAY || "your-domain.mypinata.cloud",
+    publicGateway: "gateway.pinata.cloud",
+    
+    // Upload functions for backward compatibility
+    upload: {
+      file: async (file) => {
+        const result = await pinata_client.upload.public.file(file)
+        return {
+          hash: result.cid,
+          cid: result.cid,
+          path: result.cid, // For backward compatibility
+          url: await pinata_client.gateways.public.convert(result.cid)
+        }
+      },
+      
+      json: async (data) => {
+        const result = await pinata_client.upload.public.json(data)
+        return {
+          hash: result.cid,
+          cid: result.cid,
+          path: result.cid, // For backward compatibility
+          url: await pinata_client.gateways.public.convert(result.cid)
+        }
+      },
+      
+      data: async (data) => {
+        let result
+        if (typeof data === 'string') {
+          result = await pinata_client.upload.public.json({ content: data })
+        } else if (data instanceof File || data instanceof Blob) {
+          result = await pinata_client.upload.public.file(data)
+        } else {
+          result = await pinata_client.upload.public.json(data)
+        }
+        
+        return {
+          hash: result.cid,
+          cid: result.cid,
+          path: result.cid, // For backward compatibility
+          url: await pinata_client.gateways.public.convert(result.cid)
+        }
+      }
+    },
+    
+    // Utility functions
+    utils: {
+      isValidCid: (cid) => {
+        // Basic CID validation - starts with Qm (v0) or b (v1)
+        return typeof cid === 'string' && (cid.startsWith('Qm') || cid.startsWith('b'))
+      },
+      
+      convertIpfsUrl: (url) => {
+        if (url.startsWith('ipfs://')) {
+          const cid = url.replace('ipfs://', '')
+          return getPinataUrl(cid)
+        }
+        return url
+      },
+      
+      extractCidFromUrl: (url) => {
+        const ipfsMatch = url.match(/\/ipfs\/([^/?]+)/)
+        return ipfsMatch ? ipfsMatch[1] : null
+      }
+    }
   }
 }
 
-export default IPFS_CONFIG
+// Legacy exports for backward compatibility
+export const ipfsConfig = getIPFSConfig()
+export const ipfs_client = pinata_client
+
+// Export individual functions that might be imported directly
+export { 
+  getPinataUrl as getIPFSUrl,
+  getIPFSUrl as getPublicIPFSUrl,
+  testPinataConnection as testIPFSConnection,
+  pinata_client
+}
+
+export default getIPFSConfig
