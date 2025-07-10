@@ -10,12 +10,13 @@
   },
   "dependencies": {
     "@openzeppelin/contracts": "^4.7.0",
-    "dotenv": "^17.0.1",
+    "dotenv": "^17.1.0",
     "husky": "^9.1.7"
   },
   "scripts": {
     "prepare": "husky",
     "compile": "npx hardhat compile",
+    "deploy:master": "npx hardhat ignition deploy './ignition/modules/MasterDeployment.js' --network sepolia",
     "deploy:license": "npx hardhat ignition deploy './ignition/modules/LicenseContract.js' --network sepolia",
     "deploy:license-factory": "npx hardhat ignition deploy './ignition/modules/LicenseFactory.js' --network sepolia",
     "deploy:primary-marketplace": "npx hardhat ignition deploy './ignition/modules/PrimaryMarketPlace.js' --network sepolia",
