@@ -1,32 +1,35 @@
-import { Geist, Geist_Mono } from "next/font/google";
-import "./globals.css";
+import { Geist, Geist_Mono } from "next/font/google"
+import "./globals.css"
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
   subsets: ["latin"],
-});
+})
 
 const geistMono = Geist_Mono({
   variable: "--font-geist-mono",
   subsets: ["latin"],
-});
+})
 
 export const metadata = {
   title: "Vector - Gaming License Platform",
   description: "Create, trade and manage gaming licenses as NFTs on the blockchain",
-  keywords: "gaming, nft, blockchain, licenses, web3, ethereum",
+  keywords: ["gaming", "nft", "blockchain", "licenses", "web3", "ethereum"],
   authors: [{ name: "Vector Team" }],
-  viewport: "width=device-width, initial-scale=1",
-  themeColor: "#3b82f6",
-  icons: {
-    icon: "/favicon.ico",
-    apple: "/apple-touch-icon.png",
+  creator: "Vector Team",
+  publisher: "Vector",
+  formatDetection: {
+    email: false,
+    address: false,
+    telephone: false,
   },
+  metadataBase: new URL('https://playonvector.com'),
   openGraph: {
     title: "Vector - Gaming License Platform",
     description: "Create, trade and manage gaming licenses as NFTs on the blockchain",
     type: "website",
-    url: "https://vector.dev",
+    locale: "en_US",
+    url: "/",
     siteName: "Vector",
     images: [
       {
@@ -43,7 +46,25 @@ export const metadata = {
     description: "Create, trade and manage gaming licenses as NFTs on the blockchain",
     images: ["/og-image.png"],
   },
-};
+  icons: {
+    icon: [
+      { url: "/favicon.ico" },
+      { url: "/icon-16x16.png", sizes: "16x16", type: "image/png" },
+      { url: "/icon-32x32.png", sizes: "32x32", type: "image/png" },
+    ],
+    apple: [
+      { url: "/apple-touch-icon.png" },
+    ],
+  },
+  manifest: "/manifest.json",
+}
+
+export const viewport = {
+  width: 'device-width',
+  initialScale: 1,
+  maximumScale: 1,
+  themeColor: '#3b82f6',
+}
 
 export default function RootLayout({ children }) {
   return (
@@ -56,5 +77,5 @@ export default function RootLayout({ children }) {
         </div>
       </body>
     </html>
-  );
+  )
 }
