@@ -1,5 +1,5 @@
 import { useReadContract, useWriteContract } from 'wagmi'
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { CONTRACTS } from '../lib/contracts'
 
 export function useContract() {
@@ -44,6 +44,19 @@ export function useContract() {
       address: CONTRACTS.FACTORY.address,
       abi: CONTRACTS.FACTORY.abi,
       functionName: 'getLicenseFromID',
+      args: [licenseId],
+      query: {
+        enabled: !!licenseId,
+      }
+    })
+  }
+
+  // Helper function to get license URI directly
+  const useGetLicenseURI = (licenseId) => {
+    return useReadContract({
+      address: CONTRACTS.FACTORY.address,
+      abi: CONTRACTS.FACTORY.abi,
+      functionName: 'getLicenseURI',
       args: [licenseId],
       query: {
         enabled: !!licenseId,
@@ -97,6 +110,18 @@ export function useContract() {
     })
   }
 
+  const useGetUserTokens = (userAddress) => {
+    return useReadContract({
+      address: CONTRACTS.PRIMARY_MARKETPLACE.address,
+      abi: CONTRACTS.PRIMARY_MARKETPLACE.abi,
+      functionName: 'getUserTokens',
+      args: [userAddress],
+      query: {
+        enabled: !!userAddress,
+      }
+    })
+  }
+
   // Secondary Marketplace Functions
   const useCreateOffer = () => {
     const { writeContractAsync, isPending, error } = useWriteContract()
@@ -126,30 +151,22 @@ export function useContract() {
   const useAcceptOffer = () => {
     const { writeContractAsync, isPending, error } = useWriteContract()
     
-    const acceptOffer = async (tokenId, exactPrice) => {
-      console.log('🔧 useAcceptOffer called with:', { 
-        tokenId, 
-        exactPrice: exactPrice.toString(),
-        exactPriceType: typeof exactPrice 
-      })
+    const acceptOffer = async (tokenId, value) => {
+      console.log('🔧 useAcceptOffer called with:', { tokenId, value })
       
       try {
-        // CRITICAL FIX: Ensure we're sending the exact BigInt price
-        // Do not format or convert - use the raw BigInt value from the offer
         const hash = await writeContractAsync({
           address: CONTRACTS.SECONDARY_MARKETPLACE.address,
           abi: CONTRACTS.SECONDARY_MARKETPLACE.abi,
           functionName: 'acceptOffer',
           args: [tokenId],
-          value: exactPrice // This should be the exact BigInt value from offer.price
+          value: value
         })
         
         console.log('✅ Accept offer transaction hash received:', hash)
-        console.log('💰 Sent exact price (wei):', exactPrice.toString())
         return hash
       } catch (error) {
         console.error('💥 Accept offer failed in hook:', error)
-        console.error('💰 Failed with price (wei):', exactPrice.toString())
         throw error
       }
     }
@@ -158,13 +175,11 @@ export function useContract() {
   }
 
   const useGetOpenOffers = () => {
-    const data = useReadContract({
+    return useReadContract({
       address: CONTRACTS.SECONDARY_MARKETPLACE.address,
       abi: CONTRACTS.SECONDARY_MARKETPLACE.abi,
       functionName: 'getOpenOffers',
     })
-    console.log('📊 Open offers data:', data)
-    return data
   }
 
   const useRemoveOffer = () => {
@@ -196,15 +211,15 @@ export function useContract() {
   const useApprove = () => {
     const { writeContractAsync, isPending, error } = useWriteContract()
     
-    const approve = async (licenseAddress, spender, tokenId) => {
-      console.log('🔧 useApprove called with:', { licenseAddress, spender, tokenId })
+    const approve = async (contractAddress, to, tokenId) => {
+      console.log('🔧 useApprove called with:', { contractAddress, to, tokenId })
       
       try {
         const hash = await writeContractAsync({
-          address: licenseAddress,
+          address: contractAddress,
           abi: CONTRACTS.LICENSE.abi,
           functionName: 'approve',
-          args: [spender, tokenId]
+          args: [to, tokenId]
         })
         
         console.log('✅ Approve transaction hash received:', hash)
@@ -218,52 +233,102 @@ export function useContract() {
     return { approve, isPending, error }
   }
 
-  const useGetApproved = (licenseAddress, tokenId) => {
+  const useGetApproved = (contractAddress, tokenId) => {
     return useReadContract({
-      address: licenseAddress,
+      address: contractAddress,
       abi: CONTRACTS.LICENSE.abi,
       functionName: 'getApproved',
       args: [tokenId],
       query: {
-        enabled: !!(licenseAddress && tokenId),
+        enabled: !!(contractAddress && tokenId),
       }
     })
   }
 
-  const useOwnerOf = (licenseAddress, tokenId) => {
+  const useOwnerOf = (contractAddress, tokenId) => {
     return useReadContract({
-      address: licenseAddress,
+      address: contractAddress,
       abi: CONTRACTS.LICENSE.abi,
       functionName: 'ownerOf',
       args: [tokenId],
       query: {
-        enabled: !!(licenseAddress && tokenId),
+        enabled: !!(contractAddress && tokenId),
       }
     })
   }
 
-  const useTokenURI = (licenseAddress, tokenId) => {
+  const useTokenURI = (contractAddress, tokenId) => {
     return useReadContract({
-      address: licenseAddress,
+      address: contractAddress,
       abi: CONTRACTS.LICENSE.abi,
       functionName: 'tokenURI',
       args: [tokenId],
       query: {
-        enabled: !!(licenseAddress && tokenId),
+        enabled: !!(contractAddress && tokenId),
       }
     })
   }
 
-  const useGetUserTokens = (userAddress) => {
+  // Function to get license token URI for marketplace display
+  const useGetLicenseTokenURI = (contractAddress, licenseId) => {
     return useReadContract({
-      address: CONTRACTS.PRIMARY_MARKETPLACE.address,
-      abi: CONTRACTS.PRIMARY_MARKETPLACE.abi,
-      functionName: 'getUserTokens',
-      args: [userAddress],
+      address: contractAddress,
+      abi: CONTRACTS.LICENSE.abi,
+      functionName: 'tokenURI',
+      args: [licenseId],
       query: {
-        enabled: !!userAddress,
+        enabled: !!(contractAddress && licenseId),
       }
     })
+  }
+
+  // Check if user owns a specific license using existing contract functions
+  const useCheckUserOwnsLicense = (userAddress, licenseId) => {
+    const { data: userTokens } = useGetUserTokens(userAddress)
+    
+    // Custom hook logic to check ownership
+    const [ownsLicense, setOwnsLicense] = useState(false)
+    const [checkingOwnership, setCheckingOwnership] = useState(false)
+    
+    useEffect(() => {
+      const checkOwnership = async () => {
+        if (!userTokens || !licenseId || !userAddress) {
+          setOwnsLicense(false)
+          return
+        }
+        
+        setCheckingOwnership(true)
+        
+        try {
+          // Check each user token to see if it corresponds to this license
+          for (const tokenId of userTokens) {
+            try {
+              // This would need to be implemented based on your contract structure
+              // For now, we'll use a simpler approach with metadata parsing
+              const nftDetails = await fetch(`/api/nft-details/${tokenId}`)
+              if (nftDetails.licenseId === licenseId) {
+                setOwnsLicense(true)
+                setCheckingOwnership(false)
+                return
+              }
+            } catch (error) {
+              console.log(`Error checking token ${tokenId}:`, error)
+            }
+          }
+          
+          setOwnsLicense(false)
+        } catch (error) {
+          console.error('Error checking license ownership:', error)
+          setOwnsLicense(false)
+        } finally {
+          setCheckingOwnership(false)
+        }
+      }
+      
+      checkOwnership()
+    }, [userTokens, licenseId, userAddress])
+    
+    return { ownsLicense, checkingOwnership }
   }
 
   return {
@@ -273,20 +338,23 @@ export function useContract() {
     useCreateLicense,
     useGetAllLicenseIds,
     useGetLicenseFromID,
+    useGetLicenseURI,
     // Primary Marketplace
     useMintLicense,
     useGetAllNFTIds,
     useGetNFTDetails,
+    useGetUserTokens,
+    useCheckUserOwnsLicense,
     // Secondary Marketplace
     useCreateOffer,
     useAcceptOffer,
     useGetOpenOffers,
     useRemoveOffer,
-    useGetUserTokens,
     // License Contract
     useApprove,
     useGetApproved,
     useOwnerOf,
     useTokenURI,
+    useGetLicenseTokenURI,
   }
 }

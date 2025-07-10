@@ -3,7 +3,7 @@ pragma solidity ^0.8.28;
 
 import {ILicenseContract} from "./interfaces/ILicenseContract.sol";
 import {ILicenseFactory} from "./interfaces/ILicenseFactory.sol";
-import {Counters} from "@openzeppelin/contracts/utils/Counters.sol";
+import {Counters} from "./utils/Counters.sol";
 import {Addresses} from "./constants/Addresses.sol";
 import {GameNFT} from "./types/Types.sol";
 import {onlyAdmin, onlyOwner} from "./errors/Common.sol";
@@ -59,7 +59,7 @@ contract PrimaryMarketPlace is Addresses {
         ILicenseFactory licenseFactory = ILicenseFactory(factory);
         ILicenseFactory.License memory License = licenseFactory
             .getLicenseFromID(licenseId);
-        if (License.isActive) {
+        if (License.isActive == false) {
             revert licenseNotActive(licenseId);
         }
         address licenseAddress = License.contractAddress;

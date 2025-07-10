@@ -3,7 +3,7 @@ pragma solidity ^0.8.28;
 
 import {LicenseContract} from "./LicenseContract.sol";
 import {ILicenseContract} from "./interfaces/ILicenseContract.sol";
-import {Counters} from "@openzeppelin/contracts/utils/Counters.sol";
+import {Counters} from "./utils/Counters.sol";
 import {Addresses} from "./constants/Addresses.sol";
 import {License, LicenseInput} from "./types/Types.sol";
 import {onlyAdmin, onlyCoordinator, onlyOwner} from "./errors/Common.sol";
@@ -86,6 +86,7 @@ contract LicenseFactory is Addresses {
         licenseSlot.coordinator = Addresses.ADMINISTRATOR;
         licenseSlot.name = licenseInput.name;
         licenseSlot.symbol = licenseInput.symbol;
+        licenseSlot.uri = licenseInput.uri;
         licenseSlot.isActive = licenseInput.isActive;
         licenseSlot.timestamp = block.timestamp;
         licenseSlot.developerFee = licenseInput.developerFee;

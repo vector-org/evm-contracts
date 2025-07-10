@@ -4,10 +4,11 @@ import { useAccount } from 'wagmi'
 import { Button } from './ui/button'
 import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from './ui/card'
 import { useContract } from '../hooks/useContract'
-import { useTransactions, useTransactionWatcher } from '../hooks/useTransactions'
+import { useLicenseMetadata } from '../hooks/useMetadata'
+import { useSimpleTransactions, useSimpleTransactionWatcher } from '../hooks/useSimpleTransactionWatcher'
 import { formatEther, shortenAddress } from '../lib/utils'
-import { CONTRACT_ADDRESSES, CONTRACTS } from '../lib/contracts'
-import { Loader2, ShoppingCart, ExternalLink, User, Calendar, Coins, AlertTriangle } from 'lucide-react'
+import { MetadataUtils } from '../lib/metadataUtils'
+import { Loader2, ShoppingCart, ExternalLink, User, Calendar, Coins, AlertTriangle, RefreshCw, CheckCircle } from 'lucide-react'
 
 export default function LicenseMarketplace() {
   const { address, isConnected } = useAccount()
@@ -15,9 +16,9 @@ export default function LicenseMarketplace() {
     useGetAllLicenseIds, 
     useGetLicenseFromID, 
     useMintLicense,
-    useGetLicenseTokenURI // You'll need to add this to your useContract hook
+    useCheckUserOwnsLicense
   } = useContract()
-  const { addTransaction } = useTransactions()
+  const { addTransaction, updateTransaction } = useSimpleTransactions()
 
   const [licenses, setLicenses] = useState([])
   const [loading, setLoading] = useState(true)
@@ -27,197 +28,71 @@ export default function LicenseMarketplace() {
   const { data: licenseIds, isLoading: loadingIds, refetch: refetchLicenseIds } = useGetAllLicenseIds()
   const { mintLicense, isPending: isMintPending } = useMintLicense()
 
-  useTransactionWatcher(
+  // Simple transaction watcher
+  useSimpleTransactionWatcher(
     currentTxHash,
     useCallback((receipt) => {
-      console.log('🎉 License minted successfully!', {
-        transactionHash: currentTxHash,
-        receipt: receipt
-      })
+      console.log('🎉 License minted successfully!', receipt)
+      updateTransaction(currentTxHash, { status: 'success', receipt })
       setMintingLicense(null)
       setCurrentTxHash(null)
-      
-      // Refresh the data after successful mint
-      setTimeout(() => {
-        refetchLicenseIds()
-      }, 2000)
-    }, [currentTxHash, refetchLicenseIds]),
-    useCallback(() => {
-      console.error('💥 License minting failed:', currentTxHash)
+      // Refresh license data
+      setTimeout(() => refetchLicenseIds(), 2000)
+    }, [currentTxHash, updateTransaction, refetchLicenseIds]),
+    useCallback((error) => {
+      console.error('💥 License mint failed', error)
+      updateTransaction(currentTxHash, { status: 'error', error: error.message })
       setMintingLicense(null)
       setCurrentTxHash(null)
-    }, [currentTxHash])
+    }, [currentTxHash, updateTransaction])
   )
 
+  // Load licenses
+  useEffect(() => {
+    if (licenseIds?.length > 0) {
+      setLicenses(licenseIds.map(id => id.toString()))
+      setLoading(false)
+    } else if (!loadingIds) {
+      setLoading(false)
+    }
+  }, [licenseIds, loadingIds])
+
   const LicenseCard = ({ licenseId }) => {
-    const { data: licenseData, isLoading } = useGetLicenseFromID(licenseId)
+    const { data: licenseData, isLoading: isLoadingLicense } = useGetLicenseFromID(licenseId)
+    const { ownsLicense, isChecking: checkingOwnership } = useCheckUserOwnsLicense(address, licenseId)
     
-    // If you haven't implemented useGetLicenseTokenURI yet, comment out this line
-    // const { data: tokenURI } = useGetLicenseTokenURI(licenseData?.contractAddress, licenseId)
-    
-    const [metadata, setMetadata] = useState(null)
-    const [loadingMetadata, setLoadingMetadata] = useState(false)
-    const [metadataError, setMetadataError] = useState(null)
-    const [metadataLoaded, setMetadataLoaded] = useState(false)
-
-    // Memoize the metadata loading function to prevent recreation on every render
-    const loadMetadata = useCallback(async (uri) => {
-      if (!uri || loadingMetadata || metadataLoaded) return
-      
-      try {
-        setLoadingMetadata(true)
-        setMetadataError(null)
-        
-        console.log('📋 Loading metadata from URI:', uri)
-        
-        let fetchedMetadata = null
-        
-        if (uri.startsWith('data:application/json;base64,')) {
-          // Handle base64 encoded metadata
-          const base64Data = uri.split(',')[1]
-          const decodedData = atob(base64Data)
-          fetchedMetadata = JSON.parse(decodedData)
-          console.log('✅ Metadata loaded from base64:', fetchedMetadata)
-        } else if (uri.startsWith('http')) {
-          // Handle HTTP/IPFS URLs
-          const response = await fetch(uri)
-          if (response.ok) {
-            fetchedMetadata = await response.json()
-            console.log('✅ Metadata loaded from URL:', fetchedMetadata)
-          } else {
-            throw new Error(`HTTP ${response.status}: ${response.statusText}`)
-          }
-        } else if (uri.startsWith('ipfs://')) {
-          // Handle IPFS URLs - convert to HTTP gateway
-          const ipfsHash = uri.replace('ipfs://', '')
-          const ipfsUrl = `https://ipfs.io/ipfs/${ipfsHash}`
-          const response = await fetch(ipfsUrl)
-          if (response.ok) {
-            fetchedMetadata = await response.json()
-            console.log('✅ Metadata loaded from IPFS:', fetchedMetadata)
-          } else {
-            throw new Error(`IPFS fetch failed: ${response.status}`)
-          }
-        } else {
-          // Try direct fetch for other URI formats
-          const response = await fetch(uri)
-          if (response.ok) {
-            fetchedMetadata = await response.json()
-            console.log('✅ Metadata loaded from direct URI:', fetchedMetadata)
-          } else {
-            throw new Error(`Failed to fetch URI: ${response.status}`)
-          }
-        }
-
-        if (fetchedMetadata) {
-          // Ensure image URLs are properly formatted for IPFS
-          if (fetchedMetadata.image && fetchedMetadata.image.startsWith('ipfs://')) {
-            fetchedMetadata.image = fetchedMetadata.image.replace('ipfs://', 'https://ipfs.io/ipfs/')
-          }
-          
-          setMetadata(fetchedMetadata)
-          setMetadataLoaded(true)
-          console.log('✅ Metadata successfully loaded with image:', fetchedMetadata.image)
-        } else {
-          throw new Error('No metadata found in response')
-        }
-        
-      } catch (error) {
-        console.error('💥 Error loading metadata:', error)
-        setMetadataError(error.message)
-        
-        // Create fallback metadata from license data
-        if (licenseData) {
-          const fallbackMetadata = {
-            name: licenseData?.name || `License #${licenseId}`,
-            description: `Gaming license for ${licenseData?.name || `License ${licenseId}`} (${licenseData?.symbol || 'N/A'})`,
-            image: null, // Will be null if we can't fetch from IPFS
-            attributes: [
-              {
-                trait_type: "Developer",
-                value: shortenAddress(licenseData.developer)
-              },
-              {
-                trait_type: "Publisher", 
-                value: shortenAddress(licenseData.publisher)
-              },
-              {
-                trait_type: "Platform",
-                value: shortenAddress(licenseData.platform)
-              },
-              {
-                trait_type: "Active",
-                value: licenseData.isActive ? "Yes" : "No"
-              }
-            ]
-          }
-          
-          setMetadata(fallbackMetadata)
-          setMetadataLoaded(true)
-          console.log('🔄 Set fallback metadata due to error:', fallbackMetadata)
-        }
-      } finally {
-        setLoadingMetadata(false)
+    // Create stable license data for the hook to prevent re-renders
+    const stableLicenseData = useMemo(() => {
+      if (!licenseData) return null
+      return {
+        ...licenseData,
+        id: licenseId
       }
-    }, [licenseData, licenseId, loadingMetadata, metadataLoaded]) // Fixed dependencies
+    }, [licenseData, licenseId])
 
-    // Create basic metadata when license data is available
-    const createBasicMetadata = useCallback(() => {
-      if (!licenseData || metadata || loadingMetadata || metadataLoaded) return
-      
-      const basicMetadata = {
-        name: licenseData.name || `License #${licenseId}`,
-        description: `Gaming license for ${licenseData.name || `License ${licenseId}`} (${licenseData.symbol || 'N/A'})`,
-        image: null,
-        attributes: [
-          {
-            trait_type: "Developer",
-            value: shortenAddress(licenseData.developer)
-          },
-          {
-            trait_type: "Publisher", 
-            value: shortenAddress(licenseData.publisher)
-          },
-          {
-            trait_type: "Platform",
-            value: shortenAddress(licenseData.platform)
-          },
-          {
-            trait_type: "Active",
-            value: licenseData.isActive ? "Yes" : "No"
-          }
-        ]
-      }
-      
-      setMetadata(basicMetadata)
-      setMetadataLoaded(true)
-      console.log('📋 Created basic metadata:', basicMetadata)
-    }, [licenseData, licenseId, metadata, loadingMetadata, metadataLoaded])
+    const { metadata, loading: loadingMetadata, error: metadataError, retry } = useLicenseMetadata(stableLicenseData)
 
-    // Fixed useEffect with proper dependency management
+    // Define state variables first - simplified logic
+    const hasMetadata = !!metadata
+    const hasImage = hasMetadata && !!metadata.image
+    const showMetadataLoading = loadingMetadata
+    const hasMetadataError = !!metadataError
+
+    // Debug log to track metadata changes and ownership
     useEffect(() => {
-      if (!licenseData?.contractAddress || metadataLoaded) return
-      
-      // If you have implemented useGetLicenseTokenURI and have tokenURI available:
-      // if (tokenURI) {
-      //   loadMetadata(tokenURI)
-      //   return
-      // }
-      
-      // For now, check if there's a way to get metadata URI from your contract
-      let potentialURI = null
-      
-      // Check if your license creation process stores metadata URI somewhere
-      // This is a placeholder - adapt based on your contract implementation
-      // potentialURI = licenseData.metadataURI
-      
-      if (potentialURI) {
-        loadMetadata(potentialURI)
-      } else {
-        // Create basic metadata if no URI is available
-        createBasicMetadata()
-      }
-    }, [licenseData?.contractAddress, metadataLoaded, loadMetadata, createBasicMetadata]) // Simplified dependencies
+      console.log(`🎯 License ${licenseId} state:`, {
+        loadingMetadata,
+        hasMetadata,
+        hasImage,
+        metadataName: metadata?.name,
+        metadataImage: metadata?.image,
+        imageUrl: metadata?.image,
+        ownsLicense,
+        checkingOwnership,
+        licenseContract: licenseData?.contractAddress,
+        userAddress: address
+      })
+    }, [metadata, loadingMetadata, licenseId, hasMetadata, hasImage, ownsLicense, checkingOwnership, licenseData?.contractAddress, address])
 
     const handleMint = useCallback(async () => {
       if (!isConnected) {
@@ -225,67 +100,41 @@ export default function LicenseMarketplace() {
         return
       }
 
+      if (!licenseData) {
+        alert('License data not loaded')
+        return
+      }
+
       try {
         console.log('🚀 Starting mint process for license:', licenseId)
         setMintingLicense(licenseId)
         
-        // Create metadata for the NFT
-        const nftMetadata = {
-          name: `${licenseData.name} License`,
-          description: `Gaming license NFT for ${licenseData.name}`,
-          image: metadata?.image || "https://via.placeholder.com/400x400/3b82f6/ffffff?text=Gaming+License",
-          attributes: [
-            {
-              trait_type: "Game",
-              value: licenseData.name
-            },
-            {
-              trait_type: "Symbol",
-              value: licenseData.symbol
-            },
-            {
-              trait_type: "License ID",
-              value: licenseId.toString()
-            },
-            {
-              trait_type: "Developer",
-              value: licenseData.developer
-            }
-          ],
-          external_url: "",
-          animation_url: ""
+        // Use the license URI from the factory data as the NFT metadata URI
+        let nftURI = licenseData.uri || ''
+        
+        if (!nftURI) {
+          console.warn('⚠️ No URI available for license, minting without metadata')
         }
-
-        // Use data URI for metadata
-        const metadataURI = `data:application/json;base64,${btoa(JSON.stringify(nftMetadata))}`
         
-        console.log('📤 Minting with metadata URI:', metadataURI)
+        console.log('📤 Minting with URI:', nftURI)
         
-        const txHash = await mintLicense(licenseId, address, metadataURI)
-
-        console.log('📝 Mint transaction submitted successfully:', txHash)
-        console.log('🔗 View on Etherscan:', `https://sepolia.etherscan.io/tx/${txHash}`)
+        const hash = await mintLicense(licenseId, address, nftURI)
         
-        setCurrentTxHash(txHash)
-
+        console.log('✅ Mint transaction submitted:', hash)
+        setCurrentTxHash(hash)
+        
         addTransaction(
-          txHash,
+          hash,
           `Minting license: ${licenseData.name}`,
           'mint-license'
         )
-
-      } catch (error) {
-        console.error('💥 Error minting license:', {
-          licenseId,
-          error: error.message,
-          stack: error.stack
-        })
         
+      } catch (error) {
+        console.error('💥 Mint failed:', error)
         setMintingLicense(null)
         
-        // Show user-friendly error message
-        if (error.message.includes('User rejected') || error.message.includes('user rejected')) {
-          alert('Transaction was cancelled by user')
+        if (error.message.includes('User rejected')) {
+          alert('Transaction cancelled by user')
         } else if (error.message.includes('insufficient funds')) {
           alert('Insufficient funds for transaction')
         } else if (error.message.includes('License is not active')) {
@@ -294,9 +143,10 @@ export default function LicenseMarketplace() {
           alert(`Error minting license: ${error.message}`)
         }
       }
-    }, [isConnected, licenseId, licenseData, address, mintLicense, addTransaction, metadata])
+    }, [isConnected, licenseId, licenseData, address, mintLicense, addTransaction])
 
-    if (isLoading || (loadingMetadata && !metadata)) {
+    // Loading state
+    if (isLoadingLicense) {
       return (
         <Card className="animate-pulse">
           <div className="h-48 bg-gray-200 rounded-t-lg"></div>
@@ -311,62 +161,140 @@ export default function LicenseMarketplace() {
       )
     }
 
+    // Don't show inactive licenses
     if (!licenseData || !licenseData.isActive) {
-      return null // Don't show inactive licenses
+      return null
     }
 
     return (
-      <Card className="overflow-hidden hover:shadow-lg transition-shadow">
-        <div className="h-48 bg-gradient-to-br from-blue-100 to-purple-100 flex items-center justify-center relative">
-          {metadata?.image ? (
+      <Card className="overflow-hidden hover:shadow-lg transition-shadow h-full flex flex-col">
+        <div className="h-48 bg-gradient-to-br from-blue-100 to-purple-100 flex items-center justify-center relative flex-shrink-0">
+          {/* Debug: Show current state */}
+          <div className="absolute top-2 left-2 bg-black/70 text-white text-xs p-1 rounded z-10">
+            M:{hasMetadata ? '✓' : '✗'} I:{hasImage ? '✓' : '✗'} L:{loadingMetadata ? '⏳' : '✓'} O:{ownsLicense ? '✓' : '✗'}
+          </div>
+          
+          {hasImage ? (
             <img 
               src={metadata.image} 
-              alt={licenseData.name}
+              alt={metadata.name || licenseData.name}
               className="w-full h-full object-cover"
+              onLoad={() => {
+                console.log('✅ Image loaded successfully:', metadata.image)
+              }}
               onError={(e) => {
-                console.log('🖼️ Image failed to load:', metadata.image)
+                console.log('❌ Primary image URL failed:', metadata.image)
+                
+                // Try fallback gateways for images
+                const currentSrc = e.target.src
+                const allGateways = MetadataUtils.getIPFSGateways()
+                
+                // Extract IPFS hash from current URL
+                const hashMatch = currentSrc.match(/\/ipfs\/([^\/]+)/)
+                if (hashMatch) {
+                  const hash = hashMatch[1]
+                  
+                  // Find current gateway and try next one
+                  let currentGatewayIndex = -1
+                  for (let i = 0; i < allGateways.length; i++) {
+                    if (currentSrc.includes(allGateways[i].replace('https://', '').replace('/ipfs', ''))) {
+                      currentGatewayIndex = i
+                      break
+                    }
+                  }
+                  
+                  const nextGatewayIndex = currentGatewayIndex + 1
+                  if (nextGatewayIndex < allGateways.length) {
+                    const fallbackUrl = `${allGateways[nextGatewayIndex]}/${hash}`
+                    console.log('🔄 Trying fallback image gateway:', fallbackUrl)
+                    e.target.src = fallbackUrl
+                    return // Try the fallback
+                  }
+                }
+                
+                console.log('❌ All image gateways failed, hiding image')
                 e.target.style.display = 'none'
-                e.target.nextSibling.style.display = 'flex'
+                document.querySelector(`#fallback-${licenseId}`).style.display = 'flex'
               }}
             />
           ) : null}
           
-          {/* Fallback display when no image or image fails to load */}
-          <div className={`text-center ${metadata?.image ? 'hidden' : 'flex'} flex-col items-center justify-center w-full h-full`}>
+          {/* Fallback display */}
+          <div 
+            id={`fallback-${licenseId}`}
+            className={`text-center flex flex-col items-center justify-center w-full h-full ${hasImage ? 'hidden' : ''}`}
+          >
             <ShoppingCart className="h-12 w-12 text-gray-400 mx-auto mb-2" />
             <p className="text-gray-500 text-sm">Gaming License</p>
+            {showMetadataLoading && (
+              <div className="mt-2">
+                <Loader2 className="h-4 w-4 animate-spin mx-auto" />
+                <p className="text-xs text-gray-400 mt-1">Loading metadata...</p>
+              </div>
+            )}
+            {hasMetadata && !hasImage && (
+              <p className="text-xs text-gray-400 mt-1">No image available</p>
+            )}
           </div>
           
           {/* License ID Badge */}
           <div className="absolute top-2 right-2 bg-white/90 backdrop-blur-sm px-2 py-1 rounded-full text-xs font-medium">
             #{licenseId}
           </div>
+          
+          {/* Metadata Status Badge */}
+          {licenseData.uri && (
+            <div className={`absolute bottom-2 left-2 backdrop-blur-sm px-2 py-1 rounded-full text-xs font-medium ${
+              showMetadataLoading 
+                ? 'bg-yellow-100/90 text-yellow-800' 
+                : hasMetadataError 
+                  ? 'bg-red-100/90 text-red-800' 
+                  : hasMetadata
+                    ? 'bg-green-100/90 text-green-800'
+                    : 'bg-gray-100/90 text-gray-800'
+            }`}>
+              {showMetadataLoading ? (
+                <div className="flex items-center">
+                  <Loader2 className="h-3 w-3 animate-spin mr-1" />
+                  Loading...
+                </div>
+              ) : hasMetadataError ? (
+                'Error'
+              ) : hasMetadata ? (
+                'Metadata ✓'
+              ) : (
+                'No Metadata'
+              )}
+            </div>
+          )}
         </div>
         
-        <CardHeader>
+        <CardHeader className="flex-shrink-0">
           <CardTitle className="flex items-center justify-between">
-            <span className="truncate">{licenseData.name}</span>
-            <span className="text-sm font-normal text-gray-500 ml-2">
+            <span className="truncate">
+              {hasMetadata ? metadata.name : licenseData.name}
+            </span>
+            <span className="text-sm font-normal text-gray-500 ml-2 flex-shrink-0">
               {licenseData.symbol}
             </span>
           </CardTitle>
-          <CardDescription>
-            {metadata?.description || `Gaming license for ${licenseData.name}`}
+          <CardDescription className="line-clamp-2">
+            {hasMetadata ? metadata.description : `Gaming license for ${licenseData.name}`}
           </CardDescription>
         </CardHeader>
 
-        <CardContent className="space-y-4">
+        <CardContent className="space-y-4 flex-grow">
           <div className="grid grid-cols-2 gap-4 text-sm">
             <div className="flex items-center space-x-2">
-              <User className="h-4 w-4 text-gray-400" />
-              <div>
+              <User className="h-4 w-4 text-gray-400 flex-shrink-0" />
+              <div className="min-w-0">
                 <p className="text-gray-500">Developer</p>
-                <p className="font-medium">{shortenAddress(licenseData.developer)}</p>
+                <p className="font-medium truncate">{shortenAddress(licenseData.developer)}</p>
               </div>
             </div>
             <div className="flex items-center space-x-2">
-              <Calendar className="h-4 w-4 text-gray-400" />
-              <div>
+              <Calendar className="h-4 w-4 text-gray-400 flex-shrink-0" />
+              <div className="min-w-0">
                 <p className="text-gray-500">Created</p>
                 <p className="font-medium">
                   {new Date(Number(licenseData.timestamp) * 1000).toLocaleDateString()}
@@ -375,105 +303,134 @@ export default function LicenseMarketplace() {
             </div>
           </div>
 
-          <div className="border-t pt-3">
-            <div className="flex items-center justify-between text-sm">
-              <span className="text-gray-500">Fee Structure</span>
-              <div className="text-right space-y-1">
-                <div className="flex items-center space-x-1 text-xs">
-                  <Coins className="h-3 w-3" />
-                  <span>Dev: {formatEther(licenseData.developerFee)} ETH</span>
-                </div>
-                <div className="flex items-center space-x-1 text-xs">
-                  <Coins className="h-3 w-3" />
-                  <span>Platform: {formatEther(licenseData.platformFee)} ETH</span>
-                </div>
-                <div className="flex items-center space-x-1 text-xs">
-                  <Coins className="h-3 w-3" />
-                  <span>Publisher: {formatEther(licenseData.publisherFee)} ETH</span>
+          {/* URI Information */}
+          {licenseData.uri && (
+            <div className="border-t pt-3">
+              <div className="flex items-center justify-between text-sm">
+                <span className="text-gray-500">Metadata</span>
+                <div className="flex items-center space-x-2">
+                  <span className="font-mono text-xs bg-gray-100 px-2 py-1 rounded truncate max-w-24">
+                    {MetadataUtils.shortenURI(licenseData.uri, 20)}
+                  </span>
+                  {MetadataUtils.isIPFSURI(licenseData.uri) && (
+                    <span className="text-xs bg-purple-100 text-purple-800 px-2 py-1 rounded">
+                      IPFS
+                    </span>
+                  )}
                 </div>
               </div>
             </div>
+          )}
+
+          <div className="border-t pt-3">
+            <div className="flex items-center justify-between text-sm">
+              <span className="text-gray-500">Contract</span>
+              <a 
+                href={`https://sepolia.etherscan.io/address/${licenseData.contractAddress}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center space-x-1 text-blue-600 hover:text-blue-800"
+              >
+                <span className="font-medium">{shortenAddress(licenseData.contractAddress)}</span>
+                <ExternalLink className="h-3 w-3 flex-shrink-0" />
+              </a>
+            </div>
+            {/* Enhanced debug ownership info */}
+            {/* <div className="mt-1 text-xs">
+              {checkingOwnership ? (
+                <span className="text-blue-500">🔍 Checking ownership...</span>
+              ) : ownsLicense ? (
+                <span className="text-green-600">You own this license</span>
+              ) : (
+                <span className="text-red-500">Not owned</span>
+              )}
+            </div> */}
           </div>
 
-          {metadataError && (
-            <div className="bg-yellow-50 border border-yellow-200 rounded p-2">
-              <div className="flex items-center space-x-2">
-                <AlertTriangle className="h-4 w-4 text-yellow-600" />
-                <p className="text-yellow-800 text-xs">Metadata: {metadataError}</p>
+          {metadata?.attributes && (
+            <div className="border-t pt-3">
+              <p className="text-sm text-gray-500 mb-2">Attributes</p>
+              <div className="grid grid-cols-2 gap-2">
+                {metadata.attributes.slice(0, 4).map((attr, index) => (
+                  <div key={index} className="text-xs min-w-0">
+                    <span className="text-gray-500 block truncate">{attr.trait_type}</span>
+                    <span className="font-medium truncate block">{attr.value}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {hasMetadataError && (
+            <div className="border-t pt-3">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center space-x-2 text-yellow-600">
+                  <AlertTriangle className="h-4 w-4 flex-shrink-0" />
+                  <span className="text-sm">Metadata failed to load</span>
+                </div>
+                <Button 
+                  variant="ghost" 
+                  size="sm" 
+                  onClick={retry}
+                  className="h-6 px-2 flex-shrink-0"
+                >
+                  <RefreshCw className="h-3 w-3" />
+                </Button>
               </div>
             </div>
           )}
         </CardContent>
 
-        <CardFooter className="space-x-2">
-          <Button 
-            onClick={handleMint}
-            disabled={mintingLicense === licenseId || !licenseData.isActive || isMintPending}
-            className="flex-1"
-          >
-            {mintingLicense === licenseId || isMintPending ? (
-              <>
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                Minting...
-              </>
-            ) : (
-              <>
-                <ShoppingCart className="mr-2 h-4 w-4" />
-                Mint License
-              </>
-            )}
-          </Button>
-          <Button 
-            variant="outline" 
-            size="icon"
-            onClick={() => window.open(`https://sepolia.etherscan.io/address/${licenseData.contractAddress}`, '_blank')}
-          >
-            <ExternalLink className="h-4 w-4" />
-          </Button>
+        <CardFooter className="flex-shrink-0">
+          {!isConnected ? (
+            <Button disabled className="w-full">
+              Connect wallet to mint
+            </Button>
+          ) : checkingOwnership ? (
+            <Button disabled className="w-full">
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              Checking ownership...
+            </Button>
+          ) : ownsLicense ? (
+            <div className="w-full">
+              <Button disabled className="w-full mb-2 bg-green-100 text-green-800 hover:bg-green-100">
+                <CheckCircle className="mr-2 h-4 w-4" />
+                You own this license
+              </Button>
+              <p className="text-xs text-center text-gray-500">
+                You already have this gaming license
+              </p>
+            </div>
+          ) : (
+            <Button 
+              onClick={handleMint}
+              disabled={mintingLicense === licenseId || isMintPending}
+              className="w-full"
+            >
+              {mintingLicense === licenseId ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Minting...
+                </>
+              ) : (
+                <>
+                  <ShoppingCart className="mr-2 h-4 w-4" />
+                  Mint License
+                </>
+              )}
+            </Button>
+          )}
         </CardFooter>
       </Card>
     )
   }
 
-  useEffect(() => {
-    console.log('📊 License IDs data updated:', licenseIds)
-    
-    if (licenseIds && licenseIds.length > 0) {
-      const idStrings = licenseIds.map(id => id.toString())
-      setLicenses(idStrings)
-      setLoading(false)
-      
-      console.log('✅ Found licenses:', idStrings)
-    } else if (!loadingIds) {
-      setLoading(false)
-      console.log('ℹ️ No licenses found')
-    }
-  }, [licenseIds, loadingIds])
-
-  if (!isConnected) {
-    return (
-      <div className="flex items-center justify-center min-h-[400px]">
-        <Card className="w-full max-w-md">
-          <CardContent className="pt-6">
-            <div className="text-center">
-              <ShoppingCart className="mx-auto h-12 w-12 text-blue-500 mb-4" />
-              <h3 className="text-lg font-semibold mb-2">Connect Your Wallet</h3>
-              <p className="text-gray-600 mb-4">
-                Please connect your wallet to view and mint game licenses
-              </p>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-    )
-  }
-
   if (loading) {
     return (
-      <div className="flex items-center justify-center min-h-[400px]">
+      <div className="min-h-screen flex items-center justify-center">
         <div className="text-center">
-          <Loader2 className="h-8 w-8 animate-spin mx-auto mb-4" />
-          <p className="text-gray-600">Loading licenses...</p>
+          <Loader2 className="h-8 w-8 animate-spin mx-auto mb-2" />
+          <p>Loading licenses...</p>
         </div>
       </div>
     )
@@ -481,90 +438,30 @@ export default function LicenseMarketplace() {
 
   if (licenses.length === 0) {
     return (
-      <div className="max-w-7xl mx-auto p-6">
-        <div className="mb-8">
-          <h1 className="text-3xl font-bold text-gray-900 mb-2">License Marketplace</h1>
-          <p className="text-gray-600">
-            Discover and mint gaming licenses from developers around the world
-          </p>
-        </div>
-        
-        <div className="text-center py-12">
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-center py-8">
           <ShoppingCart className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-          <h3 className="text-lg font-semibold text-gray-900 mb-2">No Licenses Available</h3>
-          <p className="text-gray-600">
-            No game licenses have been created yet. Be the first to create one!
-          </p>
-          <Button 
-            onClick={refetchLicenseIds}
-            variant="outline"
-            className="mt-4"
-          >
-            Refresh
-          </Button>
+          <h3 className="text-lg font-medium text-gray-900 mb-2">No Licenses Available</h3>
+          <p className="text-gray-500">There are no gaming licenses available for minting at the moment.</p>
         </div>
       </div>
     )
   }
 
   return (
-    <div className="max-w-7xl mx-auto p-6">
-      <div className="mb-8">
-        <h1 className="text-3xl font-bold text-gray-900 mb-2">License Marketplace</h1>
-        <p className="text-gray-600">
-          Discover and mint gaming licenses from developers around the world
-        </p>
-        <div className="mt-4 flex items-center justify-between">
-          <p className="text-sm text-gray-500">
-            {licenses.length} license{licenses.length !== 1 ? 's' : ''} available
-          </p>
-          <Button 
-            onClick={refetchLicenseIds}
-            variant="outline"
-            size="sm"
-          >
-            Refresh
-          </Button>
+    <div className="min-h-screen bg-gray-50">
+      <div className="max-w-7xl mx-auto px-4 py-8">
+        <div className="text-center mb-8">
+          <h2 className="text-3xl font-bold text-gray-900 mb-2">Gaming License Marketplace</h2>
+          <p className="text-lg text-gray-600">Discover and mint gaming licenses from developers around the world</p>
+        </div>
+        
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 pb-8">
+          {licenses.map((licenseId) => (
+            <LicenseCard key={licenseId} licenseId={licenseId} />
+          ))}
         </div>
       </div>
-
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {licenses.map((licenseId) => (
-          <LicenseCard key={`license-${licenseId}`} licenseId={licenseId} />
-        ))}
-      </div>
-
-      {/* Loading overlay during minting */}
-      {(mintingLicense || isMintPending) && (
-        <div className="fixed inset-0 bg-black/20 backdrop-blur-sm z-50 flex items-center justify-center">
-          <Card className="max-w-sm mx-4">
-            <CardContent className="pt-6">
-              <div className="text-center">
-                <Loader2 className="h-8 w-8 animate-spin mx-auto mb-4" />
-                <h3 className="font-semibold mb-2">Minting License</h3>
-                <p className="text-sm text-gray-600">
-                  Please wait while your license NFT is being minted...
-                </p>
-                {currentTxHash && (
-                  <div className="mt-2">
-                    <p className="text-xs text-gray-500 break-all">
-                      TX: {currentTxHash}
-                    </p>
-                    <a 
-                      href={`https://sepolia.etherscan.io/tx/${currentTxHash}`}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="text-blue-600 text-xs underline"
-                    >
-                      View on Etherscan
-                    </a>
-                  </div>
-                )}
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-      )}
     </div>
   )
 }
