@@ -2,7 +2,7 @@
 import { useState } from 'react'
 import { ConnectKitButton } from "connectkit"
 import { Button } from './ui/button'
-import { Menu, X, Gamepad2, Plus, ShoppingBag, Store, Activity, TestTube } from 'lucide-react'
+import { Menu, X, Plus, ShoppingBag, Store, TestTube } from 'lucide-react'
 
 export default function Navbar({ activeTab, setActiveTab }) {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
@@ -11,8 +11,7 @@ export default function Navbar({ activeTab, setActiveTab }) {
     { id: 'marketplace', label: 'Marketplace', icon: Store },
     { id: 'create', label: 'Create License', icon: Plus },
     { id: 'mynfts', label: 'My NFTs', icon: ShoppingBag },
-    { id: 'secondary', label: 'Secondary Market', icon: Gamepad2 },
-    { id: 'status', label: 'System Status', icon: Activity },
+    { id: 'secondary', label: 'Secondary Market', icon: Store },
     { id: 'test', label: 'System Test', icon: TestTube },
   ]
 
@@ -23,8 +22,34 @@ export default function Navbar({ activeTab, setActiveTab }) {
           {/* Logo */}
           <div className="flex items-center">
             <div className="flex-shrink-0 flex items-center">
-              <Gamepad2 className="h-8 w-8 text-blue-600" />
-              <span className="ml-2 text-xl font-bold text-gray-900">Vector</span>
+              {/* <img 
+                src="/logo.png" 
+                alt="Vector Logo" 
+                className="h-8 w-8 object-contain"
+                onError={(e) => {
+                  // Fallback to a simple colored div if logo image fails
+                  e.target.style.display = 'none'
+                  e.target.nextSibling.style.display = 'flex'
+                }}
+              /> */}
+              {/* Fallback logo */}
+              <div 
+                className="h-8 w-8 bg-blue-600 rounded-lg hidden items-center justify-center text-white font-bold text-sm"
+              >
+                V
+              </div>
+              <span className="ml-2 text-xl font-bold text-gray-900">
+                <img 
+                src="/vector.png" 
+                alt="Vector Logo" 
+                className="h-20 w-25 object-contain"
+                onError={(e) => {
+                  // Fallback to a simple colored div if logo image fails
+                  e.target.style.display = 'none'
+                  e.target.nextSibling.style.display = 'flex'
+                }}
+              />
+              </span>
             </div>
           </div>
 

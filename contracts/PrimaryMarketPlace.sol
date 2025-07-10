@@ -59,7 +59,7 @@ contract PrimaryMarketPlace is Addresses {
         ILicenseFactory licenseFactory = ILicenseFactory(factory);
         ILicenseFactory.License memory License = licenseFactory
             .getLicenseFromID(licenseId);
-        if (License.isActive) {
+        if (License.isActive == false) {
             revert licenseNotActive(licenseId);
         }
         address licenseAddress = License.contractAddress;
