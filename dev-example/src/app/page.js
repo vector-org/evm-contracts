@@ -45,7 +45,7 @@ export default function Home() {
           <div className="max-w-7xl mx-auto px-4 py-6">
             <div className="flex flex-col md:flex-row justify-between items-center">
               <div className="text-sm text-gray-600 mb-4 md:mb-0">
-                © 2025 Vector. Built with Next.js, Web3 technologies, and real IPFS integration.
+                © 2025 Vector. All rights reserved.
               </div>
               <div className="flex space-x-6 text-sm text-gray-600">
                 <button 
@@ -57,11 +57,8 @@ export default function Home() {
                 <a href="#" className="hover:text-blue-600 transition-colors">
                   Documentation
                 </a>
-                <a href="https://github.com" className="hover:text-blue-600 transition-colors">
+                <a href="https://github.com/vector-org/evm-contracts" className="hover:text-blue-600 transition-colors">
                   GitHub
-                </a>
-                <a href="https://sepolia.etherscan.io" className="hover:text-blue-600 transition-colors">
-                  Sepolia Explorer
                 </a>
               </div>
             </div>

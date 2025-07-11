@@ -1,112 +1,111 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
 import { usePublicClient } from 'wagmi'
 
 /**
- * Simple transaction watcher that polls for transaction receipt
- * Avoids "stack too deep" error by using simple polling approach
+ * Simplified transaction watcher that avoids infinite re-renders
+ * Uses controlled polling with proper cleanup
  */
 export function useSimpleTransactionWatcher(txHash, onSuccess, onError) {
-  const [status, setStatus] = useState('idle') // idle, pending, success, error
+  const [status, setStatus] = useState('idle')
   const [receipt, setReceipt] = useState(null)
   const [error, setError] = useState(null)
   
   const publicClient = usePublicClient()
-  const intervalRef = useRef(null)
-  const processedRef = useRef(new Set())
+  const timeoutRef = useRef(null)
+  const processedTxs = useRef(new Set())
+  const isWatchingRef = useRef(false)
 
-  useEffect(() => {
-    if (!txHash || !publicClient || processedRef.current.has(txHash)) {
+  // Cleanup function
+  const cleanup = useCallback(() => {
+    if (timeoutRef.current) {
+      clearTimeout(timeoutRef.current)
+      timeoutRef.current = null
+    }
+    isWatchingRef.current = false
+  }, [])
+
+  // Check transaction once (no polling loop)
+  const checkTransaction = useCallback(async (hash) => {
+    if (!hash || !publicClient || processedTxs.current.has(hash)) {
       return
     }
 
-    console.log('🔍 Starting simple transaction watcher for:', txHash)
+    try {
+      const txReceipt = await publicClient.waitForTransactionReceipt({
+        hash,
+        confirmations: 1,
+        timeout: 5000 // 5 second timeout
+      })
+
+      if (txReceipt) {
+        console.log('✅ Transaction confirmed:', hash)
+        processedTxs.current.add(hash)
+        setStatus('success')
+        setReceipt(txReceipt)
+        cleanup()
+        
+        // Call success callback safely
+        if (onSuccess) {
+          try {
+            onSuccess(txReceipt)
+          } catch (callbackError) {
+            console.error('Error in success callback:', callbackError)
+          }
+        }
+      }
+    } catch (err) {
+      // If timeout, try once more after delay
+      if (err.name === 'TimeoutError' || err.message.includes('timeout')) {
+        console.log('⏳ Transaction still pending, will retry once:', hash)
+        
+        // Single retry after 5 seconds
+        timeoutRef.current = setTimeout(() => {
+          checkTransaction(hash)
+        }, 5000)
+        return
+      }
+      
+      // Real error
+      console.error('❌ Transaction failed:', hash, err)
+      processedTxs.current.add(hash)
+      setStatus('error')
+      setError(err)
+      cleanup()
+      
+      // Call error callback safely
+      if (onError) {
+        try {
+          onError(err)
+        } catch (callbackError) {
+          console.error('Error in error callback:', callbackError)
+        }
+      }
+    }
+  }, [publicClient, onSuccess, onError, cleanup])
+
+  // Start watching when txHash is provided
+  useEffect(() => {
+    if (!txHash || isWatchingRef.current || processedTxs.current.has(txHash)) {
+      return
+    }
+
+    console.log('🔍 Starting transaction watch for:', txHash)
+    isWatchingRef.current = true
     setStatus('pending')
     setReceipt(null)
     setError(null)
 
-    // Simple polling function
-    const checkTransaction = async () => {
-      try {
-        const txReceipt = await publicClient.waitForTransactionReceipt({
-          hash: txHash,
-          confirmations: 1,
-          timeout: 3000 // 3 second timeout per check
-        })
+    // Check immediately
+    checkTransaction(txHash)
 
-        if (txReceipt) {
-          console.log('✅ Transaction successful:', txHash)
-          setStatus('success')
-          setReceipt(txReceipt)
-          processedRef.current.add(txHash)
-          
-          // Clear polling
-          if (intervalRef.current) {
-            clearInterval(intervalRef.current)
-            intervalRef.current = null
-          }
-          
-          // Call success callback
-          if (onSuccess) {
-            try {
-              onSuccess(txReceipt)
-            } catch (callbackError) {
-              console.error('Error in success callback:', callbackError)
-            }
-          }
-        }
-      } catch (err) {
-        // If it's a timeout, continue polling
-        if (err.name === 'TimeoutError' || err.message.includes('timeout')) {
-          console.log('⏳ Transaction still pending:', txHash)
-          return // Continue polling
-        }
-        
-        // Real error occurred
-        console.error('❌ Transaction failed:', txHash, err)
-        setStatus('error')
-        setError(err)
-        processedRef.current.add(txHash)
-        
-        // Clear polling
-        if (intervalRef.current) {
-          clearInterval(intervalRef.current)
-          intervalRef.current = null
-        }
-        
-        // Call error callback
-        if (onError) {
-          try {
-            onError(err)
-          } catch (callbackError) {
-            console.error('Error in error callback:', callbackError)
-          }
-        }
-      }
-    }
-
-    // Start polling every 3 seconds
-    intervalRef.current = setInterval(checkTransaction, 3000)
-    
-    // Also check immediately
-    checkTransaction()
-
-    // Cleanup function
-    return () => {
-      if (intervalRef.current) {
-        clearInterval(intervalRef.current)
-        intervalRef.current = null
-      }
-    }
-  }, [txHash, publicClient, onSuccess, onError])
+    // Cleanup on unmount or txHash change
+    return cleanup
+  }, [txHash, checkTransaction, cleanup])
 
   // Cleanup on unmount
   useEffect(() => {
-    return () => {
-      if (intervalRef.current) {
-        clearInterval(intervalRef.current)
-      }
-    }
-  }, [])
+    return cleanup
+  }, [cleanup])
 
   return {
     status,
@@ -119,12 +118,13 @@ export function useSimpleTransactionWatcher(txHash, onSuccess, onError) {
 }
 
 /**
- * Enhanced simple transaction manager
+ * Enhanced simple transaction manager for tracking multiple transactions
  */
 export function useSimpleTransactions() {
   const [transactions, setTransactions] = useState(new Map())
+  const maxTransactions = 20
 
-  const addTransaction = (hash, description, type = 'general') => {
+  const addTransaction = useCallback((hash, description, type = 'general') => {
     if (!hash || !hash.startsWith('0x')) {
       console.error('❌ Invalid transaction hash:', hash)
       return null
@@ -143,13 +143,22 @@ export function useSimpleTransactions() {
     setTransactions(prev => {
       const newMap = new Map(prev)
       newMap.set(hash, tx)
+      
+      // Keep only the most recent transactions
+      if (newMap.size > maxTransactions) {
+        const sortedTxs = Array.from(newMap.entries())
+          .sort(([,a], [,b]) => b.timestamp - a.timestamp)
+          .slice(0, maxTransactions)
+        return new Map(sortedTxs)
+      }
+      
       return newMap
     })
     
     return tx
-  }
+  }, [maxTransactions])
 
-  const updateTransaction = (hash, updates) => {
+  const updateTransaction = useCallback((hash, updates) => {
     setTransactions(prev => {
       const newMap = new Map(prev)
       const existing = newMap.get(hash)
@@ -159,32 +168,63 @@ export function useSimpleTransactions() {
       }
       return newMap
     })
-  }
+  }, [])
 
-  const getTransaction = (hash) => {
+  const getTransaction = useCallback((hash) => {
     return transactions.get(hash)
-  }
-
-  const getPendingTransactions = () => {
-    return Array.from(transactions.values()).filter(tx => tx.status === 'pending')
-  }
-
-  // Auto-cleanup old transactions (keep last 20)
-  useEffect(() => {
-    if (transactions.size > 20) {
-      const sortedTxs = Array.from(transactions.entries())
-        .sort(([,a], [,b]) => b.timestamp - a.timestamp)
-        .slice(0, 20)
-      
-      setTransactions(new Map(sortedTxs))
-    }
   }, [transactions])
+
+  const getPendingTransactions = useCallback(() => {
+    return Array.from(transactions.values()).filter(tx => tx.status === 'pending')
+  }, [transactions])
+
+  const clearTransaction = useCallback((hash) => {
+    setTransactions(prev => {
+      const newMap = new Map(prev)
+      newMap.delete(hash)
+      return newMap
+    })
+  }, [])
 
   return {
     transactions: Array.from(transactions.values()),
     addTransaction,
     updateTransaction,
     getTransaction,
-    getPendingTransactions
+    getPendingTransactions,
+    clearTransaction
   }
+}
+
+/**
+ * Simple hook for checking transaction status without continuous polling
+ */
+export function useTransactionChecker() {
+  const checkTransactionOnce = useCallback(async (txHash) => {
+    if (!txHash || !window.ethereum) {
+      return null
+    }
+
+    try {
+      const receipt = await window.ethereum.request({
+        method: 'eth_getTransactionReceipt',
+        params: [txHash]
+      })
+      
+      if (receipt) {
+        if (receipt.status === '0x1') {
+          return 'success'
+        } else if (receipt.status === '0x0') {
+          return 'failed'
+        }
+      }
+      
+      return 'pending'
+    } catch (error) {
+      console.error('Error checking transaction:', error)
+      return 'error'
+    }
+  }, [])
+
+  return { checkTransactionOnce }
 }

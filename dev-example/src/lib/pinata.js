@@ -4,41 +4,54 @@ const PINATA_JWT = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySW5mb3JtYXRpb24
 
 const PINATA_GATEWAY = "brown-objective-rook-813.mypinata.cloud"
 
-console.log('🔗 Initializing Pinata client...')
+console.log('🔗 [Pinata] Initializing Pinata SDK with gateway:', PINATA_GATEWAY)
 
 export const pinata_client = new PinataSDK({
   pinataJwt: PINATA_JWT,
   pinataGateway: PINATA_GATEWAY
 })
 
+// Generate Pinata gateway URL (using your dedicated gateway)
 export const getPinataUrl = (cid) => {
   const url = `https://${PINATA_GATEWAY}/ipfs/${cid}`
-  console.log('🔗 Generated Pinata URL:', url)
+  console.log('🔗 [Pinata] Generated dedicated gateway URL:', { cid, url })
   return url
 }
 
-// Alternative: Use public IPFS gateway as fallback
+// Generate public IPFS gateway URL (fallback)
 export const getIPFSUrl = (cid) => {
   const url = `https://gateway.pinata.cloud/ipfs/${cid}`
-  console.log('🔗 Generated IPFS URL via Pinata public gateway:', url)
+  console.log('🔗 [Pinata] Generated public gateway URL:', { cid, url })
   return url
 }
 
 // Test Pinata connection on initialization
 export const testPinataConnection = async () => {
   try {
-    console.log('🧪 Testing Pinata connection...')
-    const testData = JSON.stringify({ test: 'connection', timestamp: Date.now() })
+    console.log('🧪 [Pinata] Testing connection...')
+    const testData = { 
+      test: 'connection', 
+      timestamp: Date.now(),
+      gateway: PINATA_GATEWAY
+    }
     
-    // Upload test data
-    const result = await pinata_client.upload.public.json(testData)
-    console.log('✅ Pinata connection test successful:', {
-      cid: result.cid,
-      url: getPinataUrl(result.cid)
+    // Upload test data using the new SDK format
+    const result = await pinata_client.upload.json(testData)
+    
+    // Convert CID to URL using your gateway
+    const url = await pinata_client.gateways.convert(result.IpfsHash)
+    
+    console.log('✅ [Pinata] Connection test successful:', {
+      cid: result.IpfsHash,
+      url: url,
+      pinataUrl: getPinataUrl(result.IpfsHash)
     })
     return true
   } catch (error) {
-    console.error('❌ Pinata connection test failed:', error)
+    console.error('❌ [Pinata] Connection test failed:', {
+      error: error.message,
+      stack: error.stack
+    })
     return false
   }
 }
@@ -46,44 +59,51 @@ export const testPinataConnection = async () => {
 // Helper function to upload file with progress tracking
 export const uploadFileWithProgress = async (file, onProgress) => {
   try {
-    console.log('📤 Starting file upload to Pinata:', {
+    console.log('📤 [Pinata] Starting file upload:', {
       name: file.name,
       size: file.size,
-      type: file.type
+      type: file.type,
+      lastModified: new Date(file.lastModified).toISOString()
     })
 
-    // Note: Pinata SDK doesn't have built-in progress tracking like IPFS
-    // We'll simulate progress for UX continuity
+    // Simulate progress for UX (Pinata SDK doesn't provide real progress)
     if (onProgress) {
-      onProgress(25) // Starting upload
+      onProgress(10)
     }
 
-    const result = await pinata_client.upload.public.file(file)
+    // Upload file using Pinata SDK
+    const result = await pinata_client.upload.file(file)
     
     if (onProgress) {
-      onProgress(75) // Upload processing
+      onProgress(70)
     }
 
-    // Convert CID to usable URL
-    const url = await pinata_client.gateways.public.convert(result.cid)
+    // Get the dedicated gateway URL
+    const url = getPinataUrl(result.IpfsHash)
     
     if (onProgress) {
-      onProgress(100) // Complete
+      onProgress(100)
     }
 
-    console.log('✅ File uploaded successfully to Pinata:', {
-      cid: result.cid,
+    console.log('✅ [Pinata] File uploaded successfully:', {
+      cid: result.IpfsHash,
       url: url,
-      size: file.size
+      size: file.size,
+      filename: file.name
     })
 
     return {
-      cid: result.cid,
+      cid: result.IpfsHash,
       url: url,
-      path: result.cid // For compatibility with old IPFS code
+      path: result.IpfsHash // For compatibility with old IPFS code
     }
   } catch (error) {
-    console.error('💥 Error uploading file to Pinata:', error)
+    console.error('💥 [Pinata] Error uploading file:', {
+      error: error.message,
+      stack: error.stack,
+      fileName: file.name,
+      fileSize: file.size
+    })
     throw error
   }
 }
@@ -91,24 +111,36 @@ export const uploadFileWithProgress = async (file, onProgress) => {
 // Helper function to upload JSON data
 export const uploadJSONData = async (jsonObject) => {
   try {
-    console.log('📤 Starting JSON upload to Pinata:', jsonObject)
+    console.log('📤 [Pinata] Starting JSON upload:', {
+      dataKeys: Object.keys(jsonObject),
+      hasName: !!jsonObject.name,
+      hasImage: !!jsonObject.image,
+      dataSize: JSON.stringify(jsonObject).length
+    })
     
-    const result = await pinata_client.upload.public.json(jsonObject)
-    const url = await pinata_client.gateways.public.convert(result.cid)
+    // Upload JSON using Pinata SDK
+    const result = await pinata_client.upload.json(jsonObject)
     
-    console.log('✅ JSON uploaded successfully to Pinata:', {
-      cid: result.cid,
+    // Get the dedicated gateway URL
+    const url = getPinataUrl(result.IpfsHash)
+    
+    console.log('✅ [Pinata] JSON uploaded successfully:', {
+      cid: result.IpfsHash,
       url: url,
-      data: jsonObject
+      dataKeys: Object.keys(jsonObject)
     })
     
     return {
-      cid: result.cid,
+      cid: result.IpfsHash,
       url: url,
-      path: result.cid // For compatibility with old IPFS code
+      path: result.IpfsHash // For compatibility with old IPFS code
     }
   } catch (error) {
-    console.error('💥 Error uploading JSON to Pinata:', error)
+    console.error('💥 [Pinata] Error uploading JSON:', {
+      error: error.message,
+      stack: error.stack,
+      jsonKeys: Object.keys(jsonObject || {})
+    })
     throw error
   }
 }
@@ -116,34 +148,68 @@ export const uploadJSONData = async (jsonObject) => {
 // Helper function to upload raw data/text
 export const uploadData = async (data) => {
   try {
-    console.log('📤 Starting data upload to Pinata:', {
+    console.log('📤 [Pinata] Starting data upload:', {
       type: data.constructor.name,
-      size: data.size || 'unknown'
+      size: data.size || 'unknown',
+      isFile: data instanceof File,
+      isBlob: data instanceof Blob,
+      isString: typeof data === 'string'
     })
 
     let result
     if (typeof data === 'string') {
-      // Upload as text
-      result = await pinata_client.upload.public.json({ content: data })
+      // Upload string as JSON with content wrapper
+      result = await pinata_client.upload.json({ content: data })
     } else if (data instanceof File || data instanceof Blob) {
       // Upload as file
-      result = await pinata_client.upload.public.file(data)
+      result = await pinata_client.upload.file(data)
     } else {
       // Upload as JSON
-      result = await pinata_client.upload.public.json(data)
+      result = await pinata_client.upload.json(data)
     }
 
-    const url = await pinata_client.gateways.public.convert(result.cid)
+    const url = getPinataUrl(result.IpfsHash)
 
-    console.log('✅ Data uploaded successfully to Pinata:', {
-      cid: result.cid,
-      url: url
+    console.log('✅ [Pinata] Data uploaded successfully:', {
+      cid: result.IpfsHash,
+      url: url,
+      dataType: data.constructor.name
     })
 
-    return result.cid // Return just the CID for compatibility
+    return result.IpfsHash // Return just the CID for compatibility
   } catch (error) {
-    console.error('💥 Error uploading data to Pinata:', error)
+    console.error('💥 [Pinata] Error uploading data:', {
+      error: error.message,
+      stack: error.stack,
+      dataType: data.constructor.name
+    })
     throw error
+  }
+}
+
+// Enhanced function to get URL from CID with conversion
+export const convertCIDToURL = async (cid) => {
+  try {
+    console.log('🔄 [Pinata] Converting CID to URL:', cid)
+    
+    // Try to use Pinata's conversion method
+    const url = await pinata_client.gateways.convert(cid)
+    
+    console.log('✅ [Pinata] CID converted to URL successfully:', {
+      cid: cid,
+      convertedUrl: url,
+      directUrl: getPinataUrl(cid)
+    })
+    
+    return url
+  } catch (error) {
+    console.warn('⚠️ [Pinata] Gateway conversion failed, using direct URL:', {
+      cid: cid,
+      error: error.message
+    })
+    
+    // Fallback to direct URL construction
+    return getPinataUrl(cid)
   }
 }
 

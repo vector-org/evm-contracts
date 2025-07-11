@@ -9,10 +9,10 @@ export default function Navbar({ activeTab, setActiveTab }) {
 
   const navItems = [
     { id: 'marketplace', label: 'Marketplace', icon: Store },
-    { id: 'create', label: 'Create License', icon: Plus },
-    { id: 'mynfts', label: 'My NFTs', icon: ShoppingBag },
+    { id: 'create', label: 'Create Game License', icon: Plus },
+    { id: 'mynfts', label: 'My Games', icon: ShoppingBag },
     { id: 'secondary', label: 'Secondary Market', icon: Store },
-    { id: 'test', label: 'System Test', icon: TestTube },
+    // { id: 'test', label: 'System Test', icon: TestTube },
   ]
 
   return (
@@ -20,36 +20,26 @@ export default function Navbar({ activeTab, setActiveTab }) {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex justify-between h-16">
           {/* Logo */}
-          <div className="flex items-center">
-            <div className="flex-shrink-0 flex items-center">
-              {/* <img 
-                src="/logo.png" 
-                alt="Vector Logo" 
-                className="h-8 w-8 object-contain"
+                    <div className="flex items-center">
+            {/* Fallback colored block (hidden by default) */}
+            <div 
+              className="h-20 w-[100px] bg-blue-600 rounded hidden items-center justify-center text-white font-bold text-sm"
+            >
+              {/* Fallback text or icon here, if needed */}
+              V
+            </div>
+
+            {/* Image container with enforced rounding */}
+            <div className="ml-18 h-18 w-[100px] rounded overflow-hidden">
+              <img
+                src="/vector.png"
+                alt="Vector Logo"
+                className="h-16 w-full rounded"
                 onError={(e) => {
-                  // Fallback to a simple colored div if logo image fails
-                  e.target.style.display = 'none'
-                  e.target.nextSibling.style.display = 'flex'
-                }}
-              /> */}
-              {/* Fallback logo */}
-              <div 
-                className="h-8 w-8 bg-blue-600 rounded-lg hidden items-center justify-center text-white font-bold text-sm"
-              >
-                V
-              </div>
-              <span className="ml-2 text-xl font-bold text-gray-900">
-                <img
-                src="/vector.png" 
-                alt="Vector Logo" 
-                className="h-20 w-25 object-contain"
-                onError={(e) => {
-                  // Fallback to a simple colored div if logo image fails
-                  e.target.style.display = 'none'
-                  e.target.nextSibling.style.display = 'flex'
+                  e.target.style.display = 'none';
+                  e.target.parentElement.previousElementSibling.style.display = 'flex';
                 }}
               />
-              </span>
             </div>
           </div>
 

@@ -8,14 +8,14 @@ import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter }
 import { useContract } from '../hooks/useContract'
 import { useIPFS } from '../hooks/useIPFS'
 import { useTransactions, useTransactionWatcher } from '../hooks/useTransactions'
-import { CONTRACT_ADDRESSES, CONTRACTS } from '../lib/contracts'
+import { CONTRACT_ADDRESSES } from '../lib/contracts'
 import { parseEther } from '../lib/utils'
 import { Upload, Loader2, CheckCircle, AlertCircle, Image as ImageIcon, X, FileImage, Camera } from 'lucide-react'
 
 export default function CreateLicense() {
   const { address, isConnected } = useAccount()
   const { useCreateLicense } = useContract()
-  const { uploadToIPFS, isUploading, uploadProgress } = useIPFS()
+  const { uploadGameMetadata, isUploading, uploadProgress } = useIPFS() // Use uploadGameMetadata instead of uploadToIPFS
   const { addTransaction } = useTransactions()
 
   const [formData, setFormData] = useState({
@@ -39,8 +39,7 @@ export default function CreateLicense() {
   const [isCreating, setIsCreating] = useState(false)
   const [creationStatus, setCreationStatus] = useState(null)
   const [currentTxHash, setCurrentTxHash] = useState(null)
-  const [ipfsImageUrl, setIpfsImageUrl] = useState(null)
-  const [ipfsMetadataUrl, setIpfsMetadataUrl] = useState(null)
+  const [ipfsResults, setIpfsResults] = useState(null)
 
   // Update form when address changes
   useEffect(() => {
@@ -59,9 +58,11 @@ export default function CreateLicense() {
   useTransactionWatcher(
     currentTxHash,
     (receipt) => {
-      console.log('🎉 License creation successful!', {
+      console.log('🎉 [CreateLicense] License creation successful!', {
         transactionHash: currentTxHash,
-        receipt: receipt
+        receipt: receipt,
+        blockNumber: receipt.blockNumber,
+        gasUsed: receipt.gasUsed?.toString()
       })
       setCreationStatus('success')
       setIsCreating(false)
@@ -72,8 +73,11 @@ export default function CreateLicense() {
         setCreationStatus(null)
       }, 3000)
     },
-    () => {
-      console.error('💥 License creation failed:', currentTxHash)
+    (error) => {
+      console.error('💥 [CreateLicense] License creation failed:', {
+        transactionHash: currentTxHash,
+        error: error.message
+      })
       setCreationStatus('error')
       setIsCreating(false)
     }
@@ -96,8 +100,7 @@ export default function CreateLicense() {
     })
     setImageFile(null)
     setImagePreview(null)
-    setIpfsImageUrl(null)
-    setIpfsMetadataUrl(null)
+    setIpfsResults(null)
     setCurrentTxHash(null)
   }
 
@@ -111,7 +114,7 @@ export default function CreateLicense() {
 
   const handleImageChange = (file) => {
     if (file && file.type.startsWith('image/')) {
-      console.log('📁 Image selected:', {
+      console.log('📁 [CreateLicense] Image selected:', {
         name: file.name,
         size: file.size,
         type: file.type
@@ -200,93 +203,54 @@ export default function CreateLicense() {
 
     try {
       setIsCreating(true)
-      setCreationStatus('uploading-image')
+      setCreationStatus('uploading')
       
-      console.log('🚀 Starting license creation process...')
+      console.log('🚀 [CreateLicense] Starting license creation process...')
       
-      // Step 1: Upload image to IPFS
-      console.log('📤 Uploading image to IPFS...')
-      const imageUrl = await uploadToIPFS(imageFile)
-      console.log('✅ Image uploaded:', imageUrl)
-      setIpfsImageUrl(imageUrl)
+      // Use uploadGameMetadata which handles both image and metadata upload properly
+      console.log('📤 [CreateLicense] Uploading game data and image...')
+      const uploadResult = await uploadGameMetadata(formData, imageFile)
       
-      // Step 2: Create and upload metadata to IPFS
-      setCreationStatus('uploading-metadata')
-      console.log('📤 Creating and uploading metadata...')
-      
-      const metadata = {
-        name: formData.name,
-        description: formData.description,
-        image: imageUrl,
-        external_url: formData.externalUrl || '',
-        youtube_url: formData.youtubeUrl || '',
-        attributes: [
-          {
-            trait_type: "Symbol",
-            value: formData.symbol
-          },
-          {
-            trait_type: "Developer",
-            value: formData.developer
-          },
-          {
-            trait_type: "Publisher", 
-            value: formData.publisher
-          },
-          {
-            trait_type: "Platform",
-            value: formData.platform
-          },
-          {
-            trait_type: "Genre",
-            value: formData.genre || 'Gaming'
-          },
-          {
-            trait_type: "Developer Fee",
-            value: formData.developerFee || '0'
-          },
-          {
-            trait_type: "Platform Fee",
-            value: formData.platformFee || '0'
-          },
-          {
-            trait_type: "Publisher Fee",
-            value: formData.publisherFee || '0'
-          }
-        ]
-      }
-      
-      const metadataBlob = new Blob([JSON.stringify(metadata, null, 2)], {
-        type: 'application/json'
+      console.log('✅ [CreateLicense] Upload completed:', {
+        imageHash: uploadResult.imageHash,
+        metadataHash: uploadResult.metadataHash,
+        imageUrl: uploadResult.imageUrl,
+        metadataUrl: uploadResult.metadataUrl
       })
       
-      const metadataUrl = await uploadToIPFS(metadataBlob)
-      console.log('✅ Metadata uploaded:', metadataUrl)
-      setIpfsMetadataUrl(metadataUrl)
+      setIpfsResults(uploadResult)
       
-      // Step 3: Create license contract with URI
+      // Create license contract with the metadata URI
       setCreationStatus('creating-contract')
-      console.log('📝 Creating license contract...')
+      console.log('📝 [CreateLicense] Creating license contract...')
       
       const licenseInput = {
-        name: formData.name,
-        symbol: formData.symbol,
-        uri: metadataUrl, // Include the metadata URI
+        name: formData.name.trim(),
+        symbol: formData.symbol.trim().toUpperCase(),
+        uri: `ipfs://${uploadResult.metadataHash}`, // Use the IPFS URI format
         isActive: true,
         developerFee: formData.developerFee ? parseEther(formData.developerFee) : 0n,
         platformFee: formData.platformFee ? parseEther(formData.platformFee) : 0n,
         publisherFee: formData.publisherFee ? parseEther(formData.publisherFee) : 0n,
-        developer: formData.developer,
-        publisher: formData.publisher,
-        platform: formData.platform,
+        developer: formData.developer.trim(),
+        publisher: formData.publisher.trim(),
+        platform: formData.platform.trim(),
         primaryMarketplace: CONTRACT_ADDRESSES.PRIMARY_MARKETPLACE,
         secondaryMarketplace: CONTRACT_ADDRESSES.SECONDARY_MARKETPLACE
       }
       
-      console.log('🔧 License input prepared:', licenseInput)
+      console.log('🔧 [CreateLicense] License input prepared:', {
+        ...licenseInput,
+        uri: licenseInput.uri,
+        fees: {
+          developer: licenseInput.developerFee.toString(),
+          platform: licenseInput.platformFee.toString(),
+          publisher: licenseInput.publisherFee.toString()
+        }
+      })
       
       const txHash = await createLicense(licenseInput)
-      console.log('📤 Transaction submitted:', txHash)
+      console.log('📤 [CreateLicense] Transaction submitted:', txHash)
       
       setCurrentTxHash(txHash)
       setCreationStatus('confirming')
@@ -294,7 +258,11 @@ export default function CreateLicense() {
       addTransaction(txHash, `Creating license: ${formData.name}`, 'create-license')
       
     } catch (error) {
-      console.error('💥 License creation failed:', error)
+      console.error('💥 [CreateLicense] License creation failed:', {
+        error: error.message,
+        stack: error.stack,
+        formData: formData
+      })
       setCreationStatus('error')
       setIsCreating(false)
       
@@ -320,7 +288,7 @@ export default function CreateLicense() {
 
         <form onSubmit={handleSubmit}>
           <CardContent className="space-y-8">
-            {/* Enhanced Image Upload */}
+            {/* Image Upload */}
             <div className="space-y-4">
               <Label className="text-lg font-semibold text-gray-900">Game Cover Image *</Label>
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -612,16 +580,16 @@ export default function CreateLicense() {
             </div>
 
             {/* Status Display */}
-            {creationStatus === 'uploading-image' && (
+            {creationStatus === 'uploading' && (
               <div className="bg-blue-50 border border-blue-200 rounded-xl p-6">
                 <div className="flex items-center space-x-4">
                   <Loader2 className="h-8 w-8 animate-spin text-blue-600" />
                   <div className="flex-1">
                     <p className="text-blue-800 font-semibold text-lg">
-                      Uploading image to IPFS... {uploadProgress}%
+                      Uploading to IPFS... {uploadProgress}%
                     </p>
                     <p className="text-blue-600">
-                      Please wait while your image is being uploaded to the decentralized storage
+                      Uploading image and metadata to decentralized storage
                     </p>
                     <div className="w-full bg-blue-200 rounded-full h-2 mt-3">
                       <div 
@@ -629,18 +597,6 @@ export default function CreateLicense() {
                         style={{ width: `${uploadProgress}%` }}
                       ></div>
                     </div>
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {creationStatus === 'uploading-metadata' && (
-              <div className="bg-purple-50 border border-purple-200 rounded-xl p-6">
-                <div className="flex items-center space-x-4">
-                  <Loader2 className="h-8 w-8 animate-spin text-purple-600" />
-                  <div>
-                    <p className="text-purple-800 font-semibold text-lg">Uploading metadata to IPFS...</p>
-                    <p className="text-purple-600">Creating and uploading your game's metadata file</p>
                   </div>
                 </div>
               </div>
@@ -682,6 +638,12 @@ export default function CreateLicense() {
                   <div>
                     <p className="text-green-800 font-semibold text-lg">License created successfully! 🎉</p>
                     <p className="text-green-600">Your gaming license is now available on the marketplace</p>
+                    {ipfsResults && (
+                      <div className="mt-2 text-sm text-green-600">
+                        <p>Image: ipfs://{ipfsResults.imageHash}</p>
+                        <p>Metadata: ipfs://{ipfsResults.metadataHash}</p>
+                      </div>
+                    )}
                   </div>
                 </div>
               </div>
@@ -698,12 +660,29 @@ export default function CreateLicense() {
                 </div>
               </div>
             )}
+
+            {/* Debug Information (only in development) */}
+            {process.env.NODE_ENV === 'development' && ipfsResults && (
+              <div className="bg-gray-100 rounded-lg p-4 text-sm">
+                <details>
+                  <summary className="cursor-pointer font-medium text-gray-700 mb-2">
+                    🐛 IPFS Upload Results (Dev Only)
+                  </summary>
+                  <div className="space-y-1 text-gray-600 font-mono text-xs">
+                    <div>Image Hash: {ipfsResults.imageHash}</div>
+                    <div>Image URL: {ipfsResults.imageUrl}</div>
+                    <div>Metadata Hash: {ipfsResults.metadataHash}</div>
+                    <div>Metadata URL: {ipfsResults.metadataUrl}</div>
+                  </div>
+                </details>
+              </div>
+            )}
           </CardContent>
 
           <CardFooter className="px-6 py-6 bg-gray-50 rounded-b-lg">
             <Button 
               type="submit" 
-              className="w-full h-14 text-lg font-semibold bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700" 
+              className="w-full h-14 text-lg font-semibold bg-blue-600 hover:bg-blue-700" 
               disabled={isCreating || !isConnected}
             >
               {isCreating ? (

@@ -7,7 +7,7 @@ export function useTransactions() {
   const [currentTx, setCurrentTx] = useState(null)
 
   const addTransaction = (hash, description, type = 'general') => {
-    if (!hash || !hash.startsWith('0x')) {
+    if (!hash) {
       console.error('❌ Invalid transaction hash:', hash)
       return null
     }
