@@ -62,7 +62,7 @@ export function useContract() {
   const useMintLicense = () => {
     const { writeContractAsync, isPending, error } = useWriteContract()
     
-    const mintLicense = async ({ licenseId, metadataURI, value }) => {
+    const mintLicense = async ({ licenseId, receiver, metadataURI }) => {
       try {
         const numericId = typeof licenseId === 'bigint' ? Number(licenseId) : licenseId
         
@@ -70,8 +70,8 @@ export function useContract() {
           address: CONTRACTS.PRIMARY_MARKETPLACE.address,
           abi: CONTRACTS.PRIMARY_MARKETPLACE.abi,
           functionName: 'mintLicense',
-          args: [numericId, metadataURI],
-          value: BigInt(value)
+          args: [numericId, receiver, metadataURI],
+          // value: BigInt(value)
         })
         
         return { hash }

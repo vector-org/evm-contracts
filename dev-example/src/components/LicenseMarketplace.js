@@ -4,454 +4,405 @@ import { useAccount } from 'wagmi'
 import { Button } from './ui/button'
 import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from './ui/card'
 import { useContract } from '../hooks/useContract'
-import { useTransactions, useTransactionWatcher } from '../hooks/useTransactions'
 import { formatEther } from '../lib/utils'
 import { MetadataUtils } from '../lib/metadataUtils'
-import { Loader2, ShoppingCart, ExternalLink, User, Coins, AlertTriangle, Package, Crown, Gamepad2, TrendingUp } from 'lucide-react'
+import { Loader2, ShoppingCart, ExternalLink, User, AlertTriangle, Package, Gamepad2 } from 'lucide-react'
 
 export default function LicenseMarketplace() {
   const { address, isConnected } = useAccount()
   const { 
     useGetAllLicenseIds, 
     useGetLicenseFromID, 
-    useMintLicense,
-    useGetLicenseTokenURI
+    useMintLicense
   } = useContract()
-  const { addTransaction } = useTransactions()
 
+  // Simplified state management
   const [licenses, setLicenses] = useState([])
   const [loading, setLoading] = useState(true)
   const [mintingLicense, setMintingLicense] = useState(null)
-  const [currentTxHash, setCurrentTxHash] = useState(null)
-  const processedLicenseIds = useRef(null)
+  const [txNotification, setTxNotification] = useState(null)
+  const [mintedLicenses, setMintedLicenses] = useState(new Set())
+  
+  // Refs to prevent re-renders
+  const processedIds = useRef(new Set())
+  const notificationTimeout = useRef(null)
 
-  const { data: licenseIds, isLoading: loadingIds, refetch: refetchLicenseIds, error: idsError } = useGetAllLicenseIds()
+  const { data: licenseIds, isLoading: loadingIds } = useGetAllLicenseIds()
   const { mintLicense, isPending: isMintPending } = useMintLicense()
 
-  useTransactionWatcher(
-    currentTxHash,
-    useCallback((receipt) => {
-      setMintingLicense(null)
-      setCurrentTxHash(null)
-      setTimeout(() => refetchLicenseIds(), 2000)
-    }, [currentTxHash, refetchLicenseIds]),
-    useCallback(() => {
-      setMintingLicense(null)
-      setCurrentTxHash(null)
-    }, [currentTxHash])
-  )
-
-  const LicenseCard = ({ licenseId, index }) => {
-    const { data: licenseData, isLoading: isLoadingLicense, error: licenseError } = useGetLicenseFromID(licenseId)
-    const { data: tokenURI, isLoading: isLoadingTokenURI } = useGetLicenseTokenURI(licenseData?.contractAddress, licenseId)
+  // Simple license loading - only when data actually changes
+  useEffect(() => {
+    if (loadingIds) return
     
-    // Simple metadata state without complex hook
-    const [metadata, setMetadata] = useState(null)
-    const [metadataLoading, setMetadataLoading] = useState(false)
-    const [metadataError, setMetadataError] = useState(null)
-    const [metadataSource, setMetadataSource] = useState(null)
+    if (licenseIds && licenseIds.length > 0) {
+      const idsString = licenseIds.join(',')
+      if (!processedIds.current.has(idsString)) {
+        processedIds.current.add(idsString)
+        setLicenses(licenseIds.map(id => id.toString()))
+        setLoading(false)
+      }
+    } else {
+      setLicenses([])
+      setLoading(false)
+    }
+  }, [licenseIds, loadingIds])
 
-    // Handle metadata loading with simple useEffect
+  // Simple transaction checker - no loops
+  const checkTransaction = useCallback(async (txHash) => {
+    try {
+      const receipt = await window.ethereum.request({
+        method: 'eth_getTransactionReceipt',
+        params: [txHash]
+      })
+      
+      if (receipt) {
+        if (receipt.status === '0x1') {
+          console.log('✅ Transaction successful:', txHash)
+          return 'success'
+        } else {
+          console.log('❌ Transaction failed:', txHash)
+          return 'failed'
+        }
+      }
+      return 'pending'
+    } catch (error) {
+      console.error('Error checking transaction:', error)
+      return 'error'
+    }
+  }, [])
+
+  // Show notification
+  const showNotification = useCallback((status, hash) => {
+    // Clear any existing timeout
+    if (notificationTimeout.current) {
+      clearTimeout(notificationTimeout.current)
+    }
+    
+    setTxNotification({ status, hash })
+    
+    // Auto-clear after 5 seconds
+    notificationTimeout.current = setTimeout(() => {
+      setTxNotification(null)
+    }, 5000)
+  }, [])
+
+  // Handle minting - simplified
+  const handleMintLicense = useCallback(async (licenseId, licenseData) => {
+    if (!isConnected || mintingLicense || mintedLicenses.has(licenseId)) {
+      return
+    }
+
+    if (!licenseData?.uri) {
+      alert('License data not ready. Please try again.')
+      return
+    }
+
+    try {
+      setMintingLicense(licenseId)
+
+      const result = await mintLicense({
+        licenseId,
+        receiver: address,
+        metadataURI: licenseData.uri
+      })
+      
+      const txHash = result.hash
+      console.log('📤 Transaction submitted:', txHash)
+
+      // Mark as minted immediately
+      setMintedLicenses(prev => new Set([...prev, licenseId]))
+
+      // Check transaction once after delay
+      setTimeout(async () => {
+        const status = await checkTransaction(txHash)
+        if (status === 'success') {
+          showNotification('success', txHash)
+        } else if (status === 'failed') {
+          showNotification('failed', txHash)
+          // Remove from minted set if failed
+          setMintedLicenses(prev => {
+            const newSet = new Set(prev)
+            newSet.delete(licenseId)
+            return newSet
+          })
+        }
+        setMintingLicense(null)
+      }, 3000)
+
+    } catch (error) {
+      console.error('💥 Minting failed:', error)
+      setMintingLicense(null)
+      
+      if (error.message.includes('User rejected')) {
+        alert('Transaction cancelled')
+      } else {
+        alert(`Minting failed: ${error.message}`)
+      }
+    }
+  }, [isConnected, mintingLicense, mintedLicenses, mintLicense, address, checkTransaction, showNotification])
+
+  // License card component
+  const LicenseCard = ({ licenseId }) => {
+    const { data: licenseData, isLoading: isLoadingLicense } = useGetLicenseFromID(licenseId)
+    const [metadata, setMetadata] = useState(null)
+    const [imageUrl, setImageUrl] = useState(null)
+    const [metadataLoaded, setMetadataLoaded] = useState(false)
+
+    // Load metadata only once
     useEffect(() => {
-      if (tokenURI && !metadata) {
-        // We have a URI, try to fetch
-        setMetadataLoading(true)
-        MetadataUtils.fetchMetadataEnhanced(tokenURI)
-          .then(fetchedMetadata => {
-            const normalized = MetadataUtils.normalizeImageUrls(fetchedMetadata)
+      if (licenseData?.uri && !metadataLoaded) {
+        setMetadataLoaded(true)
+        
+        MetadataUtils.fetchMetadataEnhanced(licenseData.uri)
+          .then(data => {
+            const normalized = MetadataUtils.normalizeImageUrls(data)
             setMetadata(normalized)
-            setMetadataSource('uri')
-            setMetadataLoading(false)
+            
+            if (normalized?.imageUrl) {
+              const img = new Image()
+              img.onload = () => setImageUrl(normalized.imageUrl)
+              img.onerror = () => {
+                if (normalized?.imageFallbackUrl) {
+                  const fallbackImg = new Image()
+                  fallbackImg.onload = () => setImageUrl(normalized.imageFallbackUrl)
+                  fallbackImg.src = normalized.imageFallbackUrl
+                }
+              }
+              img.src = normalized.imageUrl
+            }
           })
           .catch(error => {
-            setMetadataError(error.message)
-            // Create fallback on error
-            if (licenseData) {
-              const fallback = MetadataUtils.createLicenseFallbackMetadata(licenseData, licenseId)
-              setMetadata(fallback)
-              setMetadataSource('fallback')
-            }
-            setMetadataLoading(false)
+            console.error('Metadata fetch failed:', error)
+            setMetadata({
+              name: `License #${licenseId}`,
+              description: 'Gaming license'
+            })
           })
-      } else if (!tokenURI && !isLoadingTokenURI && licenseData && !metadata) {
-        // No URI, create fallback
-        const fallback = MetadataUtils.createLicenseFallbackMetadata(licenseData, licenseId)
-        setMetadata(fallback)
-        setMetadataSource('fallback')
       }
-    }, [tokenURI, isLoadingTokenURI, licenseData, licenseId, metadata])
-
-    const handleMint = useCallback(async () => {
-      if (!isConnected) {
-        alert('Please connect your wallet')
-        return
-      }
-
-      if (!licenseData) {
-        alert('License data not loaded')
-        return
-      }
-
-      try {
-        setMintingLicense(licenseId)
-        
-        const nftMetadata = {
-          name: `${licenseData.name} License NFT`,
-          description: `Gaming license NFT for ${licenseData.name} (${licenseData.symbol})`,
-          image: metadata?.image || null,
-          external_url: metadata?.external_url || '',
-          attributes: [
-            { trait_type: "License ID", value: licenseId.toString() },
-            { trait_type: "License Name", value: licenseData.name },
-            { trait_type: "Symbol", value: licenseData.symbol },
-            { trait_type: "Owner", value: MetadataUtils.shortenAddress(address) },
-            { trait_type: "Minted At", value: new Date().toISOString() }
-          ]
-        }
-
-        const metadataResult = await MetadataUtils.uploadMetadata(nftMetadata)
-        const totalCost = BigInt(licenseData.developerFee || 0) + 
-                          BigInt(licenseData.platformFee || 0) + 
-                          BigInt(licenseData.publisherFee || 0)
-
-        const tx = await mintLicense({
-          licenseId: licenseId,
-          metadataURI: `ipfs://${metadataResult.cid}`,
-          value: totalCost.toString()
-        })
-
-        setCurrentTxHash(tx.hash)
-        addTransaction({
-          hash: tx.hash,
-          description: `Mint ${licenseData.name} License NFT`,
-          status: 'pending'
-        })
-
-      } catch (error) {
-        alert(`Minting failed: ${error.message}`)
-        setMintingLicense(null)
-      }
-    }, [licenseId, licenseData, address, isConnected, mintLicense, metadata, addTransaction])
+    }, [licenseData, licenseId, metadataLoaded])
 
     if (isLoadingLicense) {
       return (
-        <Card className="h-96 bg-gradient-to-br from-gray-50 to-gray-100">
-          <CardContent className="flex items-center justify-center h-full">
-            <div className="flex flex-col items-center space-y-3">
-              <div className="relative">
-                <Loader2 className="h-8 w-8 animate-spin text-blue-500" />
-                <div className="absolute inset-0 bg-blue-500 rounded-full opacity-20 animate-pulse"></div>
-              </div>
-              <span className="text-sm font-medium text-gray-600">Loading license {licenseId}...</span>
-            </div>
+        <Card className="overflow-hidden bg-white shadow-md border-2 border-gray-200">
+          <div className="h-48 bg-gradient-to-br from-blue-100 to-purple-100 flex items-center justify-center">
+            <Loader2 className="h-8 w-8 animate-spin text-blue-600" />
+          </div>
+          <CardContent className="p-4">
+            <div className="h-4 bg-gray-200 rounded animate-pulse mb-2"></div>
+            <div className="h-3 bg-gray-200 rounded animate-pulse w-3/4"></div>
           </CardContent>
         </Card>
       )
     }
 
-    if (licenseError || !licenseData) {
-      return (
-        <Card className="h-96 border-dashed border-2 border-gray-300">
-          <CardContent className="flex items-center justify-center h-full">
-            <div className="text-center space-y-3">
-              <AlertTriangle className="h-10 w-10 text-amber-500 mx-auto" />
-              <div>
-                <p className="text-sm font-medium text-gray-700">License {licenseId} Unavailable</p>
-                <p className="text-xs text-gray-500 mt-1">This license may not be configured properly</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-      )
-    }
+    if (!licenseData) return null
 
-    const totalFee = (BigInt(licenseData.developerFee || 0) + 
-                     BigInt(licenseData.platformFee || 0) + 
-                     BigInt(licenseData.publisherFee || 0))
+    const isCurrentlyMinting = mintingLicense === licenseId
+    const hasAlreadyMinted = mintedLicenses.has(licenseId)
+    const isActive = licenseData.isActive
 
     return (
-      <Card className={`relative overflow-hidden transition-all duration-300 hover:shadow-xl hover:scale-105 ${
-        licenseData.isActive 
-          ? 'bg-gradient-to-br from-white via-blue-50 to-purple-50 border-blue-200' 
-          : 'bg-gradient-to-br from-gray-50 to-gray-100 border-gray-300'
-      }`}>
-        {/* Status Indicator */}
-        <div className={`absolute top-4 right-4 w-3 h-3 rounded-full ${
-          licenseData.isActive ? 'bg-green-500 shadow-lg shadow-green-500/50' : 'bg-red-500'
-        }`} />
+      <Card className="overflow-hidden hover:shadow-lg transition-shadow bg-white border-2 border-gray-200">
+        {/* Image Section */}
+        <div className="h-48 bg-gradient-to-br from-blue-100 to-purple-100 flex items-center justify-center relative overflow-hidden">
+          {imageUrl ? (
+            <img 
+              src={imageUrl} 
+              alt={metadata?.name || `License #${licenseId}`}
+              className="w-full h-full object-cover"
+              onError={(e) => {
+                e.target.style.display = 'none'
+                setImageUrl(null)
+              }}
+            />
+          ) : (
+            <div className="text-center">
+              <Gamepad2 className="h-12 w-12 text-blue-600 mx-auto mb-2" />
+              <p className="text-sm font-medium text-blue-800">Gaming License</p>
+            </div>
+          )}
+          
+          {!isActive && (
+            <div className="absolute inset-0 bg-black bg-opacity-50 flex items-center justify-center">
+              <div className="bg-red-600 text-white px-3 py-1 rounded-full text-sm font-bold">
+                INACTIVE
+              </div>
+            </div>
+          )}
+        </div>
 
-        {/* Premium Badge */}
-        {index < 3 && (
-          <div className="absolute top-0 left-0 bg-gradient-to-r from-yellow-400 to-orange-500 text-white text-xs font-bold px-3 py-1 rounded-br-lg">
-            <Crown className="h-3 w-3 inline mr-1" />
-            FEATURED
-          </div>
-        )}
-
-        <CardHeader className="pb-3">
-          <div className="space-y-2">
-            <CardTitle className="text-lg leading-tight flex items-center space-x-2">
-              <Gamepad2 className="h-5 w-5 text-blue-500" />
-              <span>{metadata?.name || licenseData.name || `License #${licenseId}`}</span>
-            </CardTitle>
-            <CardDescription className="text-sm leading-relaxed">
-              {metadata?.description || `Gaming license for ${licenseData.name || `License ${licenseId}`}`}
-            </CardDescription>
-          </div>
+        {/* Content */}
+        <CardHeader className="pb-2">
+          <CardTitle className="text-lg font-bold text-gray-900 truncate">
+            {metadata?.name || licenseData.name || `License #${licenseId}`}
+          </CardTitle>
+          <CardDescription className="text-sm text-gray-700">
+            {metadata?.description || `Gaming license ${licenseData.symbol}`}
+          </CardDescription>
         </CardHeader>
 
-        <CardContent className="space-y-4">
-          {/* Metadata Image */}
-          {/* Metadata Image with Fallback */}
-<div className="relative aspect-video bg-gradient-to-br from-gray-100 to-gray-200 rounded-lg overflow-hidden group">
-  {metadata?.image ? (
-    <>
-      <img 
-        src={metadata.imageUrl || metadata.image} 
-        alt={metadata.name}
-        className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-110"
-        onError={(e) => {
-          console.log('🖼️ Image failed to load:', metadata.image)
-          e.target.style.display = 'none'
-          e.target.nextElementSibling.style.display = 'flex'
-        }}
-      />
-      <div className="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
-    </>
-  ) : (
-    /* Fallback display when no image available */
-    <div className="flex flex-col items-center justify-center w-full h-full text-gray-400">
-      <div className="relative">
-        <Gamepad2 className="h-16 w-16 mb-3" />
-        <div className="absolute inset-0 bg-blue-500 rounded-full opacity-10 animate-pulse"></div>
-      </div>
-      <p className="text-sm font-medium text-gray-500">Gaming License</p>
-      <p className="text-xs text-gray-400 mt-1">{licenseData.symbol}</p>
-    </div>
-  )}
-  
-  {/* License Status Badge */}
-  <div className={`absolute top-3 right-3 px-2 py-1 rounded-full text-xs font-medium ${
-    licenseData.isActive 
-      ? 'bg-green-100 text-green-800 border border-green-200' 
-      : 'bg-red-100 text-red-800 border border-red-200'
-  }`}>
-    {licenseData.isActive ? 'Active' : 'Inactive'}
-  </div>
-  
-  {/* Source Indicator */}
-  <div className={`absolute top-3 left-3 px-2 py-1 rounded-full text-xs font-medium ${
-    metadataSource === 'uri' 
-      ? 'bg-blue-100 text-blue-800 border border-blue-200' 
-      : 'bg-yellow-100 text-yellow-800 border border-yellow-200'
-  }`}>
-    {metadataSource === 'uri' ? '🔗 URI' : '📋 Fallback'}
-  </div>
-</div>
-
-          {/* License Information Grid */}
-          <div className="space-y-3">
-            {/* Contract Address */}
-            <div className="flex items-center justify-between text-sm bg-white/50 rounded-lg p-3">
-              <span className="text-gray-600 flex items-center">
-                <Package className="h-4 w-4 mr-2" />
-                Contract
+        <CardContent className="px-4 pb-2">
+          <div className="space-y-2 text-xs">
+            <div className="flex items-center justify-between">
+              <span className="text-gray-600">Symbol:</span>
+              <span className="font-mono font-bold text-gray-900">{licenseData.symbol}</span>
+            </div>
+            <div className="flex items-center justify-between">
+              <span className="text-gray-600">Status:</span>
+              <span className={`font-semibold ${isActive ? 'text-green-600' : 'text-red-600'}`}>
+                {isActive ? 'Active' : 'Inactive'}
               </span>
-              <a 
-                href={`https://sepolia.etherscan.io/address/${licenseData.contractAddress}`}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="flex items-center space-x-1 text-blue-600 hover:text-blue-800 transition-colors font-medium"
-              >
-                <span>{MetadataUtils.shortenAddress(licenseData.contractAddress)}</span>
-                <ExternalLink className="h-3 w-3" />
-              </a>
             </div>
-
-            {/* Stakeholders */}
-            <div className="grid grid-cols-1 gap-2 text-xs bg-white/50 rounded-lg p-3">
-              <div className="flex items-center justify-between">
-                <span className="text-gray-600 flex items-center">
-                  <User className="h-3 w-3 mr-1" />
-                  Developer
-                </span>
-                <span className="font-mono font-medium">{MetadataUtils.shortenAddress(licenseData.developer)}</span>
-              </div>
-              <div className="flex items-center justify-between">
-                <span className="text-gray-600 flex items-center">
-                  <User className="h-3 w-3 mr-1" />
-                  Publisher
-                </span>
-                <span className="font-mono font-medium">{MetadataUtils.shortenAddress(licenseData.publisher)}</span>
-              </div>
-              <div className="flex items-center justify-between">
-                <span className="text-gray-600 flex items-center">
-                  <User className="h-3 w-3 mr-1" />
-                  Platform
-                </span>
-                <span className="font-mono font-medium">{MetadataUtils.shortenAddress(licenseData.platform)}</span>
-              </div>
-            </div>
-
-            {/* Fee Structure */}
-            <div className="bg-gradient-to-r from-blue-50 to-purple-50 rounded-lg p-3 border border-blue-200">
-              <div className="flex items-center justify-between mb-2">
-                <span className="text-sm font-medium text-gray-700 flex items-center">
-                  <TrendingUp className="h-4 w-4 mr-2 text-blue-500" />
-                  Total Cost
-                </span>
-                <span className="text-lg font-bold text-blue-600">
-                  {formatEther(totalFee.toString())} ETH
-                </span>
-              </div>
-              <div className="space-y-1 text-xs text-gray-600">
-                <div className="flex justify-between">
-                  <span>Developer Fee:</span>
-                  <span className="font-medium">{formatEther(licenseData.developerFee || 0)} ETH</span>
-                </div>
-                <div className="flex justify-between">
-                  <span>Platform Fee:</span>
-                  <span className="font-medium">{formatEther(licenseData.platformFee || 0)} ETH</span>
-                </div>
-                <div className="flex justify-between">
-                  <span>Publisher Fee:</span>
-                  <span className="font-medium">{formatEther(licenseData.publisherFee || 0)} ETH</span>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* Metadata Source Indicator */}
-          <div className="flex items-center space-x-2 text-xs">
-            <div className={`w-2 h-2 rounded-full ${
-              metadataSource === 'uri' ? 'bg-green-500' : 'bg-yellow-500'
-            }`} />
-            <span className="text-gray-500">
-              {metadataSource === 'uri' ? 'Metadata from contract' : 'Fallback metadata'}
-            </span>
-            {metadataError && (
-              <AlertTriangle className="h-3 w-3 text-amber-500" />
-            )}
           </div>
         </CardContent>
 
-        <CardFooter>
-          <Button 
-            onClick={handleMint}
-            disabled={mintingLicense === licenseId || !licenseData.isActive || isMintPending || metadataLoading}
-            className={`w-full transition-all duration-300 ${
-              mintingLicense === licenseId || isMintPending
-                ? 'bg-gray-400'
-                : licenseData.isActive
-                ? 'bg-gradient-to-r from-blue-500 to-purple-500 hover:from-blue-600 hover:to-purple-600 shadow-lg hover:shadow-xl'
-                : 'bg-gray-500'
-            }`}
-          >
-            {mintingLicense === licenseId || isMintPending ? (
-              <>
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                Minting License...
-              </>
-            ) : (
-              <>
-                <ShoppingCart className="mr-2 h-4 w-4" />
-                Mint License ({formatEther(totalFee.toString())} ETH)
-              </>
-            )}
-          </Button>
+        {/* Footer */}
+        <CardFooter className="px-4 pt-2 pb-4">
+          {!isConnected ? (
+            <Button disabled className="w-full bg-gray-400 text-gray-600 font-semibold">
+              <User className="mr-2 h-4 w-4" />
+              Connect Wallet
+            </Button>
+          ) : hasAlreadyMinted ? (
+            <Button disabled className="w-full bg-green-100 text-green-800 border border-green-300 font-semibold">
+              Already Minted ✓
+            </Button>
+          ) : !isActive ? (
+            <Button disabled className="w-full bg-red-100 text-red-600 border border-red-300 font-semibold">
+              <AlertTriangle className="mr-2 h-4 w-4" />
+              Inactive
+            </Button>
+          ) : (
+            <Button 
+              onClick={() => handleMintLicense(licenseId, licenseData)}
+              disabled={isCurrentlyMinting || isMintPending || !licenseData?.uri}
+              className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold"
+            >
+              {isCurrentlyMinting ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Minting...
+                </>
+              ) : !licenseData?.uri ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Loading...
+                </>
+              ) : (
+                <>
+                  <ShoppingCart className="mr-2 h-4 w-4" />
+                  Mint License
+                </>
+              )}
+            </Button>
+          )}
         </CardFooter>
       </Card>
     )
   }
 
-  useEffect(() => {
-    if (licenseIds && JSON.stringify(licenseIds) !== JSON.stringify(processedLicenseIds.current)) {
-      processedLicenseIds.current = licenseIds
-      setLicenses(licenseIds)
-      setLoading(false)
-    } else if (!loadingIds && !licenseIds) {
-      setLoading(false)
-    }
-  }, [licenseIds?.length, loadingIds])
+  // Transaction notification
+  const TransactionNotification = () => {
+    if (!txNotification) return null
 
+    return (
+      <div className="fixed top-20 right-4 z-50 max-w-sm">
+        <Card className={`border-2 shadow-lg ${txNotification.status === 'success' ? 'border-green-500 bg-green-50' : 'border-red-500 bg-red-50'}`}>
+          <CardContent className="p-3">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center space-x-2">
+                <div className={`h-2 w-2 rounded-full ${txNotification.status === 'success' ? 'bg-green-500' : 'bg-red-500'}`}></div>
+                <div>
+                  <p className="font-semibold text-xs">
+                    {txNotification.status === 'success' ? '✅ Mint Successful!' : '❌ Transaction Failed!'}
+                  </p>
+                  <a 
+                    href={`https://sepolia.etherscan.io/tx/${txNotification.hash}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-xs text-blue-600 hover:underline flex items-center"
+                  >
+                    View Transaction <ExternalLink className="ml-1 h-3 w-3" />
+                  </a>
+                </div>
+              </div>
+              <button
+                onClick={() => setTxNotification(null)}
+                className="text-gray-400 hover:text-gray-600 ml-2"
+              >
+                ×
+              </button>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    )
+  }
+
+  // Cleanup timeout on unmount
+  useEffect(() => {
+    return () => {
+      if (notificationTimeout.current) {
+        clearTimeout(notificationTimeout.current)
+      }
+    }
+  }, [])
+
+  // Loading state
   if (loading) {
     return (
-      <div className="min-h-96 flex items-center justify-center">
-        <div className="text-center space-y-4">
-          <div className="relative">
-            <Loader2 className="h-12 w-12 animate-spin text-blue-500 mx-auto" />
-            <div className="absolute inset-0 bg-blue-500 rounded-full opacity-20 animate-pulse"></div>
-          </div>
-          <div>
-            <h3 className="text-lg font-medium text-gray-900">Loading Gaming Licenses</h3>
-            <p className="text-gray-600">Fetching available licenses from the blockchain...</p>
-          </div>
+      <div className="space-y-6">
+        <div className="text-center">
+          <h2 className="text-2xl font-bold text-gray-900 mb-2">Gaming License Marketplace</h2>
+          <p className="text-gray-700">Mint gaming licenses to access exclusive content and features</p>
+        </div>
+        <div className="text-center py-8">
+          <Loader2 className="h-8 w-8 animate-spin mx-auto mb-2 text-blue-600" />
+          <p className="text-gray-800 font-semibold">Loading gaming licenses...</p>
         </div>
       </div>
     )
   }
 
-  if (idsError) {
+  // Not connected state
+  if (!isConnected) {
     return (
-      <div className="text-center py-12">
-        <AlertTriangle className="h-16 w-16 text-red-400 mx-auto mb-4" />
-        <h3 className="text-lg font-medium text-gray-900 mb-2">Connection Error</h3>
-        <p className="text-gray-600 mb-4">Unable to load license data from the blockchain.</p>
-        <p className="text-red-600 text-sm mb-6">{idsError.message}</p>
-        <Button onClick={() => refetchLicenseIds()} className="bg-blue-500 hover:bg-blue-600">
-          Try Again
-        </Button>
-      </div>
-    )
-  }
-
-  if (licenses.length === 0) {
-    return (
-      <div className="text-center py-16">
-        <div className="relative mb-6">
-          <Gamepad2 className="h-20 w-20 text-gray-300 mx-auto" />
-          <div className="absolute inset-0 bg-gray-300 rounded-full opacity-20 animate-pulse"></div>
+      <div className="space-y-6">
+        <div className="text-center">
+          <h2 className="text-2xl font-bold text-gray-900 mb-2">Gaming License Marketplace</h2>
+          <p className="text-gray-700">Mint gaming licenses to access exclusive content and features</p>
         </div>
-        <h3 className="text-xl font-medium text-gray-900 mb-2">No Gaming Licenses Available</h3>
-        <p className="text-gray-600">Check back later for new gaming license opportunities.</p>
+        <div className="text-center py-8">
+          <Package className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+          <h3 className="text-lg font-bold text-gray-900 mb-2">Connect Your Wallet</h3>
+          <p className="text-gray-700">Please connect your wallet to view available licenses.</p>
+        </div>
       </div>
     )
   }
 
+  // Main render
   return (
-    <div className="space-y-8">
-      {/* Header Section */}
-      <div className="text-center space-y-4">
-        <div className="relative inline-block">
-          <h1 className="text-4xl font-bold bg-gradient-to-r from-blue-600 via-purple-600 to-indigo-600 bg-clip-text text-transparent">
-            Gaming License Marketplace
-          </h1>
-          <div className="absolute -inset-1 bg-gradient-to-r from-blue-600 via-purple-600 to-indigo-600 rounded-lg blur opacity-20"></div>
-        </div>
-        <p className="text-xl text-gray-600 max-w-2xl mx-auto">
-          Discover and mint exclusive gaming licenses. Access premium games, earn rewards, and join the future of gaming.
-        </p>
-        <div className="flex items-center justify-center space-x-6 text-sm text-gray-500">
-          <div className="flex items-center space-x-2">
-            <Package className="h-4 w-4" />
-            <span>{licenses.length} Available Licenses</span>
-          </div>
-          <div className="flex items-center space-x-2">
-            <User className="h-4 w-4" />
-            <span>Verified Developers</span>
-          </div>
-          <div className="flex items-center space-x-2">
-            <TrendingUp className="h-4 w-4" />
-            <span>Real-time Pricing</span>
-          </div>
-        </div>
+    <div className="space-y-6">
+      <TransactionNotification />
+      
+      <div className="text-center">
+        <h2 className="text-2xl font-bold text-gray-900 mb-2">Gaming License Marketplace</h2>
+        <p className="text-gray-700">Mint gaming licenses to access exclusive content and features</p>
       </div>
 
-      {/* License Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-        {licenses.map((licenseId, index) => (
-          <LicenseCard key={licenseId} licenseId={licenseId} index={index} />
-        ))}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        {licenses.length > 0 ? (
+          licenses.map((licenseId) => (
+            <LicenseCard key={licenseId} licenseId={licenseId} />
+          ))
+        ) : (
+          <div className="col-span-full text-center py-8">
+            <Package className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+            <h3 className="text-lg font-bold text-gray-900 mb-2">No Licenses Available</h3>
+            <p className="text-gray-700">There are currently no gaming licenses available for minting.</p>
+          </div>
+        )}
       </div>
     </div>
   )
