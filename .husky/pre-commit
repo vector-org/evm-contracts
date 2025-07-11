@@ -3,3 +3,4 @@
 npm run lint
 npm run check:format
 npm run compile
+npm run dev-example:build
