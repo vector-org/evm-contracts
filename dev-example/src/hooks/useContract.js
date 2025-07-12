@@ -106,9 +106,9 @@ export function useContract() {
       abi: CONTRACTS.PRIMARY_MARKETPLACE.abi,
       functionName: 'getNFTDetails',
       args: [numericId],
-      query: {
-        enabled: numericId !== null && numericId !== undefined,
-      }
+      // query: {
+      //   enabled: numericId !== null && numericId !== undefined,
+      // }
     })
   }
 
@@ -124,7 +124,7 @@ export function useContract() {
           address: CONTRACTS.SECONDARY_MARKETPLACE.address,
           abi: CONTRACTS.SECONDARY_MARKETPLACE.abi,
           functionName: 'createOffer',
-          args: [licenseAddress, numericTokenId, BigInt(price)]
+          args: [numericTokenId, licenseAddress, BigInt(price)]
         })
         
         return hash

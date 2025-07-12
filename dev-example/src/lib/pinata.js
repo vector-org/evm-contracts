@@ -72,30 +72,30 @@ export const uploadFileWithProgress = async (file, onProgress) => {
     }
 
     // Upload file using Pinata SDK
-    const result = await pinata_client.upload.file(file)
-    
+    const result = await pinata_client.upload.public.file(file)
+    console.log('file uploaded to ipfs', result)
     if (onProgress) {
       onProgress(70)
     }
 
     // Get the dedicated gateway URL
-    const url = getPinataUrl(result.IpfsHash)
+    const url = getPinataUrl(result.cid)
     
     if (onProgress) {
       onProgress(100)
     }
 
     console.log('✅ [Pinata] File uploaded successfully:', {
-      cid: result.IpfsHash,
+      cid: result.cid,
       url: url,
       size: file.size,
       filename: file.name
     })
 
     return {
-      cid: result.IpfsHash,
+      cid: result.cid,
       url: url,
-      path: result.IpfsHash // For compatibility with old IPFS code
+      path: result.cid // For compatibility with old IPFS code
     }
   } catch (error) {
     console.error('💥 [Pinata] Error uploading file:', {
@@ -119,21 +119,21 @@ export const uploadJSONData = async (jsonObject) => {
     })
     
     // Upload JSON using Pinata SDK
-    const result = await pinata_client.upload.json(jsonObject)
-    
+    const result = await pinata_client.upload.public.json(jsonObject)
+    console.log('file uploaded to ipfs', result)
     // Get the dedicated gateway URL
     const url = getPinataUrl(result.IpfsHash)
     
     console.log('✅ [Pinata] JSON uploaded successfully:', {
-      cid: result.IpfsHash,
+      cid: result.cid,
       url: url,
       dataKeys: Object.keys(jsonObject)
     })
     
     return {
-      cid: result.IpfsHash,
+      cid: result.cid,
       url: url,
-      path: result.IpfsHash // For compatibility with old IPFS code
+      path: result.cid // For compatibility with old IPFS code
     }
   } catch (error) {
     console.error('💥 [Pinata] Error uploading JSON:', {

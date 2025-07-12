@@ -1,5 +1,5 @@
 {
-    "address": "0xB98f3c518ecB7e4E8511Fb0cEc872439Ad6c0422",
+    "address": "0x759c295a9247a8289fd3ce55Bf047B007AAe7c82",
     "abi": [
     {
       "inputs": [
@@ -139,6 +139,16 @@
           "internalType": "string",
           "name": "uri",
           "type": "string"
+        },
+        {
+          "internalType": "uint256",
+          "name": "licenseId",
+          "type": "uint256"
+        },
+        {
+          "internalType": "address",
+          "name": "licenseAddress",
+          "type": "address"
         }
       ],
       "stateMutability": "view",
@@ -178,6 +188,16 @@
               "internalType": "string",
               "name": "uri",
               "type": "string"
+            },
+            {
+              "internalType": "uint256",
+              "name": "licenseId",
+              "type": "uint256"
+            },
+            {
+              "internalType": "address",
+              "name": "licenseAddress",
+              "type": "address"
             }
           ],
           "internalType": "struct GameNFT",

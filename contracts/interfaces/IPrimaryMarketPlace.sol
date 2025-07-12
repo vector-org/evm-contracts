@@ -8,6 +8,8 @@ interface IPrimaryMarketPlace {
     struct GameNFT {
         address owner;
         string uri;
+        uint256 licenseId;
+        address licenseAddress;
     }
 
     /// @notice Emitted when a new NFT is minted via a license contract.
