@@ -36,6 +36,8 @@ struct LicenseInput {
 struct GameNFT {
     address owner;
     string uri;
+    uint256 licenseId;
+    address licenseAddress;
 }
 
 struct Offer {
