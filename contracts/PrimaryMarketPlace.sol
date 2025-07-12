@@ -69,7 +69,12 @@ contract PrimaryMarketPlace is Addresses {
         licenseContract.safeMint(uri, _receiver, nftId);
         _tokenIdCounter.increment();
 
-        gameNFTs[nftId] = GameNFT({owner: _receiver, uri: uri});
+        gameNFTs[nftId] = GameNFT({
+            owner: _receiver,
+            uri: uri,
+            licenseId: licenseId,
+            licenseAddress: licenseAddress
+        });
         allNFTIDs.push(nftId);
         emit Mint(_receiver, licenseAddress, uri, block.timestamp);
     }
