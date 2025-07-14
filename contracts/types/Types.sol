@@ -38,6 +38,7 @@ struct GameNFT {
     string uri;
     uint256 licenseId;
     address licenseAddress;
+    bool listedForSale;
 }
 
 struct Offer {
