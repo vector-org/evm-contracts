@@ -1,5 +1,5 @@
 {
-    "address": "0x100BA2D3C01790cb5372E662430e6b6A7Bc9B024",
+    "address": "0xCD1482d9C050eb8eeB9070Fe2a949A2355E2FC26",
     "abi": [
     {
       "inputs": [
@@ -26,6 +26,17 @@
       ],
       "stateMutability": "nonpayable",
       "type": "constructor"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "uint256",
+          "name": "offerId",
+          "type": "uint256"
+        }
+      ],
+      "name": "alreadyListed",
+      "type": "error"
     },
     {
       "inputs": [
