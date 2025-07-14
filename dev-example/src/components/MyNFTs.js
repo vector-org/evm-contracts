@@ -9,7 +9,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { useContract } from '../hooks/useContract'
 import { shortenAddress, parseEther } from '../lib/utils'
 import { MetadataUtils } from '../lib/metadataUtils'
-import { Package, Loader2, AlertCircle, CheckCircle, DollarSign, Gamepad2 } from 'lucide-react'
+import { Package, Loader2, AlertCircle, CheckCircle, DollarSign, Gamepad2, ShoppingCart, Tag, ExternalLink } from 'lucide-react'
 import { CONTRACTS } from '@/lib/contracts';
 
 export default function MyNFTs() {
@@ -25,6 +25,7 @@ export default function MyNFTs() {
   // Core state
   const [nfts, setNfts] = useState([])
   const [loading, setLoading] = useState(true)
+  const [txNotification, setTxNotification] = useState(null)
   
   // Dialog state - isolated to prevent flickering
   const [dialogState, setDialogState] = useState({
@@ -40,6 +41,9 @@ export default function MyNFTs() {
   
   // Refs for stability
   const processedNFTIds = useRef(new Set())
+  const pollingTimeoutRef = useRef(null)
+  const notificationTimeout = useRef(null)
+  const inputRef = useRef(null)
   
   const { data: allNFTIds, isLoading: loadingIds } = useGetAllNFTIds()
   const { createOffer } = useCreateOffer()
@@ -65,7 +69,20 @@ export default function MyNFTs() {
     }
   }, [])
 
-  // Load NFTs with stable logic
+  // Show notification
+  const showNotification = useCallback((status, hash, message) => {
+    if (notificationTimeout.current) {
+      clearTimeout(notificationTimeout.current)
+    }
+    
+    setTxNotification({ status, hash, message })
+    
+    notificationTimeout.current = setTimeout(() => {
+      setTxNotification(null)
+    }, 5000)
+  }, [])
+
+  // Load NFTs when IDs change
   useEffect(() => {
     if (loadingIds) return
     
@@ -73,8 +90,7 @@ export default function MyNFTs() {
       const idsString = allNFTIds.join(',')
       if (!processedNFTIds.current.has(idsString)) {
         processedNFTIds.current.add(idsString)
-        console.log('🔄 Loading NFTs:', allNFTIds)
-        setNfts(allNFTIds.map(id => id.toString()))
+        setNfts(allNFTIds.map(id => ({ id: id.toString() })))
         setLoading(false)
       }
     } else {
@@ -83,387 +99,8 @@ export default function MyNFTs() {
     }
   }, [allNFTIds, loadingIds])
 
-  // Stable price input handler - completely isolated
-  const handlePriceInput = useCallback((value) => {
-    setSalePrice(value)
-  }, [])
-
-  // Stable dialog handlers
-  const openDialog = useCallback((nftData) => {
-    console.log('🔓 Opening dialog for NFT:', nftData)
-    setDialogState({
-      open: true,
-      selectedNFT: nftData,
-      step: 'setup',
-      txHash: null,
-      error: null
-    })
-    setSalePrice('')
-  }, [])
-
-  const closeDialog = useCallback(() => {
-    console.log('🔒 Closing dialog')
-    setDialogState({
-      open: false,
-      selectedNFT: null,
-      step: 'setup',
-      txHash: null,
-      error: null
-    })
-    setSalePrice('')
-  }, [])
-
-  const updateDialogState = useCallback((updates) => {
-    setDialogState(prev => ({ ...prev, ...updates }))
-  }, [])
-
-  const NFTCard = ({ nftId }) => {
-    const { data: nftDetails, isLoading: loadingNFT } = useGetNFTDetails(nftId)
-    
-    // Simplified local state - no complex license fetching needed!
-    const [nftState, setNftState] = useState({
-      metadata: null,
-      imageUrl: null,
-      imageLoading: false,
-      metadataLoaded: false
-    })
-
-    console.log(`🔍 [NFT-${nftId}] NFT Details:`, nftDetails)
-
-    // Load metadata from the NFT URI (much simpler now!)
-    useEffect(() => {
-      if (nftDetails && nftDetails.uri && !nftState.metadataLoaded) {
-        console.log(`📋 [NFT-${nftId}] Loading metadata from URI:`, nftDetails.uri)
-        
-        setNftState(prev => ({ ...prev, metadataLoaded: true }))
-        
-        MetadataUtils.fetchMetadataEnhanced(nftDetails.uri)
-          .then(metadata => {
-            console.log(`✅ [NFT-${nftId}] Metadata loaded:`, metadata)
-            
-            const normalized = MetadataUtils.normalizeImageUrls(metadata)
-            setNftState(prev => ({ ...prev, metadata: normalized }))
-
-            // Load image if available
-            if (normalized?.imageUrl) {
-              setNftState(prev => ({ ...prev, imageLoading: true }))
-              
-              const img = new Image()
-              img.onload = () => {
-                setNftState(prev => ({
-                  ...prev,
-                  imageUrl: normalized.imageUrl,
-                  imageLoading: false
-                }))
-              }
-              img.onerror = () => {
-                if (normalized?.imageFallbackUrl) {
-                  const fallbackImg = new Image()
-                  fallbackImg.onload = () => {
-                    setNftState(prev => ({
-                      ...prev,
-                      imageUrl: normalized.imageFallbackUrl,
-                      imageLoading: false
-                    }))
-                  }
-                  fallbackImg.onerror = () => {
-                    setNftState(prev => ({ ...prev, imageLoading: false }))
-                  }
-                  fallbackImg.src = normalized.imageFallbackUrl
-                } else {
-                  setNftState(prev => ({ ...prev, imageLoading: false }))
-                }
-              }
-              img.src = normalized.imageUrl
-            }
-          })
-          .catch(error => {
-            console.error(`💥 [NFT-${nftId}] Metadata fetch failed:`, error)
-            setNftState(prev => ({
-              ...prev,
-              metadata: {
-                name: `Gaming License #${nftId}`,
-                description: "Gaming license NFT - metadata failed to load"
-              }
-            }))
-          })
-      }
-    }, [nftDetails, nftId, nftState.metadataLoaded])
-
-    const handleListForSale = useCallback(() => {
-      if (!nftDetails || !nftDetails.licenseAddress) {
-        console.warn(`🚫 [NFT-${nftId}] Cannot list: No license address`)
-        return
-      }
-      
-      // Create simplified NFT data using the licenseAddress directly from NFT details
-      const nftData = {
-        id: nftId,
-        // Direct access to licenseAddress - no complex fetching needed!
-        licenseAddress: nftDetails.licenseAddress,
-        licenseId: nftDetails.licenseId.toString(),
-        owner: nftDetails.owner,
-        uri: nftDetails.uri,
-        metadata: nftState.metadata
-      }
-      
-      console.log(`🛒 [NFT-${nftId}] Preparing to list for sale:`, nftData)
-      openDialog(nftData)
-    }, [nftId, nftDetails, nftState.metadata, openDialog])
-
-    // Don't render if not owned by user
-    if (!nftDetails || nftDetails.owner?.toLowerCase() !== address?.toLowerCase()) {
-      return null
-    }
-
-    // Show loading state
-    if (loadingNFT || !nftDetails) {
-      return (
-        <Card className="overflow-hidden bg-white shadow-md border-2 border-gray-200">
-          <div className="h-48 bg-gradient-to-br from-green-100 to-blue-100 flex items-center justify-center">
-            <div className="text-center">
-              <Loader2 className="h-8 w-8 animate-spin text-blue-600 mx-auto mb-2" />
-              <p className="text-xs text-blue-800">Loading NFT...</p>
-            </div>
-          </div>
-          <CardContent className="p-4">
-            <div className="h-4 bg-gray-200 rounded animate-pulse mb-2"></div>
-            <div className="h-3 bg-gray-200 rounded animate-pulse w-3/4"></div>
-          </CardContent>
-        </Card>
-      )
-    }
-
-    // Check if we have a valid license address
-    const hasValidLicenseAddress = nftDetails.licenseAddress && 
-      nftDetails.licenseAddress !== '0x0000000000000000000000000000000000000000'
-
-    return (
-      <Card className="overflow-hidden hover:shadow-lg transition-shadow bg-white border-2 border-gray-200">
-        {/* Image Section */}
-        <div className="h-48 bg-gradient-to-br from-green-100 to-blue-100 flex items-center justify-center relative overflow-hidden">
-          {nftState.imageLoading ? (
-            <Loader2 className="h-8 w-8 animate-spin text-blue-600" />
-          ) : nftState.imageUrl ? (
-            <img 
-              src={nftState.imageUrl} 
-              alt={nftState.metadata?.name || `NFT #${nftId}`}
-              className="w-full h-full object-cover"
-              onError={(e) => {
-                console.log(`❌ [NFT-${nftId}] Image display error`)
-                e.target.style.display = 'none'
-                setNftState(prev => ({ ...prev, imageUrl: null }))
-              }}
-            />
-          ) : (
-            <div className="text-center">
-              <Gamepad2 className="h-12 w-12 text-blue-600 mx-auto mb-2" />
-              <p className="text-sm font-medium text-blue-800">Gaming NFT</p>
-            </div>
-          )}
-          
-          {/* Status indicator */}
-          {!hasValidLicenseAddress && (
-            <div className="absolute top-2 right-2 bg-red-500 text-white text-xs px-2 py-1 rounded">
-              No License
-            </div>
-          )}
-        </div>
-
-        {/* Content */}
-        <CardHeader className="pb-2">
-          <CardTitle className="text-lg font-bold text-gray-900 truncate">
-            {nftState.metadata?.name || `Gaming License #${nftId}`}
-          </CardTitle>
-          <CardDescription className="text-sm text-gray-700">
-            {nftState.metadata?.description || "Gaming license NFT"}
-          </CardDescription>
-        </CardHeader>
-
-        <CardContent className="px-4 pb-2">
-          <div className="space-y-2 text-xs">
-            <div className="flex items-center justify-between">
-              <span className="text-gray-600">Token ID:</span>
-              <span className="font-mono font-bold text-gray-900">#{nftId}</span>
-            </div>
-            <div className="flex items-center justify-between">
-              <span className="text-gray-600">Owner:</span>
-              <span className="font-mono text-gray-900">
-                {shortenAddress(nftDetails.owner)}
-              </span>
-            </div>
-            <div className="flex items-center justify-between">
-              <span className="text-gray-600">License ID:</span>
-              <span className="font-mono text-gray-900">#{nftDetails.licenseId.toString()}</span>
-            </div>
-            {hasValidLicenseAddress ? (
-              <div className="flex items-center justify-between">
-                <span className="text-gray-600">License Contract:</span>
-                <span className="font-mono text-gray-900">
-                  {shortenAddress(nftDetails.licenseAddress)}
-                </span>
-              </div>
-            ) : (
-              <div className="bg-yellow-50 border border-yellow-200 rounded p-2 mt-2">
-                <p className="text-yellow-800 text-xs">
-                  ⚠️ Invalid license address
-                </p>
-              </div>
-            )}
-          </div>
-        </CardContent>
-
-        {/* Footer */}
-        <CardFooter className="px-4 pt-2 pb-4">
-          <Button 
-            onClick={handleListForSale}
-            className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold"
-            disabled={!hasValidLicenseAddress}
-          >
-            <DollarSign className="mr-2 h-4 w-4" />
-            {hasValidLicenseAddress ? 'List for Sale' : 'Invalid License'}
-          </Button>
-        </CardFooter>
-      </Card>
-    )
-  }
-
-  // Memoized dialog data to prevent re-renders
-  const dialogData = useMemo(() => {
-    if (!dialogState.selectedNFT) return null
-    
-    const nft = dialogState.selectedNFT
-    return {
-      id: nft.id,
-      name: nft.metadata?.name || `Gaming License #${nft.id}`,
-      description: nft.metadata?.description || "Gaming license NFT",
-      licenseAddress: nft.licenseAddress, // Direct from NFT details!
-      licenseId: nft.licenseId,
-      owner: nft.owner,
-      uri: nft.uri
-    }
-  }, [dialogState.selectedNFT])
-
-  // Listing Dialog Component - completely isolated
-  const ListingDialog = useMemo(() => {
-    if (!dialogState.open || !dialogData) return null
-
-    return (
-      <ListingDialogContent 
-        dialogData={dialogData}
-        dialogState={dialogState}
-        salePrice={salePrice}
-        onPriceChange={handlePriceInput}
-        onUpdateState={updateDialogState}
-        onClose={closeDialog}
-        checkTransactionStatus={checkTransactionStatus}
-        createOffer={createOffer}
-        approve={approve}
-        useGetApproved={useGetApproved}
-      />
-    )
-  }, [dialogState, dialogData, salePrice, handlePriceInput, updateDialogState, closeDialog, checkTransactionStatus, createOffer, approve, useGetApproved])
-
-  if (!isConnected) {
-    return (
-      <div className="space-y-6">
-        <div className="text-center">
-          <h2 className="text-2xl font-bold text-gray-900 mb-2">My Games</h2>
-          <p className="text-gray-700">Manage and list your gaming license NFTs for sale</p>
-        </div>
-        <div className="text-center py-8">
-          <Package className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-          <h3 className="text-lg font-bold text-gray-900 mb-2">Connect Your Wallet</h3>
-          <p className="text-gray-700">Please connect your wallet to view your NFTs.</p>
-        </div>
-      </div>
-    )
-  }
-
-  if (loading) {
-    return (
-      <div className="space-y-6">
-        <div className="text-center">
-          <h2 className="text-2xl font-bold text-gray-900 mb-2">My Games</h2>
-          <p className="text-gray-700">Manage and list your gaming license NFTs for sale</p>
-        </div>
-        <div className="text-center py-8">
-          <Loader2 className="h-8 w-8 animate-spin mx-auto mb-2 text-blue-600" />
-          <p className="text-gray-800 font-semibold">Loading your NFTs...</p>
-        </div>
-      </div>
-    )
-  }
-
-  if (nfts.length === 0) {
-    return (
-      <div className="space-y-6">
-        <div className="text-center">
-          <h2 className="text-2xl font-bold text-gray-900 mb-2">My Games</h2>
-          <p className="text-gray-700">Manage and list your gaming license NFTs for sale</p>
-        </div>
-        <div className="text-center py-8">
-          <Package className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-          <h3 className="text-lg font-bold text-gray-900 mb-2">No NFTs Found</h3>
-          <p className="text-gray-700">You don't own any gaming license NFTs yet.</p>
-        </div>
-      </div>
-    )
-  }
-
-  return (
-    <div className="space-y-6">
-      <div className="text-center">
-        <h2 className="text-2xl font-bold text-gray-900 mb-2">My Games</h2>
-        <p className="text-gray-700">Manage and list your gaming license NFTs for sale</p>
-      </div>
-
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {nfts.map((nftId) => (
-          <NFTCard key={nftId} nftId={nftId} />
-        ))}
-      </div>
-
-      {ListingDialog}
-    </div>
-  )
-}
-
-// FIXED: Separate dialog component using licenseAddress directly
-function ListingDialogContent({ 
-  dialogData, 
-  dialogState, 
-  salePrice, 
-  onPriceChange, 
-  onUpdateState, 
-  onClose,
-  checkTransactionStatus,
-  createOffer,
-  approve,
-  useGetApproved
-}) {
-  const inputRef = useRef(null)
-  const pollingTimeoutRef = useRef(null)
-  
-  // FIXED: Use licenseAddress directly from NFT details
-  const { data: approvedAddress } = useGetApproved(
-    dialogData?.licenseAddress, // Direct from NFT details!
-    dialogData?.id
-  )
-
-  const needsApproval = approvedAddress?.toLowerCase() !== 
-    CONTRACTS.SECONDARY_MARKETPLACE.address?.toLowerCase()
-
-  console.log('🔍 [Dialog] Approval check:', {
-    licenseAddress: dialogData?.licenseAddress,
-    tokenId: dialogData?.id,
-    approvedAddress,
-    secondaryMarketplace: CONTRACTS.SECONDARY_MARKETPLACE.address,
-    needsApproval
-  })
-
-  // FIXED: Proper transaction polling function
-  const pollTransactionStatus = useCallback(async (hash, onSuccess, onFailure, maxAttempts = 30) => {
+  // Poll transaction status with cleanup
+  const pollTransactionStatus = useCallback(async (hash, onSuccess, onFailure, maxAttempts = 20) => {
     let attempts = 0
     
     const poll = async () => {
@@ -472,11 +109,9 @@ function ListingDialogContent({
         console.log(`🔍 [Dialog] Checking transaction status (attempt ${attempts}/${maxAttempts}):`, hash)
         
         const status = await checkTransactionStatus(hash)
-        console.log(`📊 [Dialog] Transaction status:`, status)
         
         if (status === 'success') {
           console.log('✅ [Dialog] Transaction confirmed!')
-          // Clear polling timeout
           if (pollingTimeoutRef.current) {
             clearTimeout(pollingTimeoutRef.current)
             pollingTimeoutRef.current = null
@@ -485,7 +120,6 @@ function ListingDialogContent({
           return
         } else if (status === 'failed') {
           console.log('❌ [Dialog] Transaction failed!')
-          // Clear polling timeout
           if (pollingTimeoutRef.current) {
             clearTimeout(pollingTimeoutRef.current)
             pollingTimeoutRef.current = null
@@ -494,18 +128,16 @@ function ListingDialogContent({
           return
         } else if (attempts >= maxAttempts) {
           console.log('⏰ [Dialog] Transaction polling timeout after', maxAttempts, 'attempts')
-          // Clear polling timeout
           if (pollingTimeoutRef.current) {
             clearTimeout(pollingTimeoutRef.current)
             pollingTimeoutRef.current = null
           }
-          onFailure('Transaction confirmation timeout - please check manually')
+          onFailure('Transaction confirmation timeout')
           return
         }
         
-        // Continue polling every 2 seconds
-        console.log(`⏳ [Dialog] Transaction still pending, will check again in 2 seconds...`)
-        pollingTimeoutRef.current = setTimeout(poll, 2000)
+        console.log(`⏳ [Dialog] Transaction still pending, will check again in 3 seconds...`)
+        pollingTimeoutRef.current = setTimeout(poll, 3000)
       } catch (error) {
         console.error('💥 [Dialog] Error polling transaction:', error)
         if (attempts >= maxAttempts) {
@@ -515,154 +147,359 @@ function ListingDialogContent({
           }
           onFailure('Error checking transaction status')
         } else {
-          // Retry on error after a short delay
-          pollingTimeoutRef.current = setTimeout(poll, 2000)
+          pollingTimeoutRef.current = setTimeout(poll, 3000)
         }
       }
     }
     
-    // Start polling immediately
     poll()
   }, [checkTransactionStatus])
 
-  // Cleanup polling on unmount or dialog close
+  // Cleanup polling on unmount
   useEffect(() => {
     return () => {
       if (pollingTimeoutRef.current) {
         clearTimeout(pollingTimeoutRef.current)
         pollingTimeoutRef.current = null
-        console.log('🧹 [Dialog] Cleaned up polling timeout')
+      }
+      if (notificationTimeout.current) {
+        clearTimeout(notificationTimeout.current)
+        notificationTimeout.current = null
       }
     }
   }, [])
 
-  // Stable input handler
-  const handleInputChange = useCallback((e) => {
-    const value = e.target.value
-    onPriceChange(value)
-  }, [onPriceChange])
+  // Dialog management functions
+  const openDialog = useCallback((nft) => {
+    setDialogState({
+      open: true,
+      selectedNFT: nft,
+      step: 'setup',
+      txHash: null,
+      error: null
+    })
+    setSalePrice('')
+  }, [])
 
+  const closeDialog = useCallback(() => {
+    setDialogState({
+      open: false,
+      selectedNFT: null,
+      step: 'setup',
+      txHash: null,
+      error: null
+    })
+    setSalePrice('')
+    
+    // Clear any ongoing polling
+    if (pollingTimeoutRef.current) {
+      clearTimeout(pollingTimeoutRef.current)
+      pollingTimeoutRef.current = null
+    }
+  }, [])
+
+  const updateDialogState = useCallback((updates) => {
+    setDialogState(prev => ({ ...prev, ...updates }))
+  }, [])
+
+  // Handle input change
+  const handlePriceChange = useCallback((value) => {
+    setSalePrice(value)
+  }, [])
+
+  // Handle approval
   const handleApprove = useCallback(async () => {
-    if (!dialogData?.licenseAddress) {
-      console.error('❌ [Dialog] No license address for approval')
-      onUpdateState({ error: 'No license address found' })
+    const nft = dialogState.selectedNFT
+    if (!nft?.licenseAddress) {
+      updateDialogState({ error: 'No license address found' })
       return
     }
 
     try {
-      console.log('📝 [Dialog] Starting approval:', {
-        licenseAddress: dialogData.licenseAddress,
-        spender: CONTRACTS.SECONDARY_MARKETPLACE.address,
-        tokenId: dialogData.id
-      })
-
-      onUpdateState({ step: 'approving', error: null })
+      updateDialogState({ step: 'approving', error: null })
       
       const hash = await approve(
-        dialogData.licenseAddress,
+        nft.licenseAddress,
         CONTRACTS.SECONDARY_MARKETPLACE.address,
-        dialogData.id
+        nft.id
       )
 
       if (hash) {
-        onUpdateState({ txHash: hash })
+        updateDialogState({ txHash: hash })
         console.log('📤 [Dialog] Approval transaction submitted:', hash)
 
-        // FIXED: Use proper polling instead of single timeout
         pollTransactionStatus(
           hash,
-          // Success callback - proceed to create offer
+          // Success callback
           () => {
             console.log('✅ [Dialog] Approval confirmed! Proceeding to create offer...')
-            onUpdateState({ step: 'setup', txHash: null })
-            // Small delay to ensure state updates, then create offer
-            setTimeout(() => {
-              handleCreateOffer()
-            }, 500)
+            updateDialogState({ step: 'listing' })
+            handleCreateOffer()
           },
           // Failure callback
-          (errorMessage) => {
-            console.error('❌ [Dialog] Approval failed:', errorMessage)
-            onUpdateState({ 
-              error: `Approval failed: ${errorMessage}`, 
-              step: 'setup', 
-              txHash: null 
-            })
+          (error) => {
+            console.log('❌ [Dialog] Approval failed:', error)
+            updateDialogState({ step: 'setup', error })
+            showNotification('failed', hash, 'Approval failed')
           }
         )
       }
     } catch (error) {
-      console.error('💥 [Dialog] Approval transaction submission failed:', error)
-      onUpdateState({ 
-        error: `Approval failed: ${error.message}`, 
-        step: 'setup', 
-        txHash: null 
-      })
+      console.error('💥 [Dialog] Approval error:', error)
+      const errorMsg = error.message.includes('User rejected') ? 'Transaction cancelled' : `Approval failed: ${error.message}`
+      updateDialogState({ step: 'setup', error: errorMsg })
     }
-  }, [dialogData, approve, onUpdateState, pollTransactionStatus])
+  }, [dialogState.selectedNFT, approve, updateDialogState, pollTransactionStatus, showNotification])
 
+  // Handle create offer
   const handleCreateOffer = useCallback(async () => {
-    if (!dialogData?.licenseAddress || !salePrice) {
-      console.error('❌ [Dialog] Missing data for offer creation')
+    const nft = dialogState.selectedNFT
+    if (!nft?.licenseAddress || !salePrice) {
+      updateDialogState({ error: 'Missing required data' })
       return
     }
 
     try {
-      console.log('🏪 [Dialog] Creating offer:', {
-        tokenId: dialogData.id,
-        licenseAddress: dialogData.licenseAddress,
-        price: salePrice
-      })
+      if (dialogState.step !== 'listing') {
+        updateDialogState({ step: 'listing', error: null })
+      }
 
-      onUpdateState({ step: 'listing', error: null })
+      const priceInWei = parseEther(salePrice)
       
-      const hash = await createOffer(
-        dialogData.licenseAddress,
-        dialogData.id,
-        parseEther(salePrice)
-      )
+      const hash = await createOffer(nft.licenseAddress, nft.id, priceInWei)
 
       if (hash) {
-        onUpdateState({ txHash: hash })
-        console.log('📤 [Dialog] Listing transaction submitted:', hash)
+        updateDialogState({ txHash: hash })
+        console.log('📤 [Dialog] Create offer transaction submitted:', hash)
 
-        // FIXED: Use proper polling for listing transaction too
         pollTransactionStatus(
           hash,
-          // Success callback - show completion
+          // Success callback
           () => {
-            console.log('✅ [Dialog] Listing confirmed!')
-            onUpdateState({ step: 'complete', txHash: null })
+            console.log('✅ [Dialog] Offer created successfully!')
+            updateDialogState({ step: 'complete' })
+            showNotification('success', hash, 'Game license listed for sale successfully!')
+            
+            // Auto-close dialog after success
+            setTimeout(() => {
+              closeDialog()
+              // Refresh the page or refetch data
+              window.location.reload()
+            }, 2000)
           },
           // Failure callback
-          (errorMessage) => {
-            console.error('❌ [Dialog] Listing failed:', errorMessage)
-            onUpdateState({ 
-              error: `Listing failed: ${errorMessage}`, 
-              step: 'setup', 
-              txHash: null 
-            })
+          (error) => {
+            console.log('❌ [Dialog] Create offer failed:', error)
+            updateDialogState({ step: 'setup', error })
+            showNotification('failed', hash, 'Failed to list NFT for sale')
           }
         )
       }
     } catch (error) {
-      console.error('💥 [Dialog] Listing transaction submission failed:', error)
-      onUpdateState({ 
-        error: `Listing failed: ${error.message}`, 
-        step: 'setup', 
-        txHash: null 
-      })
+      console.error('💥 [Dialog] Create offer error:', error)
+      const errorMsg = error.message.includes('User rejected') ? 'Transaction cancelled' : `Listing failed: ${error.message}`
+      updateDialogState({ step: 'setup', error: errorMsg })
     }
-  }, [dialogData, salePrice, createOffer, onUpdateState, pollTransactionStatus])
+  }, [dialogState.selectedNFT, dialogState.step, salePrice, createOffer, updateDialogState, pollTransactionStatus, showNotification, closeDialog])
 
-  const renderContent = () => {
+  // NFT Card Component
+  const NFTCard = ({ nft }) => {
+    const { data: nftDetails, isLoading: loadingDetails } = useGetNFTDetails(nft.id)
+    const { data: approvedAddress } = useGetApproved(nftDetails?.licenseAddress, nft.id)
+    const [metadata, setMetadata] = useState(null)
+    const [imageUrl, setImageUrl] = useState(null)
+
+    // Load metadata
+    useEffect(() => {
+      if (nftDetails?.uri) {
+        MetadataUtils.fetchMetadataEnhanced(nftDetails.uri)
+          .then(data => {
+            const normalized = MetadataUtils.normalizeImageUrls(data)
+            setMetadata(normalized)
+            
+            if (normalized?.imageUrl) {
+              const img = new Image()
+              img.onload = () => setImageUrl(normalized.imageUrl)
+              img.onerror = () => {
+                if (normalized?.imageFallbackUrl) {
+                  const fallbackImg = new Image()
+                  fallbackImg.onload = () => setImageUrl(normalized.imageFallbackUrl)
+                  fallbackImg.src = normalized.imageFallbackUrl
+                }
+              }
+              img.src = normalized.imageUrl
+            }
+          })
+          .catch(error => {
+            console.error('Metadata fetch failed:', error)
+            setMetadata({
+              name: `NFT #${nft.id}`,
+              description: 'Gaming NFT'
+            })
+          })
+      }
+    }, [nftDetails, nft.id])
+
+    if (loadingDetails) {
+      return (
+        <Card className="overflow-hidden bg-white shadow-md border-2 border-gray-200">
+          <div className="h-48 bg-gradient-to-br from-blue-100 to-purple-100 flex items-center justify-center">
+            <Loader2 className="h-8 w-8 animate-spin text-blue-600" />
+          </div>
+          <CardContent className="p-4">
+            <div className="h-4 bg-gray-200 rounded animate-pulse mb-2"></div>
+            <div className="h-3 bg-gray-200 rounded animate-pulse w-3/4"></div>
+          </CardContent>
+        </Card>
+      )
+    }
+
+    if (!nftDetails) return null
+
+    const isListedForSale = nftDetails.listedForSale
+    const isApproved = approvedAddress?.toLowerCase() === CONTRACTS.SECONDARY_MARKETPLACE.address?.toLowerCase()
+
+    return (
+      <Card className={`overflow-hidden hover:shadow-lg transition-all bg-white border-2 ${
+        isListedForSale 
+          ? 'border-orange-300 bg-orange-50/50 opacity-75' 
+          : 'border-gray-200'
+      }`}>
+        {/* Image Section */}
+        <div className="h-48 bg-gradient-to-br from-blue-100 to-purple-100 flex items-center justify-center relative overflow-hidden">
+          {imageUrl ? (
+            <img 
+              src={imageUrl} 
+              alt={metadata?.name || 'NFT'} 
+              className={`w-full h-full object-cover ${isListedForSale ? 'opacity-60' : ''}`}
+              onError={(e) => {
+                e.target.style.display = 'none'
+                e.target.nextSibling.style.display = 'flex'
+              }}
+            />
+          ) : null}
+          <div className={`${imageUrl ? 'hidden' : 'flex'} w-full h-full items-center justify-center`}>
+            <Gamepad2 className={`h-16 w-16 ${isListedForSale ? 'text-blue-600/30' : 'text-blue-600/60'}`} />
+          </div>
+          
+          {/* Status badges */}
+          <div className="absolute top-2 right-2 flex flex-col gap-1">
+            {isListedForSale && (
+              <span className="bg-orange-500 text-white text-xs px-2 py-1 rounded-full font-bold flex items-center gap-1">
+                <Tag className="h-3 w-3" />
+                Listed
+              </span>
+            )}
+            {isApproved && !isListedForSale && (
+              <span className="bg-blue-500 text-white text-xs px-2 py-1 rounded-full font-bold">
+                Approved
+              </span>
+            )}
+          </div>
+          
+          {/* Listed for sale overlay */}
+          {isListedForSale && (
+            <div className="absolute inset-0 bg-black/20 flex items-center justify-center">
+              <div className="bg-white/90 px-3 py-1 rounded-full">
+                <span className="text-sm font-bold text-orange-600">Listed for Sale</span>
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* Content Section */}
+        <CardHeader className="pb-2">
+          <CardTitle className={`text-lg font-bold truncate ${isListedForSale ? 'text-gray-600' : 'text-gray-900'}`}>
+            {metadata?.name || `NFT #${nft.id}`}
+          </CardTitle>
+          <CardDescription className={`text-sm line-clamp-2 ${isListedForSale ? 'text-gray-500' : 'text-gray-600'}`}>
+            {metadata?.description || `Gaming NFT from your collection`}
+          </CardDescription>
+        </CardHeader>
+
+        <CardContent className="pt-0 pb-4">
+          <div className="space-y-2">
+            <div className="flex items-center justify-between text-sm">
+              <span className={isListedForSale ? 'text-gray-500' : 'text-gray-600'}>Token ID:</span>
+              <span className={`font-semibold ${isListedForSale ? 'text-gray-600' : 'text-gray-900'}`}>#{nft.id}</span>
+            </div>
+            <div className="flex items-center justify-between text-sm">
+              <span className={isListedForSale ? 'text-gray-500' : 'text-gray-600'}>License ID:</span>
+              <span className={`font-semibold ${isListedForSale ? 'text-gray-600' : 'text-gray-900'}`}>#{nftDetails.licenseId}</span>
+            </div>
+            <div className="flex items-center justify-between text-sm">
+              <span className={isListedForSale ? 'text-gray-500' : 'text-gray-600'}>Contract:</span>
+              <span className={`font-semibold ${isListedForSale ? 'text-gray-600' : 'text-gray-900'}`}>
+                {shortenAddress(nftDetails.licenseAddress)}
+              </span>
+            </div>
+            {isListedForSale && (
+              <div className="flex items-center justify-between text-sm">
+                <span className="text-gray-500">Status:</span>
+                <span className="font-semibold text-orange-600">Listed on Marketplace</span>
+              </div>
+            )}
+          </div>
+        </CardContent>
+
+        <CardFooter className="pt-0">
+          <Button 
+            onClick={() => openDialog({
+              id: nft.id,
+              name: metadata?.name || `NFT #${nft.id}`,
+              description: metadata?.description || 'Gaming NFT',
+              licenseId: nftDetails.licenseId,
+              licenseAddress: nftDetails.licenseAddress,
+              imageUrl
+            })}
+            disabled={isListedForSale}
+            className={`w-full font-bold ${
+              isListedForSale 
+                ? 'bg-gray-300 text-gray-500 cursor-not-allowed' 
+                : 'bg-blue-600 hover:bg-blue-700 text-white'
+            }`}
+          >
+            {isListedForSale ? (
+              <>
+                <Tag className="mr-2 h-4 w-4" />
+                Already Listed
+              </>
+            ) : (
+              <>
+                <ShoppingCart className="mr-2 h-4 w-4" />
+                List for Sale
+              </>
+            )}
+          </Button>
+        </CardFooter>
+      </Card>
+    )
+  }
+
+  // Dialog content based on current step
+  const DialogContent_Internal = ({ dialogData, salePrice, onPriceChange, onClose, dialogState, onUpdateState, needsApproval, handleApprove, handleCreateOffer }) => {
+    const inputRef = useRef(null)
+
+    // Stable input handler
+    const handleInputChange = useCallback((e) => {
+      const value = e.target.value
+      onPriceChange(value)
+    }, [onPriceChange])
+
+    // Focus input when dialog opens
+    useEffect(() => {
+      if (dialogState.step === 'setup' && inputRef.current) {
+        setTimeout(() => inputRef.current?.focus(), 100)
+      }
+    }, [dialogState.step])
+
     if (dialogState.step === 'setup') {
       return (
         <>
           <DialogHeader>
             <DialogTitle className="text-gray-900 font-bold">List NFT for Sale</DialogTitle>
             <DialogDescription className="text-gray-700">
-              Set a price for your NFT on the secondary marketplace
+              Set a price and list your NFT on the secondary marketplace
             </DialogDescription>
           </DialogHeader>
           
@@ -748,17 +585,14 @@ function ListingDialogContent({
               This may take a few moments depending on network congestion.
             </p>
             {dialogState.txHash && (
-              <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
-                <p className="text-xs text-blue-800 font-mono break-all">
-                  Transaction: {dialogState.txHash.slice(0, 10)}...{dialogState.txHash.slice(-8)}
-                </p>
-                <a 
+              <div className="mt-4">
+                <a
                   href={`https://sepolia.etherscan.io/tx/${dialogState.txHash}`}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="text-xs text-blue-600 hover:underline"
+                  className="text-xs text-blue-600 hover:underline flex items-center justify-center"
                 >
-                  View on Etherscan ↗
+                  View Transaction <ExternalLink className="h-3 w-3 ml-1" />
                 </a>
               </div>
             )}
@@ -771,35 +605,146 @@ function ListingDialogContent({
       return (
         <>
           <DialogHeader>
-            <DialogTitle className="text-gray-900 font-bold">NFT Listed Successfully!</DialogTitle>
+            <DialogTitle className="text-green-800 font-bold flex items-center">
+              <CheckCircle className="h-5 w-5 mr-2" />
+              Successfully Listed!
+            </DialogTitle>
             <DialogDescription className="text-gray-700">
-              Your NFT is now available on the secondary marketplace
+              Your NFT has been listed on the secondary marketplace
             </DialogDescription>
           </DialogHeader>
           
           <div className="space-y-4 text-center py-8">
-            <CheckCircle className="h-12 w-12 text-green-600 mx-auto" />
+            <CheckCircle className="h-12 w-12 mx-auto text-green-600" />
             <div>
-              <p className="font-bold text-gray-900">NFT #{dialogData.id} is now listed for sale</p>
-              <p className="text-sm text-gray-700 font-medium">Price: {salePrice} ETH</p>
+              <p className="text-lg font-semibold text-gray-900">Game NFT Listed Successfully!</p>
+              <p className="text-sm text-gray-600 mt-2">
+                Your NFT is now available for purchase at {salePrice} ETH
+              </p>
             </div>
           </div>
-          
+
           <DialogFooter>
-            <Button onClick={onClose} className="w-full font-bold bg-blue-600 hover:bg-blue-700">
-              Close
+            <Button onClick={onClose} className="w-full bg-green-600 hover:bg-green-700 font-bold">
+              Done
             </Button>
           </DialogFooter>
         </>
       )
     }
+
+    return null
+  }
+
+  // Get approval status for selected NFT
+  const { data: approvedAddress } = useGetApproved(
+    dialogState.selectedNFT?.licenseAddress, 
+    dialogState.selectedNFT?.id
+  )
+
+  const needsApproval = approvedAddress?.toLowerCase() !== 
+    CONTRACTS.SECONDARY_MARKETPLACE.address?.toLowerCase()
+
+  // Transaction notification
+  const TransactionNotification = () => {
+    if (!txNotification) return null
+
+    return (
+      <div className="fixed top-20 right-4 z-50 max-w-sm">
+        <Card className={`border-2 shadow-lg ${txNotification.status === 'success' ? 'border-green-500 bg-green-50' : 'border-red-500 bg-red-50'}`}>
+          <CardContent className="p-3">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center space-x-2">
+                <div className={`h-2 w-2 rounded-full ${txNotification.status === 'success' ? 'bg-green-500' : 'bg-red-500'}`}></div>
+                <div>
+                  <p className="font-semibold text-xs">
+                    {txNotification.status === 'success' ? '✅ Success!' : '❌ Failed!'}
+                  </p>
+                  <p className="text-xs text-gray-600">
+                    {txNotification.message}
+                  </p>
+                </div>
+              </div>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setTxNotification(null)}
+                className="h-6 w-6 p-0"
+              >
+                ×
+              </Button>
+            </div>
+            {txNotification.hash && (
+              <div className="mt-2">
+                <a
+                  href={`https://sepolia.etherscan.io/tx/${txNotification.hash}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-xs text-blue-600 hover:underline flex items-center"
+                >
+                  View on Etherscan <ExternalLink className="h-3 w-3 ml-1" />
+                </a>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      </div>
+    )
+  }
+
+  if (loading) {
+    return (
+      <div className="container mx-auto px-4 py-8">
+        <div className="text-center">
+          <Loader2 className="h-8 w-8 animate-spin mx-auto text-blue-600 mb-4" />
+          <p className="text-gray-600">Loading your NFTs...</p>
+        </div>
+      </div>
+    )
   }
 
   return (
-    <Dialog open={dialogState.open} onOpenChange={onClose}>
-      <DialogContent className="max-w-md">
-        {renderContent()}
-      </DialogContent>
-    </Dialog>
+    <div className="container mx-auto px-4 py-8">
+      <div className="text-center mb-8">
+        <h1 className="text-4xl font-bold text-gray-900 mb-4">My NFTs</h1>
+        <p className="text-xl text-gray-600 max-w-2xl mx-auto">
+          Manage your gaming license NFTs and list them for sale
+        </p>
+      </div>
+
+      {nfts.length === 0 ? (
+        <div className="text-center py-12">
+          <Package className="h-16 w-16 text-gray-400 mx-auto mb-4" />
+          <h3 className="text-lg font-semibold text-gray-900 mb-2">No NFTs Found</h3>
+          <p className="text-gray-600">You don't have any gaming license NFTs yet.</p>
+          <p className="text-gray-600">Visit the marketplace to mint your first license!</p>
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {nfts.map((nft) => (
+            <NFTCard key={nft.id} nft={nft} />
+          ))}
+        </div>
+      )}
+
+      {/* Listing Dialog */}
+      <Dialog open={dialogState.open} onOpenChange={closeDialog}>
+        <DialogContent className="sm:max-w-[425px]">
+          <DialogContent_Internal
+            dialogData={dialogState.selectedNFT}
+            salePrice={salePrice}
+            onPriceChange={handlePriceChange}
+            onClose={closeDialog}
+            dialogState={dialogState}
+            onUpdateState={updateDialogState}
+            needsApproval={needsApproval}
+            handleApprove={handleApprove}
+            handleCreateOffer={handleCreateOffer}
+          />
+        </DialogContent>
+      </Dialog>
+
+      <TransactionNotification />
+    </div>
   )
 }

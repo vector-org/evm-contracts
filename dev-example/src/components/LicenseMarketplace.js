@@ -6,7 +6,7 @@ import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter }
 import { useContract } from '../hooks/useContract'
 import { formatEther } from '../lib/utils'
 import { MetadataUtils } from '../lib/metadataUtils'
-import { Loader2, ShoppingCart, ExternalLink, User, AlertTriangle, Package, Gamepad2 } from 'lucide-react'
+import { Loader2, ShoppingCart, ExternalLink, User, AlertTriangle, Package, Gamepad2, CheckCircle } from 'lucide-react'
 
 export default function LicenseMarketplace() {
   const { address, isConnected } = useAccount()
@@ -22,6 +22,7 @@ export default function LicenseMarketplace() {
   const [mintingLicense, setMintingLicense] = useState(null)
   const [txNotification, setTxNotification] = useState(null)
   const [mintedLicenses, setMintedLicenses] = useState(new Set())
+  const [pendingMints, setPendingMints] = useState(new Set()) // Track pending mints
   
   // Refs to prevent re-renders
   const processedIds = useRef(new Set())
@@ -73,22 +74,87 @@ export default function LicenseMarketplace() {
 
   // Show notification
   const showNotification = useCallback((status, hash) => {
-    // Clear any existing timeout
     if (notificationTimeout.current) {
       clearTimeout(notificationTimeout.current)
     }
     
     setTxNotification({ status, hash })
     
-    // Auto-clear after 5 seconds
     notificationTimeout.current = setTimeout(() => {
       setTxNotification(null)
     }, 5000)
   }, [])
 
-  // Handle minting - simplified
+  // Poll transaction status
+  const pollTransactionStatus = useCallback(async (txHash, licenseId, maxAttempts = 20) => {
+    let attempts = 0
+    
+    const poll = async () => {
+      try {
+        attempts++
+        console.log(`🔍 [Mint] Checking transaction status (attempt ${attempts}/${maxAttempts}):`, txHash)
+        
+        const status = await checkTransaction(txHash)
+        
+        if (status === 'success') {
+          console.log('✅ [Mint] Transaction confirmed!')
+          showNotification('success', txHash)
+          // Mark as successfully minted
+          setMintedLicenses(prev => new Set([...prev, licenseId]))
+          setPendingMints(prev => {
+            const newSet = new Set(prev)
+            newSet.delete(licenseId)
+            return newSet
+          })
+          setMintingLicense(null)
+          return
+        } else if (status === 'failed') {
+          console.log('❌ [Mint] Transaction failed!')
+          showNotification('failed', txHash)
+          // Remove from pending mints
+          setPendingMints(prev => {
+            const newSet = new Set(prev)
+            newSet.delete(licenseId)
+            return newSet
+          })
+          setMintingLicense(null)
+          return
+        } else if (attempts >= maxAttempts) {
+          console.log('⏰ [Mint] Transaction polling timeout after', maxAttempts, 'attempts')
+          showNotification('failed', txHash)
+          setPendingMints(prev => {
+            const newSet = new Set(prev)
+            newSet.delete(licenseId)
+            return newSet
+          })
+          setMintingLicense(null)
+          return
+        }
+        
+        // Continue polling every 3 seconds
+        setTimeout(poll, 3000)
+      } catch (error) {
+        console.error('💥 [Mint] Error polling transaction:', error)
+        if (attempts >= maxAttempts) {
+          showNotification('failed', txHash)
+          setPendingMints(prev => {
+            const newSet = new Set(prev)
+            newSet.delete(licenseId)
+            return newSet
+          })
+          setMintingLicense(null)
+        } else {
+          setTimeout(poll, 3000)
+        }
+      }
+    }
+    
+    poll()
+  }, [checkTransaction, showNotification])
+
+  // Handle minting - fixed to show loader properly
   const handleMintLicense = useCallback(async (licenseId, licenseData) => {
-    if (!isConnected || mintingLicense || mintedLicenses.has(licenseId)) {
+    if (!isConnected || mintingLicense || mintedLicenses.has(licenseId) || pendingMints.has(licenseId)) {
       return
     }
 
@@ -99,6 +165,7 @@ export default function LicenseMarketplace() {
 
     try {
       setMintingLicense(licenseId)
+      setPendingMints(prev => new Set([...prev, licenseId])) // Track pending mint
 
       const result = await mintLicense({
         licenseId,
@@ -107,31 +174,19 @@ export default function LicenseMarketplace() {
       })
       
       const txHash = result.hash
-      console.log('📤 Transaction submitted:', txHash)
+      console.log('📤 [Mint] Transaction submitted:', txHash)
 
-      // Mark as minted immediately
-      setMintedLicenses(prev => new Set([...prev, licenseId]))
-
-      // Check transaction once after delay
-      setTimeout(async () => {
-        const status = await checkTransaction(txHash)
-        if (status === 'success') {
-          showNotification('success', txHash)
-        } else if (status === 'failed') {
-          showNotification('failed', txHash)
-          // Remove from minted set if failed
-          setMintedLicenses(prev => {
-            const newSet = new Set(prev)
-            newSet.delete(licenseId)
-            return newSet
-          })
-        }
-        setMintingLicense(null)
-      }, 3000)
+      // Start polling for transaction confirmation
+      pollTransactionStatus(txHash, licenseId)
 
     } catch (error) {
-      console.error('💥 Minting failed:', error)
+      console.error('💥 [Mint] Minting failed:', error)
       setMintingLicense(null)
+      setPendingMints(prev => {
+        const newSet = new Set(prev)
+        newSet.delete(licenseId)
+        return newSet
+      })
       
       if (error.message.includes('User rejected')) {
         alert('Transaction cancelled')
@@ -139,7 +194,7 @@ export default function LicenseMarketplace() {
         alert(`Minting failed: ${error.message}`)
       }
     }
-  }, [isConnected, mintingLicense, mintedLicenses, mintLicense, address, checkTransaction, showNotification])
+  }, [isConnected, mintingLicense, mintedLicenses, pendingMints, mintLicense, address, pollTransactionStatus])
 
   // License card component
   const LicenseCard = ({ licenseId }) => {
@@ -199,6 +254,7 @@ export default function LicenseMarketplace() {
 
     const isCurrentlyMinting = mintingLicense === licenseId
     const hasAlreadyMinted = mintedLicenses.has(licenseId)
+    const isPendingMint = pendingMints.has(licenseId)
     const isActive = licenseData.isActive
 
     return (
@@ -208,56 +264,70 @@ export default function LicenseMarketplace() {
           {imageUrl ? (
             <img 
               src={imageUrl} 
-              alt={metadata?.name || `License #${licenseId}`}
+              alt={metadata?.name || 'NFT'} 
               className="w-full h-full object-cover"
               onError={(e) => {
                 e.target.style.display = 'none'
-                setImageUrl(null)
+                e.target.nextSibling.style.display = 'flex'
               }}
             />
-          ) : (
-            <div className="text-center">
-              <Gamepad2 className="h-12 w-12 text-blue-600 mx-auto mb-2" />
-              <p className="text-sm font-medium text-blue-800">Gaming License</p>
-            </div>
-          )}
+          ) : null}
+          <div className={`${imageUrl ? 'hidden' : 'flex'} w-full h-full items-center justify-center`}>
+            <Gamepad2 className="h-16 w-16 text-blue-600/60" />
+          </div>
           
-          {!isActive && (
-            <div className="absolute inset-0 bg-black bg-opacity-50 flex items-center justify-center">
-              <div className="bg-red-600 text-white px-3 py-1 rounded-full text-sm font-bold">
-                INACTIVE
-              </div>
-            </div>
-          )}
+          {/* Status badges */}
+          <div className="absolute top-2 right-2 flex flex-col gap-1">
+            {!isActive && (
+              <span className="bg-red-500 text-white text-xs px-2 py-1 rounded-full font-bold">
+                Inactive
+              </span>
+            )}
+            {hasAlreadyMinted && (
+              <span className="bg-green-500 text-white text-xs px-2 py-1 rounded-full font-bold flex items-center gap-1">
+                <CheckCircle className="h-3 w-3" />
+                Minted
+              </span>
+            )}
+            {isPendingMint && (
+              <span className="bg-blue-500 text-white text-xs px-2 py-1 rounded-full font-bold flex items-center gap-1">
+                <Loader2 className="h-3 w-3 animate-spin" />
+                Pending
+              </span>
+            )}
+          </div>
         </div>
 
-        {/* Content */}
+        {/* Content Section */}
         <CardHeader className="pb-2">
           <CardTitle className="text-lg font-bold text-gray-900 truncate">
-            {metadata?.name || licenseData.name || `License #${licenseId}`}
+            {metadata?.name || licenseData?.name || `License #${licenseId}`}
           </CardTitle>
-          <CardDescription className="text-sm text-gray-700">
-            {metadata?.description || `Gaming license ${licenseData.symbol}`}
+          <CardDescription className="text-sm text-gray-600 line-clamp-2">
+            {metadata?.description || `Gaming license for ${licenseData?.name || 'Unknown Game'}`}
           </CardDescription>
         </CardHeader>
 
-        <CardContent className="px-4 pb-2">
-          <div className="space-y-2 text-xs">
-            <div className="flex items-center justify-between">
-              <span className="text-gray-600">Symbol:</span>
-              <span className="font-mono font-bold text-gray-900">{licenseData.symbol}</span>
+        <CardContent className="pt-0 pb-4">
+          <div className="space-y-2">
+            <div className="flex items-center justify-between text-sm">
+              <span className="text-gray-600">License ID:</span>
+              <span className="font-semibold text-gray-900">#{licenseId}</span>
             </div>
-            <div className="flex items-center justify-between">
-              <span className="text-gray-600">Status:</span>
-              <span className={`font-semibold ${isActive ? 'text-green-600' : 'text-red-600'}`}>
-                {isActive ? 'Active' : 'Inactive'}
+            <div className="flex items-center justify-between text-sm">
+              <span className="text-gray-600">Symbol:</span>
+              <span className="font-semibold text-gray-900">{licenseData?.symbol || 'N/A'}</span>
+            </div>
+            <div className="flex items-center justify-between text-sm">
+              <span className="text-gray-600">Dev Fee:</span>
+              <span className="font-semibold text-gray-900">
+                {licenseData?.developerFee ? `${formatEther(licenseData.developerFee)} ETH` : '0 ETH'}
               </span>
             </div>
           </div>
         </CardContent>
 
-        {/* Footer */}
-        <CardFooter className="px-4 pt-2 pb-4">
+        <CardFooter className="pt-0">
           {!isConnected ? (
             <Button disabled className="w-full bg-gray-400 text-gray-600 font-semibold">
               <User className="mr-2 h-4 w-4" />
@@ -265,6 +335,7 @@ export default function LicenseMarketplace() {
             </Button>
           ) : hasAlreadyMinted ? (
             <Button disabled className="w-full bg-green-100 text-green-800 border border-green-300 font-semibold">
+              <CheckCircle className="mr-2 h-4 w-4" />
               Already Minted ✓
             </Button>
           ) : !isActive ? (
@@ -275,13 +346,13 @@ export default function LicenseMarketplace() {
           ) : (
             <Button 
               onClick={() => handleMintLicense(licenseId, licenseData)}
-              disabled={isCurrentlyMinting || isMintPending || !licenseData?.uri}
+              disabled={isCurrentlyMinting || isPendingMint || !licenseData?.uri}
               className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold"
             >
-              {isCurrentlyMinting ? (
+              {isCurrentlyMinting || isPendingMint ? (
                 <>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Minting...
+                  {isCurrentlyMinting ? 'Minting...' : 'Confirming...'}
                 </>
               ) : !licenseData?.uri ? (
                 <>
@@ -291,7 +362,7 @@ export default function LicenseMarketplace() {
               ) : (
                 <>
                   <ShoppingCart className="mr-2 h-4 w-4" />
-                  Mint License
+                  Buy Game
                 </>
               )}
             </Button>
@@ -316,30 +387,39 @@ export default function LicenseMarketplace() {
                   <p className="font-semibold text-xs">
                     {txNotification.status === 'success' ? '✅ Mint Successful!' : '❌ Transaction Failed!'}
                   </p>
-                  <a 
-                    href={`https://sepolia.etherscan.io/tx/${txNotification.hash}`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-xs text-blue-600 hover:underline flex items-center"
-                  >
-                    View Transaction <ExternalLink className="ml-1 h-3 w-3" />
-                  </a>
+                  <p className="text-xs text-gray-600">
+                    License has been {txNotification.status === 'success' ? 'minted' : 'failed'}
+                  </p>
                 </div>
               </div>
-              <button
+              <Button
+                variant="ghost"
+                size="sm"
                 onClick={() => setTxNotification(null)}
-                className="text-gray-400 hover:text-gray-600 ml-2"
+                className="h-6 w-6 p-0"
               >
                 ×
-              </button>
+              </Button>
             </div>
+            {txNotification.hash && (
+              <div className="mt-2">
+                <a
+                  href={`https://sepolia.etherscan.io/tx/${txNotification.hash}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-xs text-blue-600 hover:underline flex items-center"
+                >
+                  View on Etherscan <ExternalLink className="h-3 w-3 ml-1" />
+                </a>
+              </div>
+            )}
           </CardContent>
         </Card>
       </div>
     )
   }
 
-  // Cleanup timeout on unmount
+  // Cleanup on unmount
   useEffect(() => {
     return () => {
       if (notificationTimeout.current) {
@@ -348,62 +428,41 @@ export default function LicenseMarketplace() {
     }
   }, [])
 
-  // Loading state
   if (loading) {
     return (
-      <div className="space-y-6">
+      <div className="container mx-auto px-4 py-8">
         <div className="text-center">
-          <h2 className="text-2xl font-bold text-gray-900 mb-2">Gaming License Marketplace</h2>
-          <p className="text-gray-700">Mint gaming licenses to access exclusive content and features</p>
-        </div>
-        <div className="text-center py-8">
-          <Loader2 className="h-8 w-8 animate-spin mx-auto mb-2 text-blue-600" />
-          <p className="text-gray-800 font-semibold">Loading gaming licenses...</p>
+          <Loader2 className="h-8 w-8 animate-spin mx-auto text-blue-600 mb-4" />
+          <p className="text-gray-600">Loading licenses...</p>
         </div>
       </div>
     )
   }
 
-  // Not connected state
-  if (!isConnected) {
-    return (
-      <div className="space-y-6">
-        <div className="text-center">
-          <h2 className="text-2xl font-bold text-gray-900 mb-2">Gaming License Marketplace</h2>
-          <p className="text-gray-700">Mint gaming licenses to access exclusive content and features</p>
-        </div>
-        <div className="text-center py-8">
-          <Package className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-          <h3 className="text-lg font-bold text-gray-900 mb-2">Connect Your Wallet</h3>
-          <p className="text-gray-700">Please connect your wallet to view available licenses.</p>
-        </div>
-      </div>
-    )
-  }
-
-  // Main render
   return (
-    <div className="space-y-6">
-      <TransactionNotification />
-      
-      <div className="text-center">
-        <h2 className="text-2xl font-bold text-gray-900 mb-2">Gaming License Marketplace</h2>
-        <p className="text-gray-700">Mint gaming licenses to access exclusive content and features</p>
+    <div className="container mx-auto px-4 py-8">
+      <div className="text-center mb-8">
+        <h1 className="text-4xl font-bold text-gray-900 mb-4">License Marketplace</h1>
+        <p className="text-xl text-gray-600 max-w-2xl mx-auto">
+          Discover and mint gaming licenses from verified developers and publishers
+        </p>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {licenses.length > 0 ? (
-          licenses.map((licenseId) => (
+      {licenses.length === 0 ? (
+        <div className="text-center py-12">
+          <Package className="h-16 w-16 text-gray-400 mx-auto mb-4" />
+          <h3 className="text-lg font-semibold text-gray-900 mb-2">No Licenses Available</h3>
+          <p className="text-gray-600">Check back later for new gaming licenses!</p>
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {licenses.map((licenseId) => (
             <LicenseCard key={licenseId} licenseId={licenseId} />
-          ))
-        ) : (
-          <div className="col-span-full text-center py-8">
-            <Package className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-            <h3 className="text-lg font-bold text-gray-900 mb-2">No Licenses Available</h3>
-            <p className="text-gray-700">There are currently no gaming licenses available for minting.</p>
-          </div>
-        )}
-      </div>
+          ))}
+        </div>
+      )}
+
+      <TransactionNotification />
     </div>
   )
 }
