@@ -1,5 +1,5 @@
 {
-    "address": "0x759c295a9247a8289fd3ce55Bf047B007AAe7c82",
+    "address": "0x2ef034cF9B17362860eECb80f08332a881b85668",
     "abi": [
     {
       "inputs": [
@@ -76,6 +76,74 @@
       "type": "event"
     },
     {
+      "anonymous": false,
+      "inputs": [
+        {
+          "indexed": true,
+          "internalType": "address",
+          "name": "user",
+          "type": "address"
+        },
+        {
+          "indexed": true,
+          "internalType": "address",
+          "name": "owner",
+          "type": "address"
+        },
+        {
+          "indexed": true,
+          "internalType": "address",
+          "name": "licenseAddress",
+          "type": "address"
+        },
+        {
+          "indexed": false,
+          "internalType": "string",
+          "name": "uri",
+          "type": "string"
+        },
+        {
+          "indexed": false,
+          "internalType": "uint256",
+          "name": "timestamp",
+          "type": "uint256"
+        }
+      ],
+      "name": "NFTDataUpdate",
+      "type": "event"
+    },
+    {
+      "anonymous": false,
+      "inputs": [
+        {
+          "indexed": true,
+          "internalType": "address",
+          "name": "user",
+          "type": "address"
+        },
+        {
+          "indexed": false,
+          "internalType": "bool",
+          "name": "status",
+          "type": "bool"
+        },
+        {
+          "indexed": true,
+          "internalType": "uint256",
+          "name": "tokenId",
+          "type": "uint256"
+        },
+        {
+          "indexed": false,
+          "internalType": "uint256",
+          "name": "timestamp",
+          "type": "uint256"
+        }
+      ],
+      "name": "NFTStatusChange",
+      "type": "event"
+    },
+    {
       "inputs": [],
       "name": "ADMINISTRATOR",
       "outputs": [
@@ -124,6 +192,24 @@
       "inputs": [
         {
           "internalType": "uint256",
+          "name": "nftId",
+          "type": "uint256"
+        },
+        {
+          "internalType": "bool",
+          "name": "status",
+          "type": "bool"
+        }
+      ],
+      "name": "changeNFTStatus",
+      "outputs": [],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "uint256",
           "name": "",
           "type": "uint256"
         }
@@ -149,6 +235,11 @@
           "internalType": "address",
           "name": "licenseAddress",
           "type": "address"
+        },
+        {
+          "internalType": "bool",
+          "name": "listedForSale",
+          "type": "bool"
         }
       ],
       "stateMutability": "view",
@@ -198,6 +289,11 @@
               "internalType": "address",
               "name": "licenseAddress",
               "type": "address"
+            },
+            {
+              "internalType": "bool",
+              "name": "listedForSale",
+              "type": "bool"
             }
           ],
           "internalType": "struct GameNFT",
@@ -242,6 +338,51 @@
         }
       ],
       "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "uint256",
+          "name": "nftId",
+          "type": "uint256"
+        },
+        {
+          "components": [
+            {
+              "internalType": "address",
+              "name": "owner",
+              "type": "address"
+            },
+            {
+              "internalType": "string",
+              "name": "uri",
+              "type": "string"
+            },
+            {
+              "internalType": "uint256",
+              "name": "licenseId",
+              "type": "uint256"
+            },
+            {
+              "internalType": "address",
+              "name": "licenseAddress",
+              "type": "address"
+            },
+            {
+              "internalType": "bool",
+              "name": "listedForSale",
+              "type": "bool"
+            }
+          ],
+          "internalType": "struct GameNFT",
+          "name": "nftData",
+          "type": "tuple"
+        }
+      ],
+      "name": "updateNFTData",
+      "outputs": [],
+      "stateMutability": "nonpayable",
       "type": "function"
     }
   ]
