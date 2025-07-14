@@ -1,4 +1,4 @@
-# EVM Based Contracts
+# EVM Based Contracts 
 
 ## Running 
 To run a demo ui with already deployed contracts and everything 
