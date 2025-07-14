@@ -27,6 +27,21 @@ contract PrimaryMarketPlace is Addresses {
         uint256 timestamp
     );
 
+    event NFTStatusChange(
+        address indexed user,
+        bool status,
+        uint256 indexed tokenId,
+        uint256 timestamp
+    );
+
+    event NFTDataUpdate(
+        address indexed user,
+        address indexed owner,
+        address indexed licenseAddress,
+        string uri,
+        uint256 timestamp
+    );
+
     modifier checkIsAdmin() {
         if (msg.sender != Addresses.ADMINISTRATOR) {
             revert onlyAdmin(msg.sender);
@@ -73,7 +88,8 @@ contract PrimaryMarketPlace is Addresses {
             owner: _receiver,
             uri: uri,
             licenseId: licenseId,
-            licenseAddress: licenseAddress
+            licenseAddress: licenseAddress,
+            listedForSale: false
         });
         allNFTIDs.push(nftId);
         emit Mint(_receiver, licenseAddress, uri, block.timestamp);
@@ -87,5 +103,21 @@ contract PrimaryMarketPlace is Addresses {
         uint256 nftId
     ) external view returns (GameNFT memory) {
         return gameNFTs[nftId];
+    }
+
+    function changeNFTStatus(uint256 nftId, bool status) external {
+        gameNFTs[nftId].listedForSale = status;
+        emit NFTStatusChange(msg.sender, status, nftId, block.timestamp);
+    }
+
+    function updateNFTData(uint256 nftId, GameNFT memory nftData) external {
+        gameNFTs[nftId] = nftData;
+        emit NFTDataUpdate(
+            msg.sender,
+            nftData.owner,
+            nftData.licenseAddress,
+            nftData.uri,
+            block.timestamp
+        );
     }
 }

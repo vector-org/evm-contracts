@@ -7,3 +7,4 @@ error offerInactive(uint256 offerId);
 error notSeller(address caller);
 error cannotBuyYourOwnOffer(address caller);
 error insufficientPayment(uint256 offerId, uint256 payment);
+error alreadyListed(uint256 offerId);

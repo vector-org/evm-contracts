@@ -14,7 +14,8 @@ import {
     offerInactive,
     notSeller,
     cannotBuyYourOwnOffer,
-    insufficientPayment
+    insufficientPayment,
+    alreadyListed
 } from "./errors/SecondaryMarketPlace.sol";
 
 contract SecondaryMarketPlace is Addresses {
@@ -84,14 +85,18 @@ contract SecondaryMarketPlace is Addresses {
         address licenseAddress,
         uint256 price
     ) external {
-        if (offerById[tokenId].isActive) {
-            revert offerInactive(tokenId);
-        }
         IPrimaryMarketPlace primaryMarket = IPrimaryMarketPlace(
             primaryMarketPlace
         );
         IPrimaryMarketPlace.GameNFT memory gameNFT = primaryMarket
             .getNFTDetails(tokenId);
+
+        if (gameNFT.listedForSale == true) {
+            revert alreadyListed(tokenId);
+        }
+        if (offerById[tokenId].isActive) {
+            revert offerInactive(tokenId);
+        }
         if (gameNFT.owner != msg.sender) {
             revert notNFTOwner(msg.sender);
         }
@@ -99,6 +104,8 @@ contract SecondaryMarketPlace is Addresses {
         if (price <= 0) {
             revert priceIsNotPositive(price);
         }
+
+        primaryMarket.changeNFTStatus(tokenId, true);
 
         Offer memory newOffer = Offer({
             seller: msg.sender,
@@ -136,6 +143,11 @@ contract SecondaryMarketPlace is Addresses {
         uint256 arrayIndex = tokenIdToOfferIndex[tokenId];
         offers[arrayIndex].isActive = false;
 
+        IPrimaryMarketPlace primaryMarket = IPrimaryMarketPlace(
+            primaryMarketPlace
+        );
+        primaryMarket.changeNFTStatus(tokenId, false);
+
         emit OfferRemoved(
             msg.sender,
             tokenId,
@@ -169,6 +181,15 @@ contract SecondaryMarketPlace is Addresses {
         uint256 arrayIndex = tokenIdToOfferIndex[tokenId];
         offers[arrayIndex].buyer = msg.sender;
         offers[arrayIndex].isActive = false;
+
+        IPrimaryMarketPlace primaryMarket = IPrimaryMarketPlace(
+            primaryMarketPlace
+        );
+        IPrimaryMarketPlace.GameNFT memory nftData = primaryMarket
+            .getNFTDetails(tokenId);
+        nftData.listedForSale = false;
+        nftData.owner = msg.sender;
+        primaryMarket.updateNFTData(tokenId, nftData);
 
         emit OfferAccepted(
             offer.seller,
