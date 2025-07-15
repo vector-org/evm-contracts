@@ -15,9 +15,21 @@ const sepolia = {
   },
 }
 
+const vector = {
+  id: 4221,
+  name: "Vector Chain",
+  nativeCurrency: {name: 'Vector', symbol: 'VCTR', decimals: 18},
+  rpcUrls: {
+    default: { http : ["http://localhost:8545"] }
+  },
+  blockExplorers: {
+    default: { name: 'Vector chain explorer', url: "https://localhost:26657/check_tx" }
+  },
+}
+
 const config = createConfig(
   getDefaultConfig({
-    chains: [sepolia],
+    chains: [vector],
     walletConnectProjectId: "a7a2557c75d9558a9c932d5f99559799",
     appName: "Vector - Gaming License Platform",
     appDescription: "Create, trade and manage gaming licenses as NFTs",

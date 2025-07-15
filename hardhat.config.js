@@ -38,5 +38,12 @@ module.exports = {
       ],
       chainId: 84532,
     },
+    vector: {
+      url: "http://localhost:8545",
+      accounts: [
+        `0x${process.env.EVM_COSMOS_PVT_KEY}`
+      ],
+      chainId: 4221,
+    }
   },
 };
