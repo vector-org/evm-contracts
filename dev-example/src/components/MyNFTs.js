@@ -518,7 +518,7 @@ export default function MyNFTs() {
             
             <div className="space-y-2">
               <Label htmlFor="price-input" className="text-gray-800 font-semibold">
-                Sale Price (ETH)
+                Sale Price (VCTR)
               </Label>
               <Input
                 ref={inputRef}
@@ -579,7 +579,7 @@ export default function MyNFTs() {
             <p className="text-sm text-gray-700 font-medium">
               {dialogState.step === 'approving' 
                 ? 'Please wait while your approval is confirmed on the blockchain...' 
-                : `Creating listing for ${salePrice} ETH...`}
+                : `Creating listing for ${salePrice} VCTR...`}
             </p>
             <p className="text-xs text-gray-500">
               This may take a few moments depending on network congestion.
@@ -619,7 +619,7 @@ export default function MyNFTs() {
             <div>
               <p className="text-lg font-semibold text-gray-900">Game NFT Listed Successfully!</p>
               <p className="text-sm text-gray-600 mt-2">
-                Your NFT is now available for purchase at {salePrice} ETH
+                Your NFT is now available for purchase at {salePrice} VCTR
               </p>
             </div>
           </div>

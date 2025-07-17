@@ -532,7 +532,7 @@ export default function CreateLicense() {
               
               <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                 <div className="space-y-2">
-                  <Label htmlFor="developerFee" className="text-sm font-medium text-gray-700">Developer Fee (ETH)</Label>
+                  <Label htmlFor="developerFee" className="text-sm font-medium text-gray-700">Developer Fee (VCTR)</Label>
                   <Input
                     id="developerFee"
                     name="developerFee"
@@ -547,7 +547,7 @@ export default function CreateLicense() {
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="platformFee" className="text-sm font-medium text-gray-700">Platform Fee (ETH)</Label>
+                  <Label htmlFor="platformFee" className="text-sm font-medium text-gray-700">Platform Fee (VCTR)</Label>
                   <Input
                     id="platformFee"
                     name="platformFee"
@@ -562,7 +562,7 @@ export default function CreateLicense() {
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="publisherFee" className="text-sm font-medium text-gray-700">Publisher Fee (ETH)</Label>
+                  <Label htmlFor="publisherFee" className="text-sm font-medium text-gray-700">Publisher Fee (VCTR)</Label>
                   <Input
                     id="publisherFee"
                     name="publisherFee"

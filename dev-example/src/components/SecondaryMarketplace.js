@@ -245,7 +245,7 @@ export default function SecondaryMarketplace() {
                     },
                     {
                       trait_type: "Price",
-                      value: `${formatEther(offer.price)} ETH`
+                      value: `${formatEther(offer.price)} VCTR`
                     },
                     {
                       trait_type: "License Contract",
@@ -285,7 +285,7 @@ export default function SecondaryMarketplace() {
                 },
                 {
                   trait_type: "Price",
-                  value: `${formatEther(offer.price)} ETH`
+                  value: `${formatEther(offer.price)} VCTR`
                 },
                 {
                   trait_type: "License Contract", 
@@ -485,7 +485,7 @@ export default function SecondaryMarketplace() {
           <div className="absolute top-2 left-2">
             <span className="bg-blue-600 text-white text-sm px-3 py-1 rounded-full font-bold flex items-center">
               <DollarSign className="h-4 w-4 mr-1" />
-              {formatEther(offer.price)} ETH
+              {formatEther(offer.price)} VCTR
             </span>
           </div>
 
@@ -572,7 +572,7 @@ export default function SecondaryMarketplace() {
               ) : (
                 <>
                   <ShoppingCart className="mr-2 h-4 w-4" />
-                  Buy for {formatEther(offer.price)} ETH
+                  Buy for {formatEther(offer.price)} VCTR
                 </>
               )}
             </Button>
@@ -678,7 +678,7 @@ export default function SecondaryMarketplace() {
                     .reduce((sum, offer) => sum + BigInt(offer.price), BigInt(0))
                 ).slice(0, 6)
                 : '0'
-              } ETH
+              } VCTR
             </p>
             <p className="text-sm text-purple-700">Total Value</p>
           </CardContent>

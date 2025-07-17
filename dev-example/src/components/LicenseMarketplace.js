@@ -321,7 +321,7 @@ export default function LicenseMarketplace() {
             <div className="flex items-center justify-between text-sm">
               <span className="text-gray-600">Dev Fee:</span>
               <span className="font-semibold text-gray-900">
-                {licenseData?.developerFee ? `${formatEther(licenseData.developerFee)} ETH` : '0 ETH'}
+                {licenseData?.developerFee ? `${formatEther(licenseData.developerFee)} VCTR` : '0 VCTR'}
               </span>
             </div>
           </div>
