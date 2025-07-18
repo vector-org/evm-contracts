@@ -5,7 +5,7 @@ on:
       inputs:
         runner:
             type: string
-            default: '[self-hosted, Linux, X64]'
+            default: '["self-hosted", "Linux", "X64"]'
 
 jobs:
     install:
