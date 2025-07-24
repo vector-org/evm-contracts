@@ -8,6 +8,237 @@ import { formatEther } from '../lib/utils'
 import { MetadataUtils } from '../lib/metadataUtils'
 import { Loader2, ShoppingCart, ExternalLink, User, AlertTriangle, Package, Gamepad2, CheckCircle } from 'lucide-react'
 
+// License card component - extracted to prevent re-renders
+const LicenseCard = ({ 
+  licenseId, 
+  isConnected, 
+  mintingLicense, 
+  mintedLicenses, 
+  pendingMints, 
+  handleMintLicense 
+}) => {
+  const { useGetLicenseFromID } = useContract()
+  const { data: licenseData, isLoading: isLoadingLicense } = useGetLicenseFromID(licenseId)
+  const [metadata, setMetadata] = useState(null)
+  const [imageUrl, setImageUrl] = useState(null)
+  const [metadataLoaded, setMetadataLoaded] = useState(false)
+
+  // Load metadata only once
+  useEffect(() => {
+    if (licenseData?.uri && !metadataLoaded) {
+      setMetadataLoaded(true)
+      
+      MetadataUtils.fetchMetadataEnhanced(licenseData.uri)
+        .then(data => {
+          const normalized = MetadataUtils.normalizeImageUrls(data)
+          setMetadata(normalized)
+          
+          if (normalized?.imageUrl) {
+            const img = new Image()
+            img.onload = () => setImageUrl(normalized.imageUrl)
+            img.onerror = () => {
+              if (normalized?.imageFallbackUrl) {
+                const fallbackImg = new Image()
+                fallbackImg.onload = () => setImageUrl(normalized.imageFallbackUrl)
+                fallbackImg.src = normalized.imageFallbackUrl
+              }
+            }
+            img.src = normalized.imageUrl
+          }
+        })
+        .catch(error => {
+          console.error('Metadata fetch failed:', error)
+          setMetadata({
+            name: `License #${licenseId}`,
+            description: 'Gaming license'
+          })
+        })
+    }
+  }, [licenseData, licenseId, metadataLoaded])
+
+  if (isLoadingLicense) {
+    return (
+      <Card className="overflow-hidden bg-white shadow-md border-2 border-gray-200">
+        <div className="h-48 bg-gradient-to-br from-blue-100 to-purple-100 flex items-center justify-center">
+          <Loader2 className="h-8 w-8 animate-spin text-blue-600" />
+        </div>
+        <CardContent className="p-4">
+          <div className="h-4 bg-gray-200 rounded animate-pulse mb-2"></div>
+          <div className="h-3 bg-gray-200 rounded animate-pulse w-3/4"></div>
+        </CardContent>
+      </Card>
+    )
+  }
+
+  if (!licenseData) return null
+
+  const isCurrentlyMinting = mintingLicense === licenseId
+  const hasAlreadyMinted = mintedLicenses.has(licenseId)
+  const isPendingMint = pendingMints.has(licenseId)
+  const isActive = licenseData.isActive
+
+  return (
+    <Card className="overflow-hidden hover:shadow-lg transition-shadow bg-white border-2 border-gray-200">
+      {/* Image Section */}
+      <div className="h-48 bg-gradient-to-br from-blue-100 to-purple-100 flex items-center justify-center relative overflow-hidden">
+        {imageUrl ? (
+          <img 
+            src={imageUrl} 
+            alt={metadata?.name || 'NFT'} 
+            className="w-full h-full object-cover"
+            onError={(e) => {
+              e.target.style.display = 'none'
+              e.target.nextSibling.style.display = 'flex'
+            }}
+          />
+        ) : null}
+        <div className={`${imageUrl ? 'hidden' : 'flex'} w-full h-full items-center justify-center`}>
+          <Gamepad2 className="h-16 w-16 text-blue-600/60" />
+        </div>
+        
+        {/* Status badges */}
+        <div className="absolute top-2 right-2 flex flex-col gap-1">
+          {!isActive && (
+            <span className="bg-red-500 text-white text-xs px-2 py-1 rounded-full font-bold">
+              Inactive
+            </span>
+          )}
+          {hasAlreadyMinted && (
+            <span className="bg-green-500 text-white text-xs px-2 py-1 rounded-full font-bold flex items-center gap-1">
+              <CheckCircle className="h-3 w-3" />
+              Minted
+            </span>
+          )}
+          {isPendingMint && (
+            <span className="bg-blue-500 text-white text-xs px-2 py-1 rounded-full font-bold flex items-center gap-1">
+              <Loader2 className="h-3 w-3 animate-spin" />
+              Pending
+            </span>
+          )}
+        </div>
+      </div>
+
+      {/* Content Section */}
+      <CardHeader className="pb-2">
+        <CardTitle className="text-lg font-bold text-gray-900 truncate">
+          {metadata?.name || licenseData?.name || `License #${licenseId}`}
+        </CardTitle>
+        <CardDescription className="text-sm text-gray-600 line-clamp-2">
+          {metadata?.description || `Gaming license for ${licenseData?.name || 'Unknown Game'}`}
+        </CardDescription>
+      </CardHeader>
+
+      <CardContent className="pt-0 pb-4">
+        <div className="space-y-2">
+          <div className="flex items-center justify-between text-sm">
+            <span className="text-gray-600">License ID:</span>
+            <span className="font-semibold text-gray-900">#{licenseId}</span>
+          </div>
+          <div className="flex items-center justify-between text-sm">
+            <span className="text-gray-600">Symbol:</span>
+            <span className="font-semibold text-gray-900">{licenseData?.symbol || 'N/A'}</span>
+          </div>
+          <div className="flex items-center justify-between text-sm">
+            <span className="text-gray-600">Dev Fee:</span>
+            <span className="font-semibold text-gray-900">
+              {licenseData?.developerFee ? `${formatEther(licenseData.developerFee)} ETH` : '0 ETH'}
+            </span>
+          </div>
+        </div>
+      </CardContent>
+
+      <CardFooter className="pt-0">
+        {!isConnected ? (
+          <Button disabled className="w-full bg-gray-400 text-gray-600 font-semibold">
+            <User className="mr-2 h-4 w-4" />
+            Connect Wallet
+          </Button>
+        ) : hasAlreadyMinted ? (
+          <Button disabled className="w-full bg-green-100 text-green-800 border border-green-300 font-semibold">
+            <CheckCircle className="mr-2 h-4 w-4" />
+            Already Minted ✓
+          </Button>
+        ) : !isActive ? (
+          <Button disabled className="w-full bg-red-100 text-red-600 border border-red-300 font-semibold">
+            <AlertTriangle className="mr-2 h-4 w-4" />
+            Inactive
+          </Button>
+        ) : (
+          <Button 
+            onClick={() => handleMintLicense(licenseId, licenseData)}
+            disabled={isCurrentlyMinting || isPendingMint || !licenseData?.uri}
+            className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold"
+          >
+            {isCurrentlyMinting || isPendingMint ? (
+              <>
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                {isCurrentlyMinting ? 'Minting...' : 'Confirming...'}
+              </>
+            ) : !licenseData?.uri ? (
+              <>
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                Loading...
+              </>
+            ) : (
+              <>
+                <ShoppingCart className="mr-2 h-4 w-4" />
+                Buy Game
+              </>
+            )}
+          </Button>
+        )}
+      </CardFooter>
+    </Card>
+  )
+}
+
+// Transaction notification component - extracted to prevent re-renders
+const TransactionNotification = ({ txNotification, setTxNotification }) => {
+  if (!txNotification) return null
+
+  return (
+    <div className="fixed top-20 right-4 z-50 max-w-sm">
+      <Card className={`border-2 shadow-lg ${txNotification.status === 'success' ? 'border-green-500 bg-green-50' : 'border-red-500 bg-red-50'}`}>
+        <CardContent className="p-3">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center space-x-2">
+              <div className={`h-2 w-2 rounded-full ${txNotification.status === 'success' ? 'bg-green-500' : 'bg-red-500'}`}></div>
+              <div>
+                <p className="font-semibold text-xs">
+                  {txNotification.status === 'success' ? '✅ Mint Successful!' : '❌ Transaction Failed!'}
+                </p>
+                <p className="text-xs text-gray-600">
+                  License has been {txNotification.status === 'success' ? 'minted' : 'failed'}
+                </p>
+              </div>
+            </div>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setTxNotification(null)}
+              className="h-6 w-6 p-0"
+            >
+              ×
+            </Button>
+          </div>
+          {txNotification.hash && (
+            <div className="mt-2">
+              <a
+                href={`https://sepolia.etherscan.io/tx/${txNotification.hash}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-xs text-blue-600 hover:underline flex items-center"
+              >
+                View on Etherscan <ExternalLink className="h-3 w-3 ml-1" />
+              </a>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+    </div>
+  )
+}
+
 export default function LicenseMarketplace() {
   const { address, isConnected } = useAccount()
   const { 
@@ -196,228 +427,7 @@ export default function LicenseMarketplace() {
     }
   }, [isConnected, mintingLicense, mintedLicenses, pendingMints, mintLicense, address, pollTransactionStatus])
 
-  // License card component
-  const LicenseCard = ({ licenseId }) => {
-    const { data: licenseData, isLoading: isLoadingLicense } = useGetLicenseFromID(licenseId)
-    const [metadata, setMetadata] = useState(null)
-    const [imageUrl, setImageUrl] = useState(null)
-    const [metadataLoaded, setMetadataLoaded] = useState(false)
 
-    // Load metadata only once
-    useEffect(() => {
-      if (licenseData?.uri && !metadataLoaded) {
-        setMetadataLoaded(true)
-        
-        MetadataUtils.fetchMetadataEnhanced(licenseData.uri)
-          .then(data => {
-            const normalized = MetadataUtils.normalizeImageUrls(data)
-            setMetadata(normalized)
-            
-            if (normalized?.imageUrl) {
-              const img = new Image()
-              img.onload = () => setImageUrl(normalized.imageUrl)
-              img.onerror = () => {
-                if (normalized?.imageFallbackUrl) {
-                  const fallbackImg = new Image()
-                  fallbackImg.onload = () => setImageUrl(normalized.imageFallbackUrl)
-                  fallbackImg.src = normalized.imageFallbackUrl
-                }
-              }
-              img.src = normalized.imageUrl
-            }
-          })
-          .catch(error => {
-            console.error('Metadata fetch failed:', error)
-            setMetadata({
-              name: `License #${licenseId}`,
-              description: 'Gaming license'
-            })
-          })
-      }
-    }, [licenseData, licenseId, metadataLoaded])
-
-    if (isLoadingLicense) {
-      return (
-        <Card className="overflow-hidden bg-white shadow-md border-2 border-gray-200">
-          <div className="h-48 bg-gradient-to-br from-blue-100 to-purple-100 flex items-center justify-center">
-            <Loader2 className="h-8 w-8 animate-spin text-blue-600" />
-          </div>
-          <CardContent className="p-4">
-            <div className="h-4 bg-gray-200 rounded animate-pulse mb-2"></div>
-            <div className="h-3 bg-gray-200 rounded animate-pulse w-3/4"></div>
-          </CardContent>
-        </Card>
-      )
-    }
-
-    if (!licenseData) return null
-
-    const isCurrentlyMinting = mintingLicense === licenseId
-    const hasAlreadyMinted = mintedLicenses.has(licenseId)
-    const isPendingMint = pendingMints.has(licenseId)
-    const isActive = licenseData.isActive
-
-    return (
-      <Card className="overflow-hidden hover:shadow-lg transition-shadow bg-white border-2 border-gray-200">
-        {/* Image Section */}
-        <div className="h-48 bg-gradient-to-br from-blue-100 to-purple-100 flex items-center justify-center relative overflow-hidden">
-          {imageUrl ? (
-            <img 
-              src={imageUrl} 
-              alt={metadata?.name || 'NFT'} 
-              className="w-full h-full object-cover"
-              onError={(e) => {
-                e.target.style.display = 'none'
-                e.target.nextSibling.style.display = 'flex'
-              }}
-            />
-          ) : null}
-          <div className={`${imageUrl ? 'hidden' : 'flex'} w-full h-full items-center justify-center`}>
-            <Gamepad2 className="h-16 w-16 text-blue-600/60" />
-          </div>
-          
-          {/* Status badges */}
-          <div className="absolute top-2 right-2 flex flex-col gap-1">
-            {!isActive && (
-              <span className="bg-red-500 text-white text-xs px-2 py-1 rounded-full font-bold">
-                Inactive
-              </span>
-            )}
-            {hasAlreadyMinted && (
-              <span className="bg-green-500 text-white text-xs px-2 py-1 rounded-full font-bold flex items-center gap-1">
-                <CheckCircle className="h-3 w-3" />
-                Minted
-              </span>
-            )}
-            {isPendingMint && (
-              <span className="bg-blue-500 text-white text-xs px-2 py-1 rounded-full font-bold flex items-center gap-1">
-                <Loader2 className="h-3 w-3 animate-spin" />
-                Pending
-              </span>
-            )}
-          </div>
-        </div>
-
-        {/* Content Section */}
-        <CardHeader className="pb-2">
-          <CardTitle className="text-lg font-bold text-gray-900 truncate">
-            {metadata?.name || licenseData?.name || `License #${licenseId}`}
-          </CardTitle>
-          <CardDescription className="text-sm text-gray-600 line-clamp-2">
-            {metadata?.description || `Gaming license for ${licenseData?.name || 'Unknown Game'}`}
-          </CardDescription>
-        </CardHeader>
-
-        <CardContent className="pt-0 pb-4">
-          <div className="space-y-2">
-            <div className="flex items-center justify-between text-sm">
-              <span className="text-gray-600">License ID:</span>
-              <span className="font-semibold text-gray-900">#{licenseId}</span>
-            </div>
-            <div className="flex items-center justify-between text-sm">
-              <span className="text-gray-600">Symbol:</span>
-              <span className="font-semibold text-gray-900">{licenseData?.symbol || 'N/A'}</span>
-            </div>
-            <div className="flex items-center justify-between text-sm">
-              <span className="text-gray-600">Dev Fee:</span>
-              <span className="font-semibold text-gray-900">
-                {licenseData?.developerFee ? `${formatEther(licenseData.developerFee)} ETH` : '0 ETH'}
-              </span>
-            </div>
-          </div>
-        </CardContent>
-
-        <CardFooter className="pt-0">
-          {!isConnected ? (
-            <Button disabled className="w-full bg-gray-400 text-gray-600 font-semibold">
-              <User className="mr-2 h-4 w-4" />
-              Connect Wallet
-            </Button>
-          ) : hasAlreadyMinted ? (
-            <Button disabled className="w-full bg-green-100 text-green-800 border border-green-300 font-semibold">
-              <CheckCircle className="mr-2 h-4 w-4" />
-              Already Minted ✓
-            </Button>
-          ) : !isActive ? (
-            <Button disabled className="w-full bg-red-100 text-red-600 border border-red-300 font-semibold">
-              <AlertTriangle className="mr-2 h-4 w-4" />
-              Inactive
-            </Button>
-          ) : (
-            <Button 
-              onClick={() => handleMintLicense(licenseId, licenseData)}
-              disabled={isCurrentlyMinting || isPendingMint || !licenseData?.uri}
-              className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold"
-            >
-              {isCurrentlyMinting || isPendingMint ? (
-                <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  {isCurrentlyMinting ? 'Minting...' : 'Confirming...'}
-                </>
-              ) : !licenseData?.uri ? (
-                <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Loading...
-                </>
-              ) : (
-                <>
-                  <ShoppingCart className="mr-2 h-4 w-4" />
-                  Buy Game
-                </>
-              )}
-            </Button>
-          )}
-        </CardFooter>
-      </Card>
-    )
-  }
-
-  // Transaction notification
-  const TransactionNotification = () => {
-    if (!txNotification) return null
-
-    return (
-      <div className="fixed top-20 right-4 z-50 max-w-sm">
-        <Card className={`border-2 shadow-lg ${txNotification.status === 'success' ? 'border-green-500 bg-green-50' : 'border-red-500 bg-red-50'}`}>
-          <CardContent className="p-3">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center space-x-2">
-                <div className={`h-2 w-2 rounded-full ${txNotification.status === 'success' ? 'bg-green-500' : 'bg-red-500'}`}></div>
-                <div>
-                  <p className="font-semibold text-xs">
-                    {txNotification.status === 'success' ? '✅ Mint Successful!' : '❌ Transaction Failed!'}
-                  </p>
-                  <p className="text-xs text-gray-600">
-                    License has been {txNotification.status === 'success' ? 'minted' : 'failed'}
-                  </p>
-                </div>
-              </div>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => setTxNotification(null)}
-                className="h-6 w-6 p-0"
-              >
-                ×
-              </Button>
-            </div>
-            {txNotification.hash && (
-              <div className="mt-2">
-                <a
-                  href={`https://sepolia.etherscan.io/tx/${txNotification.hash}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-xs text-blue-600 hover:underline flex items-center"
-                >
-                  View on Etherscan <ExternalLink className="h-3 w-3 ml-1" />
-                </a>
-              </div>
-            )}
-          </CardContent>
-        </Card>
-      </div>
-    )
-  }
 
   // Cleanup on unmount
   useEffect(() => {
@@ -457,12 +467,23 @@ export default function LicenseMarketplace() {
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {licenses.map((licenseId) => (
-            <LicenseCard key={licenseId} licenseId={licenseId} />
+            <LicenseCard 
+              key={licenseId} 
+              licenseId={licenseId}
+              isConnected={isConnected}
+              mintingLicense={mintingLicense}
+              mintedLicenses={mintedLicenses}
+              pendingMints={pendingMints}
+              handleMintLicense={handleMintLicense}
+            />
           ))}
         </div>
       )}
 
-      <TransactionNotification />
+      <TransactionNotification 
+        txNotification={txNotification}
+        setTxNotification={setTxNotification}
+      />
     </div>
   )
 }
