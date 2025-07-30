@@ -11,22 +11,19 @@ contract MasterDeployment is Script {
         uint256 deployerPrivateKey = vm.envUint("PRIVATE_KEY");
         vm.startBroadcast(deployerPrivateKey);
 
-        // Deploy LicenseFactory first
         LicenseFactory licenseFactory = new LicenseFactory();
         console.log("LicenseFactory deployed to:", address(licenseFactory));
 
-        // Deploy PrimaryMarketPlace
         PrimaryMarketPlace primaryMarketPlace = new PrimaryMarketPlace(
-            0x1d72B383cd2F783e4f2eDafE9D7544A3355507C2, // fee wallet
-            0x1d72B383cd2F783e4f2eDafE9D7544A3355507C2, // royalty wallet
+            0x1d72B383cd2F783e4f2eDafE9D7544A3355507C2,
+            0x1d72B383cd2F783e4f2eDafE9D7544A3355507C2,
             address(licenseFactory)
         );
         console.log("PrimaryMarketPlace deployed to:", address(primaryMarketPlace));
 
-        // Deploy SecondaryMarketPlace
         SecondaryMarketPlace secondaryMarketPlace = new SecondaryMarketPlace(
-            0x1d72B383cd2F783e4f2eDafE9D7544A3355507C2, // fee wallet
-            0x1d72B383cd2F783e4f2eDafE9D7544A3355507C2, // royalty wallet
+            0x1d72B383cd2F783e4f2eDafE9D7544A3355507C2,
+            0x1d72B383cd2F783e4f2eDafE9D7544A3355507C2,
             address(licenseFactory),
             address(primaryMarketPlace)
         );
