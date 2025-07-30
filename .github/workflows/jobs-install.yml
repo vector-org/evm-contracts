@@ -5,7 +5,7 @@ on:
       inputs:
         runner:
             type: string
-            default: '[self-hosted, Linux, X64]'
+            default: '["self-hosted", "Linux", "X64"]'
 
 jobs:
     install:
@@ -13,3 +13,5 @@ jobs:
         steps:
             - uses: actions/checkout@v4
             - uses: ./.github/actions/install
+            - run: forge install
+              shell: bash

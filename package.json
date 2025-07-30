@@ -1,29 +1,28 @@
 {
-  "name": "hardhat-project",
+  "name": "foundry-project",
   "devDependencies": {
-    "@nomicfoundation/hardhat-toolbox": "^5.0.0",
     "commitizen": "^4.3.1",
     "cz-conventional-changelog": "^3.3.0",
-    "hardhat": "^2.25.0",
     "prettier": "^3.6.2",
     "prettier-plugin-solidity": "^2.0.0"
   },
   "dependencies": {
-    "@openzeppelin/contracts": "^4.7.0",
     "dotenv": "^17.1.0",
-    "husky": "^9.1.7"
+    "husky": "^9.1.7",
+    "solhint": "^6.0.0"
   },
   "scripts": {
     "prepare": "husky",
-    "compile": "npx hardhat compile",
-    "deploy:master": "npx hardhat ignition deploy './ignition/modules/MasterDeployment.js' --network sepolia",
-    "deploy:license": "npx hardhat ignition deploy './ignition/modules/LicenseContract.js' --network sepolia",
-    "deploy:license-factory": "npx hardhat ignition deploy './ignition/modules/LicenseFactory.js' --network sepolia",
-    "deploy:primary-marketplace": "npx hardhat ignition deploy './ignition/modules/PrimaryMarketPlace.js' --network sepolia",
-    "deploy:secondary-marketplace": "npx hardhat ignition deploy './ignition/modules/SecondaryMarketPlace.js' --network sepolia",
-    "lint": "solhint 'contracts/**/*.sol'",
-    "check:format": "prettier --list-different --plugin=prettier-plugin-solidity 'contracts/**/*.sol'",
-    "format": "npx prettier --write --plugin=prettier-plugin-solidity 'contracts/**/*.sol'",
+    "compile": "forge build",
+    "deploy:master": "forge script script/MasterDeployment.s.sol:MasterDeployment --rpc-url sepolia --broadcast --verify",
+    "deploy:license": "forge script script/DeployLicenseContract.s.sol:DeployLicenseContract --rpc-url sepolia --broadcast --verify",
+    "deploy:license-factory": "forge script script/DeployLicenseFactory.s.sol:DeployLicenseFactory --rpc-url sepolia --broadcast --verify",
+    "deploy:primary-marketplace": "forge script script/DeployPrimaryMarketPlace.s.sol:DeployPrimaryMarketPlace --rpc-url sepolia --broadcast --verify",
+    "deploy:secondary-marketplace": "forge script script/DeploySecondaryMarketPlace.s.sol:DeploySecondaryMarketPlace --rpc-url sepolia --broadcast --verify",
+    "test": "forge test",
+    "lint": "solhint 'src/**/*.sol'",
+    "check:format": "prettier --list-different --plugin=prettier-plugin-solidity 'src/**/*.sol'",
+    "format": "prettier --write --plugin=prettier-plugin-solidity 'src/**/*.sol'",
     "dev-example:install": "cd dev-example && npm install --legacy-peer-deps",
     "dev-example:dev": "cd dev-example && npm run dev",
     "dev-example:build": "cd dev-example && npm run build"
