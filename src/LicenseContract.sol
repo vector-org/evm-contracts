@@ -58,26 +58,27 @@ contract LicenseContract is ERC721, ERC721URIStorage, Addresses {
         _setTokenURI(licenseId, newUri);
     }
 
-    function _beforeTokenTransfer(
-        address from,
+    function _update(
         address to,
-        uint256 licenseId,
-        uint256 batchSize
-    ) internal virtual override {
+        uint256 tokenId,
+        address auth
+    ) internal virtual override returns (address) {
+        address from = _ownerOf(tokenId);
+        
         if (
             from != address(0) &&
-            msg.sender != PRIMARYMARKETPLACE &&
-            msg.sender != SECONDARYMARKETPLACE
+            auth != PRIMARYMARKETPLACE &&
+            auth != SECONDARYMARKETPLACE
         ) {
-            revert notPrimaryOrSecondary(msg.sender);
+            revert notPrimaryOrSecondary(auth);
         }
-        super._beforeTokenTransfer(from, to, licenseId, batchSize);
-    }
-
-    function _burn(
-        uint256 tokenId
-    ) internal virtual override(ERC721, ERC721URIStorage) {
-        super._burn(tokenId);
+        
+        // If burning (to == address(0)), clear the token URI
+        if (to == address(0)) {
+            _setTokenURI(tokenId, "");
+        }
+        
+        return super._update(to, tokenId, auth);
     }
 
     function supportsInterface(
