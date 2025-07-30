@@ -170,12 +170,6 @@ contract SecondaryMarketPlace is Addresses {
         ILicenseContract licenseContract = ILicenseContract(
             offer.licenseAddress
         );
-        licenseContract.safeTransferFrom(offer.seller, msg.sender, tokenId);
-
-        (bool success, ) = payable(offer.seller).call{value: offer.price}("");
-        if (!success) {
-            revert("Transfer to seller failed");
-        }
 
         offer.buyer = msg.sender;
         offer.isActive = false;
@@ -192,6 +186,13 @@ contract SecondaryMarketPlace is Addresses {
         nftData.listedForSale = false;
         nftData.owner = msg.sender;
         primaryMarket.updateNFTData(tokenId, nftData);
+
+        licenseContract.safeTransferFrom(offer.seller, msg.sender, tokenId);
+
+        (bool success, ) = payable(offer.seller).call{value: offer.price}("");
+        if (!success) {
+            revert("Transfer to seller failed");
+        }
 
         emit OfferAccepted(
             offer.seller,
