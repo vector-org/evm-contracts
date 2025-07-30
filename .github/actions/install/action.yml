@@ -7,5 +7,4 @@ runs:
     - uses: jdx/mise-action@v2  
     - run: npm install
       shell: bash
-    - run: curl -L https://foundry.paradigm.xyz | bash && foundryup
-      shell: bash
+    - uses: foundry-rs/foundry-toolchain@v1
