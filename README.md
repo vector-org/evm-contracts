@@ -1,5 +1,7 @@
 # EVM Based Contracts 
 
+Note : The `PrimaryMarketPlace` contract does not handle ETH Transfers yet.
+
 ## Running 
 To run a demo ui with already deployed contracts and everything 
 ```sh
