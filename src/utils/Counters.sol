@@ -20,7 +20,7 @@ library Counters {
 
     function decrement(Counter storage counter) internal {
         uint256 value = counter._value;
-        if (value <= 0) {
+        if (value == 0) {
             revert decrementOverflow(value);
         }
         unchecked {
