@@ -93,7 +93,7 @@ contract SecondaryMarketPlace is Addresses {
         if (gameNFT.listedForSale == true) {
             revert alreadyListed(tokenId);
         }
-        if (offerById[tokenId].isActive) {
+        if (!offerById[tokenId].isActive) {
             revert offerInactive(tokenId);
         }
         if (gameNFT.owner != msg.sender) {
