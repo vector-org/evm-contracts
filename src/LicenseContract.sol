@@ -73,7 +73,6 @@ contract LicenseContract is ERC721, ERC721URIStorage, Addresses {
             revert notPrimaryOrSecondary(auth);
         }
         
-        // If burning (to == address(0)), clear the token URI
         if (to == address(0)) {
             _setTokenURI(tokenId, "");
         }
