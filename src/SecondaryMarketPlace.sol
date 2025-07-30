@@ -3,7 +3,6 @@ pragma solidity ^0.8.28;
 
 import {ILicenseContract} from "./interfaces/ILicenseContract.sol";
 import {IPrimaryMarketPlace} from "./interfaces/IPrimaryMarketPlace.sol";
-import {IPrimaryMarketPlace} from "./interfaces/IPrimaryMarketPlace.sol";
 import {Counters} from "./utils/Counters.sol";
 import {Addresses} from "./constants/Addresses.sol";
 import {Offer} from "./types/Types.sol";
