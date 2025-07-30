@@ -172,7 +172,10 @@ contract SecondaryMarketPlace is Addresses {
         );
         licenseContract.safeTransferFrom(offer.seller, msg.sender, tokenId);
 
-        payable(offer.seller).transfer(offer.price);
+        (bool success, ) = payable(offer.seller).call{value: offer.price}("");
+        if (!success) {
+            revert("Transfer to seller failed");
+        }
 
         offer.buyer = msg.sender;
         offer.isActive = false;
