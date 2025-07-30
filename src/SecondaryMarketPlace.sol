@@ -99,7 +99,7 @@ contract SecondaryMarketPlace is Addresses {
         if (gameNFT.owner != msg.sender) {
             revert notNFTOwner(msg.sender);
         }
-        // here should be a logic to check if the game NFT is tradeable or not
+        // here should be a logic to check if the game NFT is tradeable or not, involving a new attribute in primary mrktplace
         if (price <= 0) {
             revert priceIsNotPositive(price);
         }
