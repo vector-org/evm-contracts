@@ -12,11 +12,49 @@ npm run dev-example
 cp .env.example .env
 ```
 
+## Using Foundry
+
+This project now uses Foundry for smart contract development, compilation, and deployment.
+
+### Prerequisites
+- [Foundry](https://book.getfoundry.sh/getting-started/installation) installed
+
+### Compilation
 ```sh
-npx hardhat compile
-npx hardhat ignition deploy ignition/modules/LicenseFactory.js --network sepolia #deploys the licensefactory
-# Add licensefactory address inside ignition/modules/PrimaryMarketPlace.js as the last constructor arguments
-npx hardhat ignition deploy ignition/modules/PrimaryMarketPlace.js --network sepolia #deploys the primary marketplace
-# Add licensefactory address and primary marketplace address inside ignition/modules/SecondaryMarketPlace.js as the second last and last constructor arguments
-npx hardhat ignition deploy ignition/modules/SecondaryMarketPlace.js --network sepolia #deploys the secondary marketplace
+forge build
+# or using npm script
+npm run compile
 ```
+
+### Testing
+```sh
+forge test
+# or using npm script  
+npm run test
+```
+
+### Deployment
+
+Deploy individual contracts:
+```sh
+npm run deploy:license-factory
+npm run deploy:primary-marketplace  
+npm run deploy:secondary-marketplace
+```
+
+Deploy all contracts at once:
+```sh
+npm run deploy:master
+```
+
+For specific networks (replace `sepolia` with your target network):
+```sh
+forge script script/MasterDeployment.s.sol:MasterDeployment --rpc-url sepolia --broadcast --verify
+```
+
+### Directory Structure
+- `src/` - Smart contracts
+- `script/` - Deployment scripts  
+- `test/` - Test files
+- `lib/` - Dependencies (managed by Foundry)
+- `out/` - Compiled artifacts
