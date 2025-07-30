@@ -64,7 +64,7 @@ contract LicenseContract is ERC721, ERC721URIStorage, Addresses {
         address auth
     ) internal virtual override returns (address) {
         address from = _ownerOf(tokenId);
-        
+
         if (
             from != address(0) &&
             auth != PRIMARYMARKETPLACE &&
@@ -72,11 +72,11 @@ contract LicenseContract is ERC721, ERC721URIStorage, Addresses {
         ) {
             revert notPrimaryOrSecondary(auth);
         }
-        
+
         if (to == address(0)) {
             _setTokenURI(tokenId, "");
         }
-        
+
         return super._update(to, tokenId, auth);
     }
 
