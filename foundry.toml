@@ -11,10 +11,17 @@ solc_version = "0.8.28"
 optimizer = true
 optimizer_runs = 200
 via_ir = true
+
 [rpc_endpoints]
 sepolia = "https://sepolia.infura.io/v3/2WCbZ8YpmuPxUtM6PzbFOfY5k4B"
 arbitrum_sepolia = "https://arbitrum-sepolia.infura.io/v3/2WCbZ8YpmuPxUtM6PzbFOfY5k4B" 
 base_sepolia = "https://base-sepolia.infura.io/v3/2WCbZ8YpmuPxUtM6PzbFOfY5k4B"
+vector = "http://localhost:8545"
+
+[profile.vector]
+eth_rpc_timeout = 120000  # 2 minutes
+block_number = 0
+gas_limit = 30000000
 
 [profile.default.fuzz]
 runs = 1000

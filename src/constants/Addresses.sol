@@ -7,6 +7,6 @@ contract Addresses {
     address public immutable ADMINISTRATOR;
 
     constructor() {
-        ADMINISTRATOR = 0x1d72B383cd2F783e4f2eDafE9D7544A3355507C2;
+        ADMINISTRATOR = 0xC6Fe5D33615a1C52c08018c47E8Bc53646A0E101;
     }
 }
