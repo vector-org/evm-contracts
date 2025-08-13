@@ -19,6 +19,7 @@
     "deploy:license-factory": "forge script script/DeployLicenseFactory.s.sol:DeployLicenseFactory --rpc-url sepolia --broadcast --verify",
     "deploy:primary-marketplace": "forge script script/DeployPrimaryMarketPlace.s.sol:DeployPrimaryMarketPlace --rpc-url sepolia --broadcast --verify",
     "deploy:secondary-marketplace": "forge script script/DeploySecondaryMarketPlace.s.sol:DeploySecondaryMarketPlace --rpc-url sepolia --broadcast --verify",
+    "export:vector": "node script/export-contract.js --script MasterDeployment.s.sol",
     "test": "forge test",
     "lint": "solhint 'src/**/*.sol'",
     "check:format": "prettier --list-different --plugin=prettier-plugin-solidity 'src/**/*.sol'",
