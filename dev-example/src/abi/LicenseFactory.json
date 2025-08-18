@@ -1,602 +1,602 @@
 {
-    "address": "0xE82D12eE3856b33B2c5e2cE3ee20aA687A8E5fA1",
-    "abi": [
+  "address": "0x3d641a2791533b4a0000345ea8d509d01e1ec301",
+  "abi": [
     {
+      "type": "constructor",
       "inputs": [],
-      "stateMutability": "nonpayable",
-      "type": "constructor"
+      "stateMutability": "nonpayable"
     },
     {
-      "inputs": [
-        {
-          "internalType": "address",
-          "name": "caller",
-          "type": "address"
-        }
-      ],
-      "name": "cannotUpdateLicense",
-      "type": "error"
-    },
-    {
-      "inputs": [
-        {
-          "internalType": "uint256",
-          "name": "id",
-          "type": "uint256"
-        }
-      ],
-      "name": "licenseNotFound",
-      "type": "error"
-    },
-    {
-      "inputs": [
-        {
-          "internalType": "address",
-          "name": "caller",
-          "type": "address"
-        }
-      ],
-      "name": "notAdminOrOwner",
-      "type": "error"
-    },
-    {
-      "inputs": [
-        {
-          "internalType": "address",
-          "name": "caller",
-          "type": "address"
-        }
-      ],
-      "name": "onlyAdmin",
-      "type": "error"
-    },
-    {
-      "inputs": [
-        {
-          "internalType": "address",
-          "name": "caller",
-          "type": "address"
-        }
-      ],
-      "name": "onlyCoordinator",
-      "type": "error"
-    },
-    {
-      "inputs": [
-        {
-          "internalType": "address",
-          "name": "caller",
-          "type": "address"
-        }
-      ],
-      "name": "onlyOwner",
-      "type": "error"
-    },
-    {
-      "anonymous": false,
-      "inputs": [
-        {
-          "indexed": true,
-          "internalType": "address",
-          "name": "coordinator",
-          "type": "address"
-        },
-        {
-          "indexed": false,
-          "internalType": "uint256",
-          "name": "timestamp",
-          "type": "uint256"
-        }
-      ],
-      "name": "AddCoordinator",
-      "type": "event"
-    },
-    {
-      "anonymous": false,
-      "inputs": [
-        {
-          "indexed": true,
-          "internalType": "address",
-          "name": "contractAddress",
-          "type": "address"
-        },
-        {
-          "indexed": false,
-          "internalType": "uint256",
-          "name": "tokenId",
-          "type": "uint256"
-        },
-        {
-          "indexed": true,
-          "internalType": "address",
-          "name": "creator",
-          "type": "address"
-        },
-        {
-          "indexed": false,
-          "internalType": "uint256",
-          "name": "timestamp",
-          "type": "uint256"
-        }
-      ],
-      "name": "NewLicenseContract",
-      "type": "event"
-    },
-    {
-      "anonymous": false,
-      "inputs": [
-        {
-          "indexed": true,
-          "internalType": "address",
-          "name": "newOwner",
-          "type": "address"
-        },
-        {
-          "indexed": true,
-          "internalType": "address",
-          "name": "oldOwner",
-          "type": "address"
-        },
-        {
-          "indexed": false,
-          "internalType": "uint256",
-          "name": "timestamp",
-          "type": "uint256"
-        }
-      ],
-      "name": "OwnerChanged",
-      "type": "event"
-    },
-    {
-      "inputs": [],
+      "type": "function",
       "name": "ADMINISTRATOR",
+      "inputs": [],
       "outputs": [
         {
-          "internalType": "address",
           "name": "",
-          "type": "address"
+          "type": "address",
+          "internalType": "address"
         }
       ],
-      "stateMutability": "view",
-      "type": "function"
+      "stateMutability": "view"
     },
     {
-      "inputs": [],
+      "type": "function",
       "name": "BURNINGADDRESS",
+      "inputs": [],
       "outputs": [
         {
-          "internalType": "address",
           "name": "",
-          "type": "address"
+          "type": "address",
+          "internalType": "address"
         }
       ],
-      "stateMutability": "view",
-      "type": "function"
+      "stateMutability": "view"
     },
     {
-      "inputs": [
-        {
-          "internalType": "uint256",
-          "name": "",
-          "type": "uint256"
-        }
-      ],
+      "type": "function",
       "name": "allLicenses",
-      "outputs": [
-        {
-          "internalType": "address",
-          "name": "",
-          "type": "address"
-        }
-      ],
-      "stateMutability": "view",
-      "type": "function"
-    },
-    {
       "inputs": [
         {
-          "internalType": "uint256",
-          "name": "licenseId",
-          "type": "uint256"
-        },
-        {
-          "internalType": "bool",
-          "name": "status",
-          "type": "bool"
+          "name": "",
+          "type": "uint256",
+          "internalType": "uint256"
         }
       ],
+      "outputs": [
+        {
+          "name": "",
+          "type": "address",
+          "internalType": "address"
+        }
+      ],
+      "stateMutability": "view"
+    },
+    {
+      "type": "function",
       "name": "changeLicenseStatus",
-      "outputs": [],
-      "stateMutability": "nonpayable",
-      "type": "function"
-    },
-    {
       "inputs": [
         {
-          "components": [
-            {
-              "internalType": "string",
-              "name": "name",
-              "type": "string"
-            },
-            {
-              "internalType": "string",
-              "name": "symbol",
-              "type": "string"
-            },
-            {
-              "internalType": "string",
-              "name": "uri",
-              "type": "string"
-            },
-            {
-              "internalType": "bool",
-              "name": "isActive",
-              "type": "bool"
-            },
-            {
-              "internalType": "uint256",
-              "name": "developerFee",
-              "type": "uint256"
-            },
-            {
-              "internalType": "uint256",
-              "name": "platformFee",
-              "type": "uint256"
-            },
-            {
-              "internalType": "uint256",
-              "name": "publisherFee",
-              "type": "uint256"
-            },
-            {
-              "internalType": "address",
-              "name": "developer",
-              "type": "address"
-            },
-            {
-              "internalType": "address",
-              "name": "publisher",
-              "type": "address"
-            },
-            {
-              "internalType": "address",
-              "name": "platform",
-              "type": "address"
-            },
-            {
-              "internalType": "address",
-              "name": "primaryMarketplace",
-              "type": "address"
-            },
-            {
-              "internalType": "address",
-              "name": "secondaryMarketplace",
-              "type": "address"
-            }
-          ],
-          "internalType": "struct LicenseInput",
-          "name": "licenseInput",
-          "type": "tuple"
-        }
-      ],
-      "name": "createLicense",
-      "outputs": [
-        {
-          "internalType": "address",
-          "name": "",
-          "type": "address"
-        }
-      ],
-      "stateMutability": "nonpayable",
-      "type": "function"
-    },
-    {
-      "inputs": [],
-      "name": "getAllLicenseIds",
-      "outputs": [
-        {
-          "internalType": "uint256[]",
-          "name": "",
-          "type": "uint256[]"
-        }
-      ],
-      "stateMutability": "view",
-      "type": "function"
-    },
-    {
-      "inputs": [
-        {
-          "internalType": "uint256",
-          "name": "id",
-          "type": "uint256"
-        }
-      ],
-      "name": "getCoordinator",
-      "outputs": [
-        {
-          "internalType": "address",
-          "name": "",
-          "type": "address"
-        }
-      ],
-      "stateMutability": "view",
-      "type": "function"
-    },
-    {
-      "inputs": [
-        {
-          "internalType": "uint256",
-          "name": "id",
-          "type": "uint256"
-        }
-      ],
-      "name": "getLicenseFromID",
-      "outputs": [
-        {
-          "components": [
-            {
-              "internalType": "address",
-              "name": "contractAddress",
-              "type": "address"
-            },
-            {
-              "internalType": "address",
-              "name": "owner",
-              "type": "address"
-            },
-            {
-              "internalType": "address",
-              "name": "coordinator",
-              "type": "address"
-            },
-            {
-              "internalType": "string",
-              "name": "name",
-              "type": "string"
-            },
-            {
-              "internalType": "string",
-              "name": "symbol",
-              "type": "string"
-            },
-            {
-              "internalType": "string",
-              "name": "uri",
-              "type": "string"
-            },
-            {
-              "internalType": "bool",
-              "name": "isActive",
-              "type": "bool"
-            },
-            {
-              "internalType": "uint256",
-              "name": "timestamp",
-              "type": "uint256"
-            },
-            {
-              "internalType": "uint256",
-              "name": "developerFee",
-              "type": "uint256"
-            },
-            {
-              "internalType": "uint256",
-              "name": "platformFee",
-              "type": "uint256"
-            },
-            {
-              "internalType": "uint256",
-              "name": "publisherFee",
-              "type": "uint256"
-            },
-            {
-              "internalType": "address",
-              "name": "developer",
-              "type": "address"
-            },
-            {
-              "internalType": "address",
-              "name": "publisher",
-              "type": "address"
-            },
-            {
-              "internalType": "address",
-              "name": "platform",
-              "type": "address"
-            }
-          ],
-          "internalType": "struct License",
-          "name": "",
-          "type": "tuple"
-        }
-      ],
-      "stateMutability": "view",
-      "type": "function"
-    },
-    {
-      "inputs": [
-        {
-          "internalType": "uint256",
-          "name": "id",
-          "type": "uint256"
-        }
-      ],
-      "name": "getOwnerOfLicense",
-      "outputs": [
-        {
-          "internalType": "address",
-          "name": "",
-          "type": "address"
-        }
-      ],
-      "stateMutability": "view",
-      "type": "function"
-    },
-    {
-      "inputs": [
-        {
-          "internalType": "uint256",
-          "name": "",
-          "type": "uint256"
-        }
-      ],
-      "name": "licenseContracts",
-      "outputs": [
-        {
-          "internalType": "address",
-          "name": "contractAddress",
-          "type": "address"
-        },
-        {
-          "internalType": "address",
-          "name": "owner",
-          "type": "address"
-        },
-        {
-          "internalType": "address",
-          "name": "coordinator",
-          "type": "address"
-        },
-        {
-          "internalType": "string",
-          "name": "name",
-          "type": "string"
-        },
-        {
-          "internalType": "string",
-          "name": "symbol",
-          "type": "string"
-        },
-        {
-          "internalType": "string",
-          "name": "uri",
-          "type": "string"
-        },
-        {
-          "internalType": "bool",
-          "name": "isActive",
-          "type": "bool"
-        },
-        {
-          "internalType": "uint256",
-          "name": "timestamp",
-          "type": "uint256"
-        },
-        {
-          "internalType": "uint256",
-          "name": "developerFee",
-          "type": "uint256"
-        },
-        {
-          "internalType": "uint256",
-          "name": "platformFee",
-          "type": "uint256"
-        },
-        {
-          "internalType": "uint256",
-          "name": "publisherFee",
-          "type": "uint256"
-        },
-        {
-          "internalType": "address",
-          "name": "developer",
-          "type": "address"
-        },
-        {
-          "internalType": "address",
-          "name": "publisher",
-          "type": "address"
-        },
-        {
-          "internalType": "address",
-          "name": "platform",
-          "type": "address"
-        }
-      ],
-      "stateMutability": "view",
-      "type": "function"
-    },
-    {
-      "inputs": [],
-      "name": "owner",
-      "outputs": [
-        {
-          "internalType": "address",
-          "name": "",
-          "type": "address"
-        }
-      ],
-      "stateMutability": "view",
-      "type": "function"
-    },
-    {
-      "inputs": [
-        {
-          "internalType": "address",
-          "name": "_coordinator",
-          "type": "address"
-        },
-        {
-          "internalType": "bool",
-          "name": "status",
-          "type": "bool"
-        }
-      ],
-      "name": "setCoordinator",
-      "outputs": [],
-      "stateMutability": "nonpayable",
-      "type": "function"
-    },
-    {
-      "inputs": [
-        {
-          "internalType": "address",
-          "name": "newOwner",
-          "type": "address"
-        }
-      ],
-      "name": "setOwner",
-      "outputs": [],
-      "stateMutability": "nonpayable",
-      "type": "function"
-    },
-    {
-      "inputs": [
-        {
-          "internalType": "uint256",
-          "name": "",
-          "type": "uint256"
-        }
-      ],
-      "name": "tokenIds",
-      "outputs": [
-        {
-          "internalType": "uint256",
-          "name": "",
-          "type": "uint256"
-        }
-      ],
-      "stateMutability": "view",
-      "type": "function"
-    },
-    {
-      "inputs": [
-        {
-          "internalType": "uint256",
           "name": "licenseId",
-          "type": "uint256"
+          "type": "uint256",
+          "internalType": "uint256"
         },
         {
-          "internalType": "string",
-          "name": "uri",
-          "type": "string"
+          "name": "status",
+          "type": "bool",
+          "internalType": "bool"
         }
       ],
-      "name": "updateLicense",
       "outputs": [],
-      "stateMutability": "nonpayable",
-      "type": "function"
+      "stateMutability": "nonpayable"
+    },
+    {
+      "type": "function",
+      "name": "createLicense",
+      "inputs": [
+        {
+          "name": "licenseInput",
+          "type": "tuple",
+          "internalType": "struct LicenseInput",
+          "components": [
+            {
+              "name": "name",
+              "type": "string",
+              "internalType": "string"
+            },
+            {
+              "name": "symbol",
+              "type": "string",
+              "internalType": "string"
+            },
+            {
+              "name": "uri",
+              "type": "string",
+              "internalType": "string"
+            },
+            {
+              "name": "isActive",
+              "type": "bool",
+              "internalType": "bool"
+            },
+            {
+              "name": "developerFee",
+              "type": "uint256",
+              "internalType": "uint256"
+            },
+            {
+              "name": "platformFee",
+              "type": "uint256",
+              "internalType": "uint256"
+            },
+            {
+              "name": "publisherFee",
+              "type": "uint256",
+              "internalType": "uint256"
+            },
+            {
+              "name": "developer",
+              "type": "address",
+              "internalType": "address"
+            },
+            {
+              "name": "publisher",
+              "type": "address",
+              "internalType": "address"
+            },
+            {
+              "name": "platform",
+              "type": "address",
+              "internalType": "address"
+            },
+            {
+              "name": "primaryMarketplace",
+              "type": "address",
+              "internalType": "address"
+            },
+            {
+              "name": "secondaryMarketplace",
+              "type": "address",
+              "internalType": "address"
+            }
+          ]
+        }
+      ],
+      "outputs": [
+        {
+          "name": "",
+          "type": "address",
+          "internalType": "address"
+        }
+      ],
+      "stateMutability": "nonpayable"
+    },
+    {
+      "type": "function",
+      "name": "getAllLicenseIds",
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "",
+          "type": "uint256[]",
+          "internalType": "uint256[]"
+        }
+      ],
+      "stateMutability": "view"
+    },
+    {
+      "type": "function",
+      "name": "getCoordinator",
+      "inputs": [
+        {
+          "name": "id",
+          "type": "uint256",
+          "internalType": "uint256"
+        }
+      ],
+      "outputs": [
+        {
+          "name": "",
+          "type": "address",
+          "internalType": "address"
+        }
+      ],
+      "stateMutability": "view"
+    },
+    {
+      "type": "function",
+      "name": "getLicenseFromID",
+      "inputs": [
+        {
+          "name": "id",
+          "type": "uint256",
+          "internalType": "uint256"
+        }
+      ],
+      "outputs": [
+        {
+          "name": "",
+          "type": "tuple",
+          "internalType": "struct License",
+          "components": [
+            {
+              "name": "contractAddress",
+              "type": "address",
+              "internalType": "address"
+            },
+            {
+              "name": "owner",
+              "type": "address",
+              "internalType": "address"
+            },
+            {
+              "name": "coordinator",
+              "type": "address",
+              "internalType": "address"
+            },
+            {
+              "name": "name",
+              "type": "string",
+              "internalType": "string"
+            },
+            {
+              "name": "symbol",
+              "type": "string",
+              "internalType": "string"
+            },
+            {
+              "name": "uri",
+              "type": "string",
+              "internalType": "string"
+            },
+            {
+              "name": "isActive",
+              "type": "bool",
+              "internalType": "bool"
+            },
+            {
+              "name": "timestamp",
+              "type": "uint256",
+              "internalType": "uint256"
+            },
+            {
+              "name": "developerFee",
+              "type": "uint256",
+              "internalType": "uint256"
+            },
+            {
+              "name": "platformFee",
+              "type": "uint256",
+              "internalType": "uint256"
+            },
+            {
+              "name": "publisherFee",
+              "type": "uint256",
+              "internalType": "uint256"
+            },
+            {
+              "name": "developer",
+              "type": "address",
+              "internalType": "address"
+            },
+            {
+              "name": "publisher",
+              "type": "address",
+              "internalType": "address"
+            },
+            {
+              "name": "platform",
+              "type": "address",
+              "internalType": "address"
+            }
+          ]
+        }
+      ],
+      "stateMutability": "view"
+    },
+    {
+      "type": "function",
+      "name": "getOwnerOfLicense",
+      "inputs": [
+        {
+          "name": "id",
+          "type": "uint256",
+          "internalType": "uint256"
+        }
+      ],
+      "outputs": [
+        {
+          "name": "",
+          "type": "address",
+          "internalType": "address"
+        }
+      ],
+      "stateMutability": "view"
+    },
+    {
+      "type": "function",
+      "name": "licenseContracts",
+      "inputs": [
+        {
+          "name": "",
+          "type": "uint256",
+          "internalType": "uint256"
+        }
+      ],
+      "outputs": [
+        {
+          "name": "contractAddress",
+          "type": "address",
+          "internalType": "address"
+        },
+        {
+          "name": "owner",
+          "type": "address",
+          "internalType": "address"
+        },
+        {
+          "name": "coordinator",
+          "type": "address",
+          "internalType": "address"
+        },
+        {
+          "name": "name",
+          "type": "string",
+          "internalType": "string"
+        },
+        {
+          "name": "symbol",
+          "type": "string",
+          "internalType": "string"
+        },
+        {
+          "name": "uri",
+          "type": "string",
+          "internalType": "string"
+        },
+        {
+          "name": "isActive",
+          "type": "bool",
+          "internalType": "bool"
+        },
+        {
+          "name": "timestamp",
+          "type": "uint256",
+          "internalType": "uint256"
+        },
+        {
+          "name": "developerFee",
+          "type": "uint256",
+          "internalType": "uint256"
+        },
+        {
+          "name": "platformFee",
+          "type": "uint256",
+          "internalType": "uint256"
+        },
+        {
+          "name": "publisherFee",
+          "type": "uint256",
+          "internalType": "uint256"
+        },
+        {
+          "name": "developer",
+          "type": "address",
+          "internalType": "address"
+        },
+        {
+          "name": "publisher",
+          "type": "address",
+          "internalType": "address"
+        },
+        {
+          "name": "platform",
+          "type": "address",
+          "internalType": "address"
+        }
+      ],
+      "stateMutability": "view"
+    },
+    {
+      "type": "function",
+      "name": "owner",
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "",
+          "type": "address",
+          "internalType": "address"
+        }
+      ],
+      "stateMutability": "view"
+    },
+    {
+      "type": "function",
+      "name": "setCoordinator",
+      "inputs": [
+        {
+          "name": "_coordinator",
+          "type": "address",
+          "internalType": "address"
+        },
+        {
+          "name": "status",
+          "type": "bool",
+          "internalType": "bool"
+        }
+      ],
+      "outputs": [],
+      "stateMutability": "nonpayable"
+    },
+    {
+      "type": "function",
+      "name": "setOwner",
+      "inputs": [
+        {
+          "name": "newOwner",
+          "type": "address",
+          "internalType": "address"
+        }
+      ],
+      "outputs": [],
+      "stateMutability": "nonpayable"
+    },
+    {
+      "type": "function",
+      "name": "tokenIds",
+      "inputs": [
+        {
+          "name": "",
+          "type": "uint256",
+          "internalType": "uint256"
+        }
+      ],
+      "outputs": [
+        {
+          "name": "",
+          "type": "uint256",
+          "internalType": "uint256"
+        }
+      ],
+      "stateMutability": "view"
+    },
+    {
+      "type": "function",
+      "name": "updateLicense",
+      "inputs": [
+        {
+          "name": "licenseId",
+          "type": "uint256",
+          "internalType": "uint256"
+        },
+        {
+          "name": "uri",
+          "type": "string",
+          "internalType": "string"
+        }
+      ],
+      "outputs": [],
+      "stateMutability": "nonpayable"
+    },
+    {
+      "type": "event",
+      "name": "AddCoordinator",
+      "inputs": [
+        {
+          "name": "coordinator",
+          "type": "address",
+          "indexed": true,
+          "internalType": "address"
+        },
+        {
+          "name": "timestamp",
+          "type": "uint256",
+          "indexed": false,
+          "internalType": "uint256"
+        }
+      ],
+      "anonymous": false
+    },
+    {
+      "type": "event",
+      "name": "NewLicenseContract",
+      "inputs": [
+        {
+          "name": "contractAddress",
+          "type": "address",
+          "indexed": true,
+          "internalType": "address"
+        },
+        {
+          "name": "tokenId",
+          "type": "uint256",
+          "indexed": false,
+          "internalType": "uint256"
+        },
+        {
+          "name": "creator",
+          "type": "address",
+          "indexed": true,
+          "internalType": "address"
+        },
+        {
+          "name": "timestamp",
+          "type": "uint256",
+          "indexed": false,
+          "internalType": "uint256"
+        }
+      ],
+      "anonymous": false
+    },
+    {
+      "type": "event",
+      "name": "OwnerChanged",
+      "inputs": [
+        {
+          "name": "newOwner",
+          "type": "address",
+          "indexed": true,
+          "internalType": "address"
+        },
+        {
+          "name": "oldOwner",
+          "type": "address",
+          "indexed": true,
+          "internalType": "address"
+        },
+        {
+          "name": "timestamp",
+          "type": "uint256",
+          "indexed": false,
+          "internalType": "uint256"
+        }
+      ],
+      "anonymous": false
+    },
+    {
+      "type": "error",
+      "name": "cannotUpdateLicense",
+      "inputs": [
+        {
+          "name": "caller",
+          "type": "address",
+          "internalType": "address"
+        }
+      ]
+    },
+    {
+      "type": "error",
+      "name": "licenseNotFound",
+      "inputs": [
+        {
+          "name": "id",
+          "type": "uint256",
+          "internalType": "uint256"
+        }
+      ]
+    },
+    {
+      "type": "error",
+      "name": "notAdminOrOwner",
+      "inputs": [
+        {
+          "name": "caller",
+          "type": "address",
+          "internalType": "address"
+        }
+      ]
+    },
+    {
+      "type": "error",
+      "name": "onlyAdmin",
+      "inputs": [
+        {
+          "name": "caller",
+          "type": "address",
+          "internalType": "address"
+        }
+      ]
+    },
+    {
+      "type": "error",
+      "name": "onlyCoordinator",
+      "inputs": [
+        {
+          "name": "caller",
+          "type": "address",
+          "internalType": "address"
+        }
+      ]
+    },
+    {
+      "type": "error",
+      "name": "onlyOwner",
+      "inputs": [
+        {
+          "name": "caller",
+          "type": "address",
+          "internalType": "address"
+        }
+      ]
     }
   ]
 }
