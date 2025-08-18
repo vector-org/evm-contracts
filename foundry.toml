@@ -19,9 +19,8 @@ base_sepolia = "https://base-sepolia.infura.io/v3/2WCbZ8YpmuPxUtM6PzbFOfY5k4B"
 vector = "http://localhost:8545"
 
 [profile.vector]
-eth_rpc_timeout = 120000  # 2 minutes
+eth_rpc_timeout = 120000 # 2 minutes
 block_number = 0
-gas_limit = 30000000
 
 [profile.default.fuzz]
 runs = 1000
