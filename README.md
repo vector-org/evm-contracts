@@ -23,6 +23,7 @@ This project now uses Foundry for smart contract development, compilation, and d
 
 ### Compilation
 ```sh
+forge install && npm install
 forge build
 # or using npm script
 npm run compile
