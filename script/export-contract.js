@@ -17,7 +17,7 @@ const outDir = path.join(root, 'out');
 const targetDir = path.join(root, 'dev-example', 'src', 'abi');
 
 if (!fs.existsSync(runFile)) {
-  console.error(`Missing run file: ${runFile}`);
+  console.error(`Missing run file: ${runFile}\nPlease run 'forge script ${script} --broadcast --chain ${chain}' first to generate the broadcast file.`);
   process.exit(1);
 }
 
