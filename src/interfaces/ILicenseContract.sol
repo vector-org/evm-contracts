@@ -59,6 +59,15 @@ interface ILicenseContract {
     /// @return The address approved to transfer the token, or zero if none.
     function getApproved(uint256 tokenId) external view returns (address);
 
+    /// @notice Checks if an operator is approved to manage all of an owner's assets.
+    /// @param owner The address of the token owner.
+    /// @param operator The address of the operator to check.
+    /// @return True if the operator is approved, false otherwise.
+    function isApprovedForAll(
+        address owner,
+        address operator
+    ) external view returns (bool);
+
     /// @notice Transfers a token from one address to another.
     /// @dev This function does not check for the receiver's support of the ERC721 interface.
     /// @param from The address to transfer the token from.
