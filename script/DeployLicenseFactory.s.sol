@@ -10,7 +10,7 @@ contract DeployLicenseFactory is Script {
         vm.startBroadcast(deployerPrivateKey);
 
         LicenseFactory licenseFactory = new LicenseFactory();
-        
+
         console.log("LicenseFactory deployed to:", address(licenseFactory));
 
         vm.stopBroadcast();
