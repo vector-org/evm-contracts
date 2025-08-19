@@ -12,7 +12,7 @@ import {
 
 contract LicenseContract is ERC721, ERC721URIStorage, Addresses {
     address public owner;
-    address public immutable factory;
+    address public immutable FACTORY;
     address public immutable PRIMARYMARKETPLACE;
     address public immutable SECONDARYMARKETPLACE;
 
@@ -30,7 +30,7 @@ contract LicenseContract is ERC721, ERC721URIStorage, Addresses {
         address primaryMarketplace,
         address secondaryMarketplace
     ) ERC721(name, symbol) onlyFactory(_factory) {
-        factory = _factory;
+        FACTORY = _factory;
         owner = msg.sender;
         PRIMARYMARKETPLACE = primaryMarketplace;
         SECONDARYMARKETPLACE = secondaryMarketplace;
@@ -50,7 +50,7 @@ contract LicenseContract is ERC721, ERC721URIStorage, Addresses {
     function updateTokenURI(uint256 licenseId, string memory newUri) public {
         if (
             msg.sender != owner &&
-            msg.sender != factory &&
+            msg.sender != FACTORY &&
             msg.sender != Addresses.ADMINISTRATOR
         ) {
             revert notOwnerOrFactory(msg.sender);
