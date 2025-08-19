@@ -9,8 +9,12 @@ contract DeployLicenseContract is Script {
         uint256 deployerPrivateKey = vm.envUint("PRIVATE_KEY");
         vm.startBroadcast(deployerPrivateKey);
 
-        console.log("LicenseContract deployment requires specific constructor parameters.");
-        console.log("This contract is typically deployed through the LicenseFactory.");
+        console.log(
+            "LicenseContract deployment requires specific constructor parameters."
+        );
+        console.log(
+            "This contract is typically deployed through the LicenseFactory."
+        );
 
         vm.stopBroadcast();
     }

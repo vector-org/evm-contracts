@@ -18,8 +18,11 @@ contract DeployPrimaryMarketPlace is Script {
             0x1d72B383cd2F783e4f2eDafE9D7544A3355507C2,
             address(licenseFactory)
         );
-        
-        console.log("PrimaryMarketPlace deployed to:", address(primaryMarketPlace));
+
+        console.log(
+            "PrimaryMarketPlace deployed to:",
+            address(primaryMarketPlace)
+        );
 
         vm.stopBroadcast();
     }

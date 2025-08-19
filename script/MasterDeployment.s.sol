@@ -19,7 +19,10 @@ contract MasterDeployment is Script {
             0x1d72B383cd2F783e4f2eDafE9D7544A3355507C2,
             address(licenseFactory)
         );
-        console.log("PrimaryMarketPlace deployed to:", address(primaryMarketPlace));
+        console.log(
+            "PrimaryMarketPlace deployed to:",
+            address(primaryMarketPlace)
+        );
 
         SecondaryMarketPlace secondaryMarketPlace = new SecondaryMarketPlace(
             0x1d72B383cd2F783e4f2eDafE9D7544A3355507C2,
@@ -27,7 +30,10 @@ contract MasterDeployment is Script {
             address(licenseFactory),
             address(primaryMarketPlace)
         );
-        console.log("SecondaryMarketPlace deployed to:", address(secondaryMarketPlace));
+        console.log(
+            "SecondaryMarketPlace deployed to:",
+            address(secondaryMarketPlace)
+        );
 
         console.log("=== Master Deployment Complete ===");
         console.log("LicenseFactory:", address(licenseFactory));

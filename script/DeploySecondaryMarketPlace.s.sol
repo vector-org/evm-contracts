@@ -19,7 +19,10 @@ contract DeploySecondaryMarketPlace is Script {
             0x1d72B383cd2F783e4f2eDafE9D7544A3355507C2,
             address(licenseFactory)
         );
-        console.log("PrimaryMarketPlace deployed to:", address(primaryMarketPlace));
+        console.log(
+            "PrimaryMarketPlace deployed to:",
+            address(primaryMarketPlace)
+        );
 
         SecondaryMarketPlace secondaryMarketPlace = new SecondaryMarketPlace(
             0x1d72B383cd2F783e4f2eDafE9D7544A3355507C2,
@@ -27,8 +30,11 @@ contract DeploySecondaryMarketPlace is Script {
             address(licenseFactory),
             address(primaryMarketPlace)
         );
-        
-        console.log("SecondaryMarketPlace deployed to:", address(secondaryMarketPlace));
+
+        console.log(
+            "SecondaryMarketPlace deployed to:",
+            address(secondaryMarketPlace)
+        );
 
         vm.stopBroadcast();
     }
