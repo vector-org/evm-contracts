@@ -3,22 +3,25 @@ pragma solidity ^0.8.28;
 
 import {ILicenseContract} from "./interfaces/ILicenseContract.sol";
 import {IPrimaryMarketPlace} from "./interfaces/IPrimaryMarketPlace.sol";
-import {Counters} from "./utils/Counters.sol";
 import {Addresses} from "./constants/Addresses.sol";
 import {Offer} from "./types/Types.sol";
 import {onlyOwner, onlyAdmin} from "./errors/Common.sol";
 import {
     notNFTOwner,
     priceIsNotPositive,
+    offerAlreadyActive,
     offerInactive,
     notSeller,
     cannotBuyYourOwnOffer,
     insufficientPayment,
-    alreadyListed
+    alreadyListed,
+    UnApprovedNFT,
+    SellerNotOwner,
+    ReentrantCall,
+    TransferFailed
 } from "./errors/SecondaryMarketPlace.sol";
 
 contract SecondaryMarketPlace is Addresses {
-    address private immutable secondary_marketplace = address(this);
     address public owner;
     address private coordinator;
     address private factory;
@@ -26,6 +29,7 @@ contract SecondaryMarketPlace is Addresses {
     Offer[] public offers;
     mapping(uint256 => Offer) public offerById;
     mapping(uint256 => uint256) public tokenIdToOfferIndex;
+    bool private _locked;
 
     event NewOfferCreated(
         address indexed seller,
@@ -51,12 +55,6 @@ contract SecondaryMarketPlace is Addresses {
         uint256 timestamp
     );
 
-    event ReceivedETH(
-        address indexed sender,
-        uint256 amount,
-        uint256 timestamp
-    );
-
     constructor(
         address _owner,
         address _coordinator,
@@ -79,24 +77,44 @@ contract SecondaryMarketPlace is Addresses {
         _;
     }
 
+    modifier nonReentrant() {
+        if (_locked) {
+            revert ReentrantCall();
+        }
+        _locked = true;
+        _;
+        _locked = false;
+    }
+
     function createOffer(
         uint256 tokenId,
         address licenseAddress,
         uint256 price
-    ) external {
+    ) external nonReentrant {
         IPrimaryMarketPlace primaryMarket = IPrimaryMarketPlace(
             primaryMarketPlace
         );
         IPrimaryMarketPlace.GameNFT memory gameNFT = primaryMarket
             .getNFTDetails(tokenId);
 
+        ILicenseContract licenseContract = ILicenseContract(licenseAddress);
+        if (
+            !licenseContract.isApprovedForAll(msg.sender, address(this)) &&
+            licenseContract.getApproved(tokenId) != address(this)
+        ) {
+            revert UnApprovedNFT(licenseAddress, tokenId);
+        }
+
         if (gameNFT.listedForSale == true) {
             revert alreadyListed(tokenId);
         }
-        if (!offerById[tokenId].isActive) {
-            revert offerInactive(tokenId);
+        if (offerById[tokenId].isActive) {
+            revert offerAlreadyActive(tokenId);
         }
-        if (gameNFT.owner != msg.sender) {
+        if (
+            gameNFT.owner != msg.sender ||
+            licenseContract.ownerOf(tokenId) != msg.sender
+        ) {
             revert notNFTOwner(msg.sender);
         }
         // here should be a logic to check if the game NFT is tradeable or not, involving a new attribute in primary mrktplace
@@ -155,12 +173,12 @@ contract SecondaryMarketPlace is Addresses {
         );
     }
 
-    function acceptOffer(uint256 tokenId) external payable {
+    function acceptOffer(uint256 tokenId) external payable nonReentrant {
         Offer storage offer = offerById[tokenId];
         if (offer.isActive == false) {
             revert offerInactive(tokenId);
         }
-        if (msg.value < offer.price) {
+        if (msg.value != offer.price) {
             revert insufficientPayment(tokenId, msg.value);
         }
         if (offer.seller == msg.sender) {
@@ -170,6 +188,17 @@ contract SecondaryMarketPlace is Addresses {
         ILicenseContract licenseContract = ILicenseContract(
             offer.licenseAddress
         );
+
+        if (
+            !licenseContract.isApprovedForAll(offer.seller, address(this)) &&
+            licenseContract.getApproved(tokenId) != address(this)
+        ) {
+            revert UnApprovedNFT(offer.licenseAddress, tokenId);
+        }
+
+        if (licenseContract.ownerOf(tokenId) != offer.seller) {
+            revert SellerNotOwner(offer.seller);
+        }
 
         offer.buyer = msg.sender;
         offer.isActive = false;
@@ -191,7 +220,7 @@ contract SecondaryMarketPlace is Addresses {
 
         (bool success, ) = payable(offer.seller).call{value: offer.price}("");
         if (!success) {
-            revert("Transfer to seller failed");
+            revert TransferFailed(offer.seller, msg.sender, offer.price);
         }
 
         emit OfferAccepted(
@@ -237,9 +266,5 @@ contract SecondaryMarketPlace is Addresses {
             }
         }
         return openOffers;
-    }
-
-    receive() external payable {
-        emit ReceivedETH(msg.sender, msg.value, block.timestamp);
     }
 }
