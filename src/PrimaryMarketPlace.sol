@@ -60,7 +60,7 @@ contract PrimaryMarketPlace is Addresses {
         address _owner,
         address _coordinator,
         address _factory
-    ) checkIsAdmin() {
+    )  Addresses(msg.sender) checkIsAdmin() {
         owner = _owner;
         coordinator = _coordinator;
         factory = _factory;

@@ -16,7 +16,7 @@ via_ir = true
 sepolia = "https://sepolia.infura.io/v3/INFURA_API_KEY"
 arbitrum_sepolia = "https://arbitrum-sepolia.infura.io/v3/INFURA_API_KEY" 
 base_sepolia = "https://base-sepolia.infura.io/v3/INFURA_API_KEY"
-vector = "http://localhost:8545"
+vector = "https://rpc.evm.wasm.host/"
 
 [profile.vector]
 eth_rpc_timeout = 120000 # 2 minutes

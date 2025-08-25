@@ -15,7 +15,7 @@
     "prepare": "husky",
     "compile": "forge build",
     "deploy:master": "forge script script/MasterDeployment.s.sol:MasterDeployment --rpc-url sepolia --broadcast --verify",
-    "deploy:master:local-vector": "forge script script/MasterDeployment.s.sol:MasterDeployment --rpc-url vector",
+    "deploy:master:vector": "forge script script/MasterDeployment.s.sol:MasterDeployment --rpc-url vector --broadcast",
     "deploy:license": "forge script script/DeployLicenseContract.s.sol:DeployLicenseContract --rpc-url sepolia --broadcast --verify",
     "deploy:license-factory": "forge script script/DeployLicenseFactory.s.sol:DeployLicenseFactory --rpc-url sepolia --broadcast --verify",
     "deploy:primary-marketplace": "forge script script/DeployPrimaryMarketPlace.s.sol:DeployPrimaryMarketPlace --rpc-url sepolia --broadcast --verify",
