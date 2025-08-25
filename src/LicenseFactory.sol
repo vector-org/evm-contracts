@@ -57,7 +57,7 @@ contract LicenseFactory is Addresses {
         _;
     }
 
-    constructor() checkAccess {
+    constructor()  Addresses(msg.sender) checkAccess {
         owner = msg.sender;
         coordinators[msg.sender] = true;
     }

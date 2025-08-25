@@ -60,7 +60,7 @@ contract SecondaryMarketPlace is Addresses {
         address _coordinator,
         address _factory,
         address _primaryMarketPlace
-    ) {
+    )  Addresses(msg.sender) {
         if (msg.sender != Addresses.ADMINISTRATOR) {
             revert onlyAdmin(msg.sender);
         }
