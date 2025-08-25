@@ -29,7 +29,7 @@ contract LicenseContract is ERC721, ERC721URIStorage, Addresses {
         address _factory,
         address primaryMarketplace,
         address secondaryMarketplace
-    ) ERC721(name, symbol) onlyFactory(_factory) {
+    ) ERC721(name, symbol) onlyFactory(_factory) Addresses(msg.sender) {
         FACTORY = _factory;
         owner = msg.sender;
         PRIMARYMARKETPLACE = primaryMarketplace;
