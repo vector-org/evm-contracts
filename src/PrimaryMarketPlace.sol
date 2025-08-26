@@ -9,7 +9,7 @@ import {ILicenseFactory} from "./interfaces/ILicenseFactory.sol";
 import {Addresses} from "./constants/Addresses.sol";
 import {GameNFT} from "./types/Types.sol";
 import {onlyAdmin, onlyOwner} from "./errors/Common.sol";
-import {licenseNotActive} from "./errors/PrimaryMarketPlace.sol";
+import {licenseNotActive, UnAuthorized} from "./errors/PrimaryMarketPlace.sol";
 
 contract PrimaryMarketPlace is
     Addresses,
@@ -24,6 +24,8 @@ contract PrimaryMarketPlace is
     uint256[] public allNFTIDs;
 
     uint256 private _tokenIdCounter;
+
+    uint256[47] private __storage_gap;
 
     event Mint(
         address indexed to,
@@ -50,6 +52,13 @@ contract PrimaryMarketPlace is
     modifier checkIsAdmin() {
         if (msg.sender != Addresses.ADMINISTRATOR) {
             revert onlyAdmin(msg.sender);
+        }
+        _;
+    }
+
+    modifier isAuthorizedForSecondary() {
+        if(msg.sender != coordinator && msg.sender != ADMINISTRATOR){
+            revert UnAuthorized(msg.sender);
         }
         _;
     }
@@ -118,12 +127,12 @@ contract PrimaryMarketPlace is
         return gameNFTs[nftId];
     }
 
-    function changeNFTStatus(uint256 nftId, bool status) external {
+    function changeNFTStatus(uint256 nftId, bool status) external isAuthorizedForSecondary {
         gameNFTs[nftId].listedForSale = status;
         emit NFTStatusChange(msg.sender, status, nftId, block.timestamp);
     }
 
-    function updateNFTData(uint256 nftId, GameNFT memory nftData) external {
+    function updateNFTData(uint256 nftId, GameNFT memory nftData) external isAuthorizedForSecondary {
         gameNFTs[nftId] = nftData;
         emit NFTDataUpdate(
             msg.sender,

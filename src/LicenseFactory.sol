@@ -28,6 +28,8 @@ contract LicenseFactory is
 
     uint256 private _tokenIdCounter;
 
+    uint256[47] private __storage_gap;
+
     event NewLicenseContract(
         address indexed contractAddress,
         uint256 tokenId,

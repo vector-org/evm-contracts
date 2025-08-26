@@ -2,3 +2,4 @@
 pragma solidity ^0.8.28;
 
 error licenseNotActive(uint256 licenseId);
+error UnAuthorized(address user);

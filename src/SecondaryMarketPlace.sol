@@ -38,6 +38,8 @@ contract SecondaryMarketPlace is
     mapping(uint256 => uint256) public tokenIdToOfferIndex;
     bool private _locked;
 
+    uint256[47] private __storage_gap;
+
     event NewOfferCreated(
         address indexed seller,
         uint256 indexed tokenId,
@@ -226,12 +228,12 @@ contract SecondaryMarketPlace is
         nftData.owner = msg.sender;
         primaryMarket.updateNFTData(tokenId, nftData);
 
-        licenseContract.safeTransferFrom(offer.seller, msg.sender, tokenId);
-
         (bool success, ) = payable(offer.seller).call{value: offer.price}("");
         if (!success) {
             revert TransferFailed(offer.seller, msg.sender, offer.price);
         }
+
+        licenseContract.safeTransferFrom(offer.seller, msg.sender, tokenId);
 
         emit OfferAccepted(
             offer.seller,
