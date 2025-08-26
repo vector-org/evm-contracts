@@ -133,8 +133,6 @@ contract SecondaryMarketPlace is
             revert priceIsNotPositive(price);
         }
 
-        primaryMarket.changeNFTStatus(tokenId, true);
-
         Offer memory newOffer = Offer({
             seller: msg.sender,
             buyer: address(0),
@@ -145,9 +143,10 @@ contract SecondaryMarketPlace is
         });
 
         tokenIdToOfferIndex[tokenId] = offers.length;
-
         offers.push(newOffer);
         offerById[tokenId] = newOffer;
+
+        primaryMarket.changeNFTStatus(tokenId, true);
 
         emit NewOfferCreated(
             msg.sender,

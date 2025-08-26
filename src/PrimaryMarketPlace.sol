@@ -92,7 +92,6 @@ contract PrimaryMarketPlace is
 
         ILicenseContract licenseContract = ILicenseContract(licenseAddress);
         uint256 nftId = _tokenIdCounter;
-        licenseContract.safeMint(uri, _receiver, nftId);
         _tokenIdCounter++;
 
         gameNFTs[nftId] = GameNFT({
@@ -103,6 +102,9 @@ contract PrimaryMarketPlace is
             listedForSale: false
         });
         allNFTIDs.push(nftId);
+
+        licenseContract.safeMint(uri, _receiver, nftId);
+
         emit Mint(_receiver, licenseAddress, uri, block.timestamp);
     }
 
