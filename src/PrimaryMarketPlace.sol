@@ -57,7 +57,7 @@ contract PrimaryMarketPlace is
     }
 
     modifier isAuthorizedForSecondary() {
-        if(msg.sender != coordinator && msg.sender != ADMINISTRATOR){
+        if (msg.sender != coordinator && msg.sender != ADMINISTRATOR) {
             revert UnAuthorized(msg.sender);
         }
         _;
@@ -127,12 +127,18 @@ contract PrimaryMarketPlace is
         return gameNFTs[nftId];
     }
 
-    function changeNFTStatus(uint256 nftId, bool status) external isAuthorizedForSecondary {
+    function changeNFTStatus(
+        uint256 nftId,
+        bool status
+    ) external isAuthorizedForSecondary {
         gameNFTs[nftId].listedForSale = status;
         emit NFTStatusChange(msg.sender, status, nftId, block.timestamp);
     }
 
-    function updateNFTData(uint256 nftId, GameNFT memory nftData) external isAuthorizedForSecondary {
+    function updateNFTData(
+        uint256 nftId,
+        GameNFT memory nftData
+    ) external isAuthorizedForSecondary {
         gameNFTs[nftId] = nftData;
         emit NFTDataUpdate(
             msg.sender,
