@@ -24,7 +24,12 @@ import {
     TransferFailed
 } from "./errors/SecondaryMarketPlace.sol";
 
-contract SecondaryMarketPlace is Addresses, Initializable, UUPSUpgradeable, OwnableUpgradeable {
+contract SecondaryMarketPlace is
+    Addresses,
+    Initializable,
+    UUPSUpgradeable,
+    OwnableUpgradeable
+{
     address private coordinator;
     address private factory;
     address private primaryMarketPlace;
@@ -57,14 +62,19 @@ contract SecondaryMarketPlace is Addresses, Initializable, UUPSUpgradeable, Owna
         uint256 timestamp
     );
 
-    constructor()  Addresses(msg.sender) {
+    constructor() Addresses(msg.sender) {
         _disableInitializers();
     }
 
-    function initialize(address _admin, address _coordinator, address _factory, address _primaryMarketPlace) public initializer {
+    function initialize(
+        address _admin,
+        address _coordinator,
+        address _factory,
+        address _primaryMarketPlace
+    ) public initializer {
         __Ownable_init(_admin);
         __UUPSUpgradeable_init();
-        
+
         if (_admin != ADMINISTRATOR) {
             revert onlyAdmin(_admin);
         }
@@ -74,11 +84,9 @@ contract SecondaryMarketPlace is Addresses, Initializable, UUPSUpgradeable, Owna
         primaryMarketPlace = _primaryMarketPlace;
     }
 
-    function _authorizeUpgrade(address newImplementation) 
-        internal
-        override
-        onlyOwner 
-    {}
+    function _authorizeUpgrade(
+        address newImplementation
+    ) internal override onlyOwner {}
 
     modifier nonReentrant() {
         if (_locked) {

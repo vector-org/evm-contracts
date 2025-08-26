@@ -11,7 +11,12 @@ import {GameNFT} from "./types/Types.sol";
 import {onlyAdmin, onlyOwner} from "./errors/Common.sol";
 import {licenseNotActive} from "./errors/PrimaryMarketPlace.sol";
 
-contract PrimaryMarketPlace is Addresses, Initializable, UUPSUpgradeable, OwnableUpgradeable {
+contract PrimaryMarketPlace is
+    Addresses,
+    Initializable,
+    UUPSUpgradeable,
+    OwnableUpgradeable
+{
     address private immutable primaryMarketplace = address(this);
     address private coordinator;
     address private factory;
@@ -49,14 +54,18 @@ contract PrimaryMarketPlace is Addresses, Initializable, UUPSUpgradeable, Ownabl
         _;
     }
 
-    constructor()  Addresses(msg.sender) checkIsAdmin() {
+    constructor() Addresses(msg.sender) checkIsAdmin() {
         _disableInitializers();
     }
 
-    function initialize(address _admin, address _coordinator, address _factory) public initializer {
+    function initialize(
+        address _admin,
+        address _coordinator,
+        address _factory
+    ) public initializer {
         __Ownable_init(_admin);
         __UUPSUpgradeable_init();
-        
+
         if (_admin != ADMINISTRATOR) {
             revert onlyAdmin(_admin);
         }
@@ -64,11 +73,9 @@ contract PrimaryMarketPlace is Addresses, Initializable, UUPSUpgradeable, Ownabl
         factory = _factory;
     }
 
-    function _authorizeUpgrade(address newImplementation) 
-        internal 
-        override 
-        onlyOwner 
-    {}
+    function _authorizeUpgrade(
+        address newImplementation
+    ) internal override onlyOwner {}
 
     function mintLicense(
         uint256 licenseId,

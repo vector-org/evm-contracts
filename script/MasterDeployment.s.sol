@@ -11,7 +11,7 @@ contract MasterProxyDeployment is Script {
     function run() external {
         uint256 deployerPrivateKey = vm.envUint("PRIVATE_KEY");
         vm.startBroadcast(deployerPrivateKey);
-        
+
         address admin = vm.addr(deployerPrivateKey);
 
         LicenseFactory factoryImpl = new LicenseFactory();
@@ -20,10 +20,7 @@ contract MasterProxyDeployment is Script {
 
         ERC1967Proxy factoryProxy = new ERC1967Proxy(
             address(factoryImpl),
-            abi.encodeWithSelector(
-                LicenseFactory.initialize.selector,
-                admin
-            )
+            abi.encodeWithSelector(LicenseFactory.initialize.selector, admin)
         );
 
         ERC1967Proxy primaryProxy = new ERC1967Proxy(
@@ -52,7 +49,10 @@ contract MasterProxyDeployment is Script {
         console.log("LicenseFactory Proxy:", address(factoryProxy));
         console.log("PrimaryMarketPlace Implementation:", address(primaryImpl));
         console.log("PrimaryMarketPlace Proxy:", address(primaryProxy));
-        console.log("SecondaryMarketPlace Implementation:", address(secondaryImpl));
+        console.log(
+            "SecondaryMarketPlace Implementation:",
+            address(secondaryImpl)
+        );
         console.log("SecondaryMarketPlace Proxy:", address(secondaryProxy));
 
         vm.stopBroadcast();
@@ -90,7 +90,10 @@ contract MasterUpgrade is Script {
         console.log("=== Master Upgrade Complete ===");
         console.log("LicenseFactory upgraded to:", address(newFactoryImpl));
         console.log("PrimaryMarketPlace upgraded to:", address(newPrimaryImpl));
-        console.log("SecondaryMarketPlace upgraded to:", address(newSecondaryImpl));
+        console.log(
+            "SecondaryMarketPlace upgraded to:",
+            address(newSecondaryImpl)
+        );
 
         vm.stopBroadcast();
     }

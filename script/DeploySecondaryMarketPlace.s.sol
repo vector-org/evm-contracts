@@ -9,7 +9,7 @@ contract DeploySecondaryMarketPlaceProxy is Script {
     function run() external {
         uint256 deployerPrivateKey = vm.envUint("PRIVATE_KEY");
         vm.startBroadcast(deployerPrivateKey);
-        
+
         address admin = vm.addr(deployerPrivateKey);
         address factoryProxy = vm.envAddress("FACTORY_PROXY_ADDRESS");
         address primaryProxy = vm.envAddress("PRIMARY_PROXY_ADDRESS");
@@ -27,7 +27,10 @@ contract DeploySecondaryMarketPlaceProxy is Script {
             )
         );
 
-        console.log("SecondaryMarketPlace Implementation:", address(secondaryImpl));
+        console.log(
+            "SecondaryMarketPlace Implementation:",
+            address(secondaryImpl)
+        );
         console.log("SecondaryMarketPlace Proxy:", address(secondaryProxy));
 
         vm.stopBroadcast();
@@ -47,7 +50,10 @@ contract DeploySecondaryMarketPlace is Script {
             ""
         );
 
-        console.log("SecondaryMarketPlace upgraded to:", address(secondaryImpl));
+        console.log(
+            "SecondaryMarketPlace upgraded to:",
+            address(secondaryImpl)
+        );
 
         vm.stopBroadcast();
     }

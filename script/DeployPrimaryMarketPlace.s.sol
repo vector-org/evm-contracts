@@ -9,7 +9,7 @@ contract DeployPrimaryMarketPlaceProxy is Script {
     function run() external {
         uint256 deployerPrivateKey = vm.envUint("PRIVATE_KEY");
         vm.startBroadcast(deployerPrivateKey);
-        
+
         address admin = vm.addr(deployerPrivateKey);
         address factoryProxy = vm.envAddress("FACTORY_PROXY_ADDRESS");
 

@@ -15,7 +15,12 @@ import {
     cannotUpdateLicense
 } from "./errors/LicenseFactory.sol";
 
-contract LicenseFactory is Addresses, Initializable, UUPSUpgradeable, OwnableUpgradeable {
+contract LicenseFactory is
+    Addresses,
+    Initializable,
+    UUPSUpgradeable,
+    OwnableUpgradeable
+{
     mapping(uint256 => License) public licenseContracts;
     address[] public allLicenses;
     uint256[] public tokenIds;
@@ -50,26 +55,24 @@ contract LicenseFactory is Addresses, Initializable, UUPSUpgradeable, OwnableUpg
         _;
     }
 
-    constructor()  Addresses(msg.sender) checkAccess {
+    constructor() Addresses(msg.sender) checkAccess {
         _disableInitializers();
     }
 
     function initialize(address _admin) public initializer {
         __Ownable_init(_admin);
         __UUPSUpgradeable_init();
-        
+
         if (_admin != ADMINISTRATOR) {
             revert onlyAdmin(_admin);
         }
-        
+
         coordinators[_admin] = true;
     }
 
-    function _authorizeUpgrade(address newImplementation) 
-        internal 
-        override 
-        onlyOwner 
-    {}
+    function _authorizeUpgrade(
+        address newImplementation
+    ) internal override onlyOwner {}
 
     function createLicense(
         LicenseInput memory licenseInput
@@ -87,9 +90,7 @@ contract LicenseFactory is Addresses, Initializable, UUPSUpgradeable, OwnableUpg
 
         tokenIds.push(_tokenIdCounter);
 
-        License storage licenseSlot = licenseContracts[
-            _tokenIdCounter
-        ];
+        License storage licenseSlot = licenseContracts[_tokenIdCounter];
         licenseSlot.contractAddress = newLicenseAddress;
         licenseSlot.owner = msg.sender;
         licenseSlot.coordinator = Addresses.ADMINISTRATOR;
