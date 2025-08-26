@@ -1,6 +1,9 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.28;
 
+import {Initializable} from "openzeppelin-contracts-upgradeable/contracts/proxy/utils/Initializable.sol";
+import {UUPSUpgradeable} from "openzeppelin-contracts-upgradeable/contracts/proxy/utils/UUPSUpgradeable.sol";
+import {OwnableUpgradeable} from "openzeppelin-contracts-upgradeable/contracts/access/OwnableUpgradeable.sol";
 import {ILicenseContract} from "./interfaces/ILicenseContract.sol";
 import {IPrimaryMarketPlace} from "./interfaces/IPrimaryMarketPlace.sol";
 import {Addresses} from "./constants/Addresses.sol";
@@ -21,8 +24,7 @@ import {
     TransferFailed
 } from "./errors/SecondaryMarketPlace.sol";
 
-contract SecondaryMarketPlace is Addresses {
-    address public owner;
+contract SecondaryMarketPlace is Addresses, Initializable, UUPSUpgradeable, OwnableUpgradeable {
     address private coordinator;
     address private factory;
     address private primaryMarketPlace;
@@ -55,27 +57,28 @@ contract SecondaryMarketPlace is Addresses {
         uint256 timestamp
     );
 
-    constructor(
-        address _owner,
-        address _coordinator,
-        address _factory,
-        address _primaryMarketPlace
-    )  Addresses(msg.sender) {
-        if (msg.sender != Addresses.ADMINISTRATOR) {
-            revert onlyAdmin(msg.sender);
+    constructor()  Addresses(msg.sender) {
+        _disableInitializers();
+    }
+
+    function initialize(address _admin, address _coordinator, address _factory, address _primaryMarketPlace) public initializer {
+        __Ownable_init(_admin);
+        __UUPSUpgradeable_init();
+        
+        if (_admin != ADMINISTRATOR) {
+            revert onlyAdmin(_admin);
         }
-        owner = _owner;
+
         coordinator = _coordinator;
         factory = _factory;
         primaryMarketPlace = _primaryMarketPlace;
     }
 
-    modifier checkIsOwner() {
-        if (msg.sender != owner) {
-            revert onlyOwner(msg.sender);
-        }
-        _;
-    }
+    function _authorizeUpgrade(address newImplementation) 
+        internal
+        override
+        onlyOwner 
+    {}
 
     modifier nonReentrant() {
         if (_locked) {
@@ -233,11 +236,7 @@ contract SecondaryMarketPlace is Addresses {
         );
     }
 
-    function setOwner(address newOwner) external checkIsOwner {
-        owner = newOwner;
-    }
-
-    function setCoordinator(address newCoordinator) external checkIsOwner {
+    function setCoordinator(address newCoordinator) external onlyOwner {
         coordinator = newCoordinator;
     }
 

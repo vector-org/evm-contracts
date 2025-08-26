@@ -4,7 +4,8 @@ out = "out"
 libs = ["lib"]
 remappings = [
     "@openzeppelin/=lib/openzeppelin-contracts/",
-    "forge-std/=lib/forge-std/src/"
+    "@openzeppelin/contracts-upgradeable/=lib/openzeppelin-contracts-upgradeable/",
+    "forge-std/=lib/forge-std/src/",
 ]
 
 solc_version = "0.8.28"
@@ -17,6 +18,10 @@ sepolia = "https://sepolia.infura.io/v3/2WCbZ8YpmuPxUtM6PzbFOfY5k4B"
 arbitrum_sepolia = "https://arbitrum-sepolia.infura.io/v3/2WCbZ8YpmuPxUtM6PzbFOfY5k4B" 
 base_sepolia = "https://base-sepolia.infura.io/v3/2WCbZ8YpmuPxUtM6PzbFOfY5k4B"
 vector = "https://rpc.evm.wasm.host/"
+
+[etherscan]
+sepolia = { key = "${ETHERSCAN_API_KEY}" }
+vector = { key = "${BLOCKSCOUT_API_KEY}" }
 
 [profile.vector]
 eth_rpc_timeout = 120000 # 2 minutes

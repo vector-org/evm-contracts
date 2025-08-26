@@ -1,24 +1,24 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.28;
 
+import {Initializable} from "openzeppelin-contracts-upgradeable/contracts/proxy/utils/Initializable.sol";
+import {UUPSUpgradeable} from "openzeppelin-contracts-upgradeable/contracts/proxy/utils/UUPSUpgradeable.sol";
+import {OwnableUpgradeable} from "openzeppelin-contracts-upgradeable/contracts/access/OwnableUpgradeable.sol";
 import {ILicenseContract} from "./interfaces/ILicenseContract.sol";
 import {ILicenseFactory} from "./interfaces/ILicenseFactory.sol";
-import {Counters} from "./utils/Counters.sol";
 import {Addresses} from "./constants/Addresses.sol";
 import {GameNFT} from "./types/Types.sol";
 import {onlyAdmin, onlyOwner} from "./errors/Common.sol";
 import {licenseNotActive} from "./errors/PrimaryMarketPlace.sol";
 
-contract PrimaryMarketPlace is Addresses {
+contract PrimaryMarketPlace is Addresses, Initializable, UUPSUpgradeable, OwnableUpgradeable {
     address private immutable primaryMarketplace = address(this);
-    address public owner;
     address private coordinator;
     address private factory;
     mapping(uint256 => GameNFT) public gameNFTs;
     uint256[] public allNFTIDs;
 
-    using Counters for Counters.Counter;
-    Counters.Counter private _tokenIdCounter;
+    uint256 private _tokenIdCounter;
 
     event Mint(
         address indexed to,
@@ -49,22 +49,26 @@ contract PrimaryMarketPlace is Addresses {
         _;
     }
 
-    modifier checkIsOwner() {
-        if (msg.sender != owner) {
-            revert onlyOwner(msg.sender);
-        }
-        _;
+    constructor()  Addresses(msg.sender) checkIsAdmin() {
+        _disableInitializers();
     }
 
-    constructor(
-        address _owner,
-        address _coordinator,
-        address _factory
-    )  Addresses(msg.sender) checkIsAdmin() {
-        owner = _owner;
+    function initialize(address _admin, address _coordinator, address _factory) public initializer {
+        __Ownable_init(_admin);
+        __UUPSUpgradeable_init();
+        
+        if (_admin != ADMINISTRATOR) {
+            revert onlyAdmin(_admin);
+        }
         coordinator = _coordinator;
         factory = _factory;
     }
+
+    function _authorizeUpgrade(address newImplementation) 
+        internal 
+        override 
+        onlyOwner 
+    {}
 
     function mintLicense(
         uint256 licenseId,
@@ -80,9 +84,9 @@ contract PrimaryMarketPlace is Addresses {
         address licenseAddress = License.contractAddress;
 
         ILicenseContract licenseContract = ILicenseContract(licenseAddress);
-        uint256 nftId = _tokenIdCounter.current();
+        uint256 nftId = _tokenIdCounter;
         licenseContract.safeMint(uri, _receiver, nftId);
-        _tokenIdCounter.increment();
+        _tokenIdCounter++;
 
         gameNFTs[nftId] = GameNFT({
             owner: _receiver,

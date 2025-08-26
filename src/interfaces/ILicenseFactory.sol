@@ -73,10 +73,6 @@ interface ILicenseFactory {
     /// @param uri The new metadata URI to set.
     function updateLicense(uint256 licenseId, string memory uri) external;
 
-    /// @notice Transfer ownership of the factory contract to a new address.
-    /// @param newOwner The new owner of the contract.
-    function setOwner(address newOwner) external;
-
     /// @notice Add or remove coordinator status for a given address.
     /// @param _coordinator The address to add or remove.
     /// @param status True to add, false to remove.

@@ -2,39 +2,52 @@
 pragma solidity ^0.8.28;
 
 import {Script, console} from "forge-std/Script.sol";
-import {LicenseFactory} from "../src/LicenseFactory.sol";
-import {PrimaryMarketPlace} from "../src/PrimaryMarketPlace.sol";
 import {SecondaryMarketPlace} from "../src/SecondaryMarketPlace.sol";
+import {ERC1967Proxy} from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
+
+contract DeploySecondaryMarketPlaceProxy is Script {
+    function run() external {
+        uint256 deployerPrivateKey = vm.envUint("PRIVATE_KEY");
+        vm.startBroadcast(deployerPrivateKey);
+        
+        address admin = vm.addr(deployerPrivateKey);
+        address factoryProxy = vm.envAddress("FACTORY_PROXY_ADDRESS");
+        address primaryProxy = vm.envAddress("PRIMARY_PROXY_ADDRESS");
+
+        SecondaryMarketPlace secondaryImpl = new SecondaryMarketPlace();
+
+        ERC1967Proxy secondaryProxy = new ERC1967Proxy(
+            address(secondaryImpl),
+            abi.encodeWithSelector(
+                SecondaryMarketPlace.initialize.selector,
+                admin,
+                admin,
+                factoryProxy,
+                primaryProxy
+            )
+        );
+
+        console.log("SecondaryMarketPlace Implementation:", address(secondaryImpl));
+        console.log("SecondaryMarketPlace Proxy:", address(secondaryProxy));
+
+        vm.stopBroadcast();
+    }
+}
 
 contract DeploySecondaryMarketPlace is Script {
     function run() external {
         uint256 deployerPrivateKey = vm.envUint("PRIVATE_KEY");
         vm.startBroadcast(deployerPrivateKey);
 
-        LicenseFactory licenseFactory = new LicenseFactory();
-        console.log("LicenseFactory deployed to:", address(licenseFactory));
+        address secondaryProxy = vm.envAddress("SECONDARY_PROXY_ADDRESS");
+        SecondaryMarketPlace secondaryImpl = new SecondaryMarketPlace();
 
-        PrimaryMarketPlace primaryMarketPlace = new PrimaryMarketPlace(
-            0x1d72B383cd2F783e4f2eDafE9D7544A3355507C2,
-            0x1d72B383cd2F783e4f2eDafE9D7544A3355507C2,
-            address(licenseFactory)
-        );
-        console.log(
-            "PrimaryMarketPlace deployed to:",
-            address(primaryMarketPlace)
+        SecondaryMarketPlace(secondaryProxy).upgradeToAndCall(
+            address(secondaryImpl),
+            ""
         );
 
-        SecondaryMarketPlace secondaryMarketPlace = new SecondaryMarketPlace(
-            0x1d72B383cd2F783e4f2eDafE9D7544A3355507C2,
-            0x1d72B383cd2F783e4f2eDafE9D7544A3355507C2,
-            address(licenseFactory),
-            address(primaryMarketPlace)
-        );
-
-        console.log(
-            "SecondaryMarketPlace deployed to:",
-            address(secondaryMarketPlace)
-        );
+        console.log("SecondaryMarketPlace upgraded to:", address(secondaryImpl));
 
         vm.stopBroadcast();
     }
