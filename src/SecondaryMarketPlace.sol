@@ -5,7 +5,12 @@ import {ILicenseContract} from "./interfaces/ILicenseContract.sol";
 import {IPrimaryMarketPlace} from "./interfaces/IPrimaryMarketPlace.sol";
 import {Addresses} from "./constants/Addresses.sol";
 import {Offer} from "./types/Types.sol";
-import {onlyOwner, onlyAdmin} from "./errors/Common.sol";
+import {
+    onlyOwner,
+    onlyAdmin,
+    TransferFailed,
+    FunctionDoesntExist
+} from "./errors/Common.sol";
 import {
     notNFTOwner,
     priceIsNotPositive,
@@ -17,11 +22,11 @@ import {
     alreadyListed,
     UnApprovedNFT,
     SellerNotOwner,
-    ReentrantCall,
-    TransferFailed
+    ETHTransfersNotAllowed
 } from "./errors/SecondaryMarketPlace.sol";
+import {ReentrancyGuard} from "./utils/ReentrancyGuard.sol";
 
-contract SecondaryMarketPlace is Addresses {
+contract SecondaryMarketPlace is Addresses, ReentrancyGuard {
     address public owner;
     address private coordinator;
     address private factory;
@@ -60,7 +65,7 @@ contract SecondaryMarketPlace is Addresses {
         address _coordinator,
         address _factory,
         address _primaryMarketPlace
-    )  Addresses(msg.sender) {
+    ) Addresses(msg.sender) {
         if (msg.sender != Addresses.ADMINISTRATOR) {
             revert onlyAdmin(msg.sender);
         }
@@ -75,15 +80,6 @@ contract SecondaryMarketPlace is Addresses {
             revert onlyOwner(msg.sender);
         }
         _;
-    }
-
-    modifier nonReentrant() {
-        if (_locked) {
-            revert ReentrantCall();
-        }
-        _locked = true;
-        _;
-        _locked = false;
     }
 
     function createOffer(
@@ -220,7 +216,7 @@ contract SecondaryMarketPlace is Addresses {
 
         (bool success, ) = payable(offer.seller).call{value: offer.price}("");
         if (!success) {
-            revert TransferFailed(offer.seller, msg.sender, offer.price);
+            revert TransferFailed(msg.sender, offer.seller, offer.price);
         }
 
         emit OfferAccepted(
@@ -266,5 +262,13 @@ contract SecondaryMarketPlace is Addresses {
             }
         }
         return openOffers;
+    }
+
+    receive() external payable {
+        revert ETHTransfersNotAllowed();
+    }
+
+    fallback() external payable {
+        revert FunctionDoesntExist();
     }
 }

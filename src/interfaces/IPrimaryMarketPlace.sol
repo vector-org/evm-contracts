@@ -60,7 +60,7 @@ interface IPrimaryMarketPlace {
         uint256 licenseId,
         address _receiver,
         string memory uri
-    ) external;
+    ) external payable;
 
     /// @notice Get the list of all NFT IDs minted through this contract.
     /// @return An array of NFT token IDs.
