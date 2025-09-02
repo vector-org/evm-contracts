@@ -11,5 +11,4 @@ error alreadyListed(uint256 offerId);
 error UnApprovedNFT(address licenseAddress, uint256 tokenId);
 error SellerNotOwner(address seller);
 error offerAlreadyActive(uint256 offerId);
-error ReentrantCall();
-error TransferFailed(address from, address to, uint256 amount);
+error ETHTransfersNotAllowed();
