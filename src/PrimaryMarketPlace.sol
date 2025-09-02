@@ -25,6 +25,8 @@ contract PrimaryMarketPlace is Addresses, ReentrancyGuard {
     address public owner;
     address private coordinator;
     address private factory;
+    // Address of the secondary marketplace allowed to update NFT metadata/ownership
+    address private secondaryMarketPlace;
     mapping(uint256 => GameNFT) public gameNFTs;
     uint256[] public allNFTIDs;
 
@@ -61,8 +63,11 @@ contract PrimaryMarketPlace is Addresses, ReentrancyGuard {
     }
 
     modifier checkIsAuthorized() {
+        // Allow administrator, coordinator or the configured secondary marketplace
         if (
-            msg.sender != Addresses.ADMINISTRATOR && msg.sender != coordinator
+            msg.sender != Addresses.ADMINISTRATOR &&
+            msg.sender != coordinator &&
+            msg.sender != secondaryMarketPlace
         ) {
             revert UnAuthorizedUser(msg.sender);
         }
@@ -84,6 +89,11 @@ contract PrimaryMarketPlace is Addresses, ReentrancyGuard {
         owner = _owner;
         coordinator = _coordinator;
         factory = _factory;
+    }
+
+    // Set the secondary marketplace address (one-time or updatable by admin)
+    function setSecondaryMarketPlace(address _secondary) external checkIsAdmin {
+        secondaryMarketPlace = _secondary;
     }
 
     function mintLicense(
@@ -180,7 +190,11 @@ contract PrimaryMarketPlace is Addresses, ReentrancyGuard {
     }
 
     function changeNFTStatus(uint256 nftId, bool status) external {
-        if (msg.sender != gameNFTs[nftId].owner) {
+        // Allow the NFT owner or the secondary marketplace (acting on behalf of owner)
+        if (
+            msg.sender != gameNFTs[nftId].owner &&
+            msg.sender != secondaryMarketPlace
+        ) {
             revert UnAuthorizedUser(msg.sender);
         }
         gameNFTs[nftId].listedForSale = status;

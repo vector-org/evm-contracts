@@ -37,6 +37,8 @@ contract LicenseContract is ERC721, ERC721URIStorage, Addresses {
     }
 
     function safeMint(string memory uri, address to, uint256 licenseId) public {
+        require(msg.sender == PRIMARYMARKETPLACE, "Only primary marketplace");
+
         _safeMint(to, licenseId);
         _setTokenURI(licenseId, uri);
     }
