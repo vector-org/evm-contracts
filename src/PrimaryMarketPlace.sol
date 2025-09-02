@@ -94,19 +94,14 @@ contract PrimaryMarketPlace is Addresses, ReentrancyGuard {
         ILicenseFactory licenseFactory = ILicenseFactory(factory);
         ILicenseFactory.License memory License = licenseFactory
             .getLicenseFromID(licenseId);
+        uint256 totalFee = License.developerFee +
+            License.publisherFee +
+            License.platformFee;
         if (License.isActive == false) {
             revert licenseNotActive(licenseId);
         }
-        if (
-            msg.value !=
-            License.developerFee + License.publisherFee + License.platformFee
-        ) {
-            revert NotSufficientETH(
-                msg.value,
-                License.developerFee +
-                    License.publisherFee +
-                    License.platformFee
-            );
+        if (msg.value != totalFee) {
+            revert NotSufficientETH(msg.value, totalFee);
         }
 
         address licenseAddress = License.contractAddress;
