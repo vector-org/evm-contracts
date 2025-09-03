@@ -2,4 +2,5 @@
 pragma solidity ^0.8.28;
 
 error licenseNotActive(uint256 licenseId);
-error UnAuthorized(address user);
+error NotSufficientETH(uint256 val, uint256 requiredVal);
+error ETHTransfersNotAllowed();

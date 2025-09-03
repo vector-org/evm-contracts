@@ -72,6 +72,10 @@ contract LicenseFactory is
         coordinators[_admin] = true;
     }
 
+    constructor() Addresses(msg.sender) checkAccess {
+        owner = msg.sender;
+        coordinators[msg.sender] = true;
+    }
     function _authorizeUpgrade(
         address newImplementation
     ) internal override onlyOwner {}

@@ -8,11 +8,22 @@ import {ILicenseContract} from "./interfaces/ILicenseContract.sol";
 import {ILicenseFactory} from "./interfaces/ILicenseFactory.sol";
 import {Addresses} from "./constants/Addresses.sol";
 import {GameNFT} from "./types/Types.sol";
-import {onlyAdmin, onlyOwner} from "./errors/Common.sol";
-import {licenseNotActive, UnAuthorized} from "./errors/PrimaryMarketPlace.sol";
+import {
+    onlyAdmin,
+    onlyOwner,
+    TransferFailed,
+    UnAuthorizedUser,
+    FunctionDoesntExist
+} from "./errors/Common.sol";
+import {
+    licenseNotActive,
+    NotSufficientETH,
+    ETHTransfersNotAllowed
+} from "./errors/PrimaryMarketPlace.sol";
+import {ReentrancyGuard} from "./utils/ReentrancyGuard.sol";
 
 contract PrimaryMarketPlace is
-    Addresses,
+    Addresses, ReentrancyGuard,
     Initializable,
     UUPSUpgradeable,
     OwnableUpgradeable
@@ -58,7 +69,7 @@ contract PrimaryMarketPlace is
 
     modifier isAuthorizedForSecondary() {
         if (msg.sender != coordinator && msg.sender != ADMINISTRATOR) {
-            revert UnAuthorized(msg.sender);
+            revert UnAuthorizedUser(msg.sender);
         }
         _;
     }
@@ -90,13 +101,20 @@ contract PrimaryMarketPlace is
         uint256 licenseId,
         address _receiver,
         string memory uri
-    ) external {
+    ) external payable nonReentrant {
         ILicenseFactory licenseFactory = ILicenseFactory(factory);
         ILicenseFactory.License memory License = licenseFactory
             .getLicenseFromID(licenseId);
+        uint256 totalFee = License.developerFee +
+            License.publisherFee +
+            License.platformFee;
         if (License.isActive == false) {
             revert licenseNotActive(licenseId);
         }
+        if (msg.value != totalFee) {
+            revert NotSufficientETH(msg.value, totalFee);
+        }
+
         address licenseAddress = License.contractAddress;
 
         ILicenseContract licenseContract = ILicenseContract(licenseAddress);
@@ -111,6 +129,48 @@ contract PrimaryMarketPlace is
             listedForSale: false
         });
         allNFTIDs.push(nftId);
+
+        bool success;
+
+        if (License.developerFee > 0) {
+            (success, ) = payable(License.developer).call{
+                value: License.developerFee
+            }("");
+            if (!success) {
+                revert TransferFailed(
+                    msg.sender,
+                    License.developer,
+                    License.developerFee
+                );
+            }
+        }
+
+        if (License.publisherFee > 0) {
+            (success, ) = payable(License.publisher).call{
+                value: License.publisherFee
+            }("");
+            if (!success) {
+                revert TransferFailed(
+                    msg.sender,
+                    License.publisher,
+                    License.publisherFee
+                );
+            }
+        }
+
+        if (License.platformFee > 0) {
+            (success, ) = payable(License.platform).call{
+                value: License.platformFee
+            }("");
+            if (!success) {
+                revert TransferFailed(
+                    msg.sender,
+                    License.platform,
+                    License.platformFee
+                );
+            }
+        }
+
 
         licenseContract.safeMint(uri, _receiver, nftId);
 
@@ -147,5 +207,13 @@ contract PrimaryMarketPlace is
             nftData.uri,
             block.timestamp
         );
+    }
+
+    receive() external payable {
+        revert ETHTransfersNotAllowed();
+    }
+
+    fallback() external payable {
+        revert FunctionDoesntExist();
     }
 }
