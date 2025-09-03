@@ -14,7 +14,7 @@ contract UpgradeTest is Test {
     SecondaryMarketPlace secondaryMarketPlace;
 
     address licenseFactoryProxy;
-    address primaryMarketPlaceProxy;
+    address payable primaryMarketPlaceProxy;
     address secondaryMarketPlaceProxy;
 
     address admin = 0x1234567890123456789012345678901234567890;
@@ -35,11 +35,13 @@ contract UpgradeTest is Test {
 
         // Deploy PrimaryMarketPlace via proxy
         address primaryMarketPlaceImpl = address(new PrimaryMarketPlace());
-        primaryMarketPlaceProxy = UnsafeUpgrades.deployUUPSProxy(
-            primaryMarketPlaceImpl,
-            abi.encodeCall(
-                PrimaryMarketPlace.initialize,
-                (admin, coordinator, licenseFactoryProxy)
+        primaryMarketPlaceProxy = payable(
+            UnsafeUpgrades.deployUUPSProxy(
+                primaryMarketPlaceImpl,
+                abi.encodeCall(
+                    PrimaryMarketPlace.initialize,
+                    (admin, coordinator, licenseFactoryProxy)
+                )
             )
         );
 

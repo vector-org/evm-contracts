@@ -16,7 +16,8 @@ import {
 } from "./errors/Common.sol";
 import {
     licenseNotActive,
-    NotSufficientETH
+    NotSufficientETH,
+    ETHTransfersNotAllowed
 } from "./errors/PrimaryMarketPlace.sol";
 import {ReentrancyGuard} from "./utils/ReentrancyGuard.sol";
 
@@ -30,6 +31,7 @@ contract PrimaryMarketPlace is
     address private immutable PRIMARY_MARKETPLACE = address(this);
     address private coordinator;
     address private factory;
+    address private secondaryMarketPlace;
     mapping(uint256 => GameNft) public gameNfts;
     uint256[] public allNftIds;
 
@@ -67,7 +69,11 @@ contract PrimaryMarketPlace is
     }
 
     modifier isAuthorizedForSecondary() {
-        if (msg.sender != coordinator && msg.sender != ADMINISTRATOR) {
+        if (
+            msg.sender != coordinator &&
+            msg.sender != ADMINISTRATOR &&
+            msg.sender != secondaryMarketPlace
+        ) {
             revert UnAuthorizedUser(msg.sender);
         }
         _;
@@ -205,5 +211,9 @@ contract PrimaryMarketPlace is
             nftData.uri,
             block.timestamp
         );
+    }
+
+    function setSecondaryMarketPlace(address _secondary) external onlyOwner {
+        secondaryMarketPlace = _secondary;
     }
 }
