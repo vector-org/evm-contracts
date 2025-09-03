@@ -219,12 +219,12 @@ contract SecondaryMarketPlace is
         nftData.owner = msg.sender;
         primaryMarket.updateNftData(tokenId, nftData);
 
+        licenseContract.safeTransferFrom(offer.seller, msg.sender, tokenId);
+
         (bool success, ) = payable(offer.seller).call{value: offer.price}("");
         if (!success) {
             revert TransferFailed(msg.sender, offer.seller, offer.price);
         }
-
-        licenseContract.safeTransferFrom(offer.seller, msg.sender, tokenId);
 
         emit OfferAccepted(
             offer.seller,

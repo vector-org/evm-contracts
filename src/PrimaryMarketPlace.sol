@@ -129,6 +129,8 @@ contract PrimaryMarketPlace is
         });
         allNftIds.push(nftId);
 
+        licenseContract.safeMint(uri, _receiver, nftId);
+
         bool success;
 
         if (fetchedLicense.developerFee > 0) {
@@ -169,8 +171,6 @@ contract PrimaryMarketPlace is
                 );
             }
         }
-
-        licenseContract.safeMint(uri, _receiver, nftId);
 
         emit Mint(_receiver, licenseAddress, uri, block.timestamp);
     }
