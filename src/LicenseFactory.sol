@@ -28,7 +28,7 @@ contract LicenseFactory is
 
     uint256 private _tokenIdCounter;
 
-    uint256[47] private __storage_gap;
+    uint256[47] private __storageGap;
 
     event NewLicenseContract(
         address indexed contractAddress,
@@ -72,10 +72,6 @@ contract LicenseFactory is
         coordinators[_admin] = true;
     }
 
-    constructor() Addresses(msg.sender) checkAccess {
-        owner = msg.sender;
-        coordinators[msg.sender] = true;
-    }
     function _authorizeUpgrade(
         address newImplementation
     ) internal override onlyOwner {}
@@ -123,9 +119,9 @@ contract LicenseFactory is
     }
 
     function changeLicenseStatus(uint256 licenseId, bool status) external {
-        address license_owner = licenseContracts[licenseId].owner;
+        address licenseOwner = licenseContracts[licenseId].owner;
         if (
-            license_owner != msg.sender && msg.sender != Addresses.ADMINISTRATOR
+            licenseOwner != msg.sender && msg.sender != Addresses.ADMINISTRATOR
         ) {
             revert notAdminOrOwner(msg.sender);
         }
@@ -133,8 +129,8 @@ contract LicenseFactory is
     }
 
     function updateLicense(uint256 licenseId, string memory uri) external {
-        address license_address = licenseContracts[licenseId].contractAddress;
-        if (license_address == address(0)) {
+        address licenseAddress = licenseContracts[licenseId].contractAddress;
+        if (licenseAddress == address(0)) {
             revert licenseNotFound(licenseId);
         }
         if (
@@ -144,7 +140,7 @@ contract LicenseFactory is
         ) {
             revert cannotUpdateLicense(msg.sender);
         }
-        ILicenseContract licenseContract = ILicenseContract(license_address);
+        ILicenseContract licenseContract = ILicenseContract(licenseAddress);
         licenseContract.updateTokenURI(licenseId, uri);
     }
 
@@ -156,7 +152,7 @@ contract LicenseFactory is
         emit AddCoordinator(_coordinator, block.timestamp);
     }
 
-    function getLicenseFromID(
+    function getLicenseFromId(
         uint256 id
     ) external view returns (License memory) {
         return licenseContracts[id];

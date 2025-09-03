@@ -8,12 +8,7 @@ import {ILicenseContract} from "./interfaces/ILicenseContract.sol";
 import {IPrimaryMarketPlace} from "./interfaces/IPrimaryMarketPlace.sol";
 import {Addresses} from "./constants/Addresses.sol";
 import {Offer} from "./types/Types.sol";
-import {
-    onlyOwner,
-    onlyAdmin,
-    TransferFailed,
-    FunctionDoesntExist
-} from "./errors/Common.sol";
+import {onlyOwner, onlyAdmin, TransferFailed} from "./errors/Common.sol";
 import {
     notNFTOwner,
     priceIsNotPositive,
@@ -24,13 +19,13 @@ import {
     insufficientPayment,
     alreadyListed,
     UnApprovedNFT,
-    SellerNotOwner,
-    ETHTransfersNotAllowed
+    SellerNotOwner
 } from "./errors/SecondaryMarketPlace.sol";
 import {ReentrancyGuard} from "./utils/ReentrancyGuard.sol";
 
 contract SecondaryMarketPlace is
-    Addresses, ReentrancyGuard,
+    Addresses,
+    ReentrancyGuard,
     Initializable,
     UUPSUpgradeable,
     OwnableUpgradeable
@@ -43,7 +38,7 @@ contract SecondaryMarketPlace is
     mapping(uint256 => uint256) public tokenIdToOfferIndex;
     bool private _locked;
 
-    uint256[47] private __storage_gap;
+    uint256[47] private __storageGap;
 
     event NewOfferCreated(
         address indexed seller,
@@ -78,7 +73,7 @@ contract SecondaryMarketPlace is
         address _coordinator,
         address _factory,
         address _primaryMarketPlace
-    )public initializer {
+    ) public initializer {
         __Ownable_init(_admin);
         __UUPSUpgradeable_init();
 
@@ -103,8 +98,8 @@ contract SecondaryMarketPlace is
         IPrimaryMarketPlace primaryMarket = IPrimaryMarketPlace(
             primaryMarketPlace
         );
-        IPrimaryMarketPlace.GameNFT memory gameNFT = primaryMarket
-            .getNFTDetails(tokenId);
+        IPrimaryMarketPlace.GameNft memory gameNft = primaryMarket
+            .getNftDetails(tokenId);
 
         ILicenseContract licenseContract = ILicenseContract(licenseAddress);
         if (
@@ -114,14 +109,14 @@ contract SecondaryMarketPlace is
             revert UnApprovedNFT(licenseAddress, tokenId);
         }
 
-        if (gameNFT.listedForSale == true) {
+        if (gameNft.listedForSale == true) {
             revert alreadyListed(tokenId);
         }
         if (offerById[tokenId].isActive) {
             revert offerAlreadyActive(tokenId);
         }
         if (
-            gameNFT.owner != msg.sender ||
+            gameNft.owner != msg.sender ||
             licenseContract.ownerOf(tokenId) != msg.sender
         ) {
             revert notNFTOwner(msg.sender);
@@ -144,7 +139,7 @@ contract SecondaryMarketPlace is
         offers.push(newOffer);
         offerById[tokenId] = newOffer;
 
-        primaryMarket.changeNFTStatus(tokenId, true);
+        primaryMarket.changeNftStatus(tokenId, true);
 
         emit NewOfferCreated(
             msg.sender,
@@ -171,7 +166,7 @@ contract SecondaryMarketPlace is
         IPrimaryMarketPlace primaryMarket = IPrimaryMarketPlace(
             primaryMarketPlace
         );
-        primaryMarket.changeNFTStatus(tokenId, false);
+        primaryMarket.changeNftStatus(tokenId, false);
 
         emit OfferRemoved(
             msg.sender,
@@ -218,11 +213,11 @@ contract SecondaryMarketPlace is
         IPrimaryMarketPlace primaryMarket = IPrimaryMarketPlace(
             primaryMarketPlace
         );
-        IPrimaryMarketPlace.GameNFT memory nftData = primaryMarket
-            .getNFTDetails(tokenId);
+        IPrimaryMarketPlace.GameNft memory nftData = primaryMarket
+            .getNftDetails(tokenId);
         nftData.listedForSale = false;
         nftData.owner = msg.sender;
-        primaryMarket.updateNFTData(tokenId, nftData);
+        primaryMarket.updateNftData(tokenId, nftData);
 
         (bool success, ) = payable(offer.seller).call{value: offer.price}("");
         if (!success) {
@@ -270,13 +265,5 @@ contract SecondaryMarketPlace is
             }
         }
         return openOffers;
-    }
-
-    receive() external payable {
-        revert ETHTransfersNotAllowed();
-    }
-
-    fallback() external payable {
-        revert FunctionDoesntExist();
     }
 }

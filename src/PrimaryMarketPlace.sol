@@ -7,36 +7,35 @@ import {OwnableUpgradeable} from "openzeppelin-contracts-upgradeable/contracts/a
 import {ILicenseContract} from "./interfaces/ILicenseContract.sol";
 import {ILicenseFactory} from "./interfaces/ILicenseFactory.sol";
 import {Addresses} from "./constants/Addresses.sol";
-import {GameNFT} from "./types/Types.sol";
+import {GameNft} from "./types/Types.sol";
 import {
     onlyAdmin,
     onlyOwner,
     TransferFailed,
-    UnAuthorizedUser,
-    FunctionDoesntExist
+    UnAuthorizedUser
 } from "./errors/Common.sol";
 import {
     licenseNotActive,
-    NotSufficientETH,
-    ETHTransfersNotAllowed
+    NotSufficientETH
 } from "./errors/PrimaryMarketPlace.sol";
 import {ReentrancyGuard} from "./utils/ReentrancyGuard.sol";
 
 contract PrimaryMarketPlace is
-    Addresses, ReentrancyGuard,
+    Addresses,
+    ReentrancyGuard,
     Initializable,
     UUPSUpgradeable,
     OwnableUpgradeable
 {
-    address private immutable primaryMarketplace = address(this);
+    address private immutable PRIMARY_MARKETPLACE = address(this);
     address private coordinator;
     address private factory;
-    mapping(uint256 => GameNFT) public gameNFTs;
-    uint256[] public allNFTIDs;
+    mapping(uint256 => GameNft) public gameNfts;
+    uint256[] public allNftIds;
 
     uint256 private _tokenIdCounter;
 
-    uint256[47] private __storage_gap;
+    uint256[47] private __storageGap;
 
     event Mint(
         address indexed to,
@@ -103,103 +102,102 @@ contract PrimaryMarketPlace is
         string memory uri
     ) external payable nonReentrant {
         ILicenseFactory licenseFactory = ILicenseFactory(factory);
-        ILicenseFactory.License memory License = licenseFactory
-            .getLicenseFromID(licenseId);
-        uint256 totalFee = License.developerFee +
-            License.publisherFee +
-            License.platformFee;
-        if (License.isActive == false) {
+        ILicenseFactory.License memory fetchedLicense = licenseFactory
+            .getLicenseFromId(licenseId);
+        uint256 totalFee = fetchedLicense.developerFee +
+            fetchedLicense.publisherFee +
+            fetchedLicense.platformFee;
+        if (fetchedLicense.isActive == false) {
             revert licenseNotActive(licenseId);
         }
         if (msg.value != totalFee) {
             revert NotSufficientETH(msg.value, totalFee);
         }
 
-        address licenseAddress = License.contractAddress;
+        address licenseAddress = fetchedLicense.contractAddress;
 
         ILicenseContract licenseContract = ILicenseContract(licenseAddress);
         uint256 nftId = _tokenIdCounter;
         _tokenIdCounter++;
 
-        gameNFTs[nftId] = GameNFT({
+        gameNfts[nftId] = GameNft({
             owner: _receiver,
             uri: uri,
             licenseId: licenseId,
             licenseAddress: licenseAddress,
             listedForSale: false
         });
-        allNFTIDs.push(nftId);
+        allNftIds.push(nftId);
 
         bool success;
 
-        if (License.developerFee > 0) {
-            (success, ) = payable(License.developer).call{
-                value: License.developerFee
+        if (fetchedLicense.developerFee > 0) {
+            (success, ) = payable(fetchedLicense.developer).call{
+                value: fetchedLicense.developerFee
             }("");
             if (!success) {
                 revert TransferFailed(
                     msg.sender,
-                    License.developer,
-                    License.developerFee
+                    fetchedLicense.developer,
+                    fetchedLicense.developerFee
                 );
             }
         }
 
-        if (License.publisherFee > 0) {
-            (success, ) = payable(License.publisher).call{
-                value: License.publisherFee
+        if (fetchedLicense.publisherFee > 0) {
+            (success, ) = payable(fetchedLicense.publisher).call{
+                value: fetchedLicense.publisherFee
             }("");
             if (!success) {
                 revert TransferFailed(
                     msg.sender,
-                    License.publisher,
-                    License.publisherFee
+                    fetchedLicense.publisher,
+                    fetchedLicense.publisherFee
                 );
             }
         }
 
-        if (License.platformFee > 0) {
-            (success, ) = payable(License.platform).call{
-                value: License.platformFee
+        if (fetchedLicense.platformFee > 0) {
+            (success, ) = payable(fetchedLicense.platform).call{
+                value: fetchedLicense.platformFee
             }("");
             if (!success) {
                 revert TransferFailed(
                     msg.sender,
-                    License.platform,
-                    License.platformFee
+                    fetchedLicense.platform,
+                    fetchedLicense.platformFee
                 );
             }
         }
-
 
         licenseContract.safeMint(uri, _receiver, nftId);
 
         emit Mint(_receiver, licenseAddress, uri, block.timestamp);
     }
 
-    function getAllNFTIds() external view returns (uint256[] memory) {
-        return allNFTIDs;
+    function getAllNftIds() external view returns (uint256[] memory) {
+        return allNftIds;
     }
 
-    function getNFTDetails(
+    function getNftDetails(
         uint256 nftId
-    ) external view returns (GameNFT memory) {
-        return gameNFTs[nftId];
+    ) external view returns (GameNft memory) {
+        return gameNfts[nftId];
     }
 
-    function changeNFTStatus(
+    function changeNftStatus(
         uint256 nftId,
         bool status
     ) external isAuthorizedForSecondary {
-        gameNFTs[nftId].listedForSale = status;
+        gameNfts[nftId].listedForSale = status;
         emit NFTStatusChange(msg.sender, status, nftId, block.timestamp);
     }
 
-    function updateNFTData(
+    function updateNftData(
         uint256 nftId,
-        GameNFT memory nftData
+        GameNft memory nftData
     ) external isAuthorizedForSecondary {
-        gameNFTs[nftId] = nftData;
+        gameNfts[nftId] = nftData;
         emit NFTDataUpdate(
             msg.sender,
             nftData.owner,
@@ -207,13 +205,5 @@ contract PrimaryMarketPlace is
             nftData.uri,
             block.timestamp
         );
-    }
-
-    receive() external payable {
-        revert ETHTransfersNotAllowed();
-    }
-
-    fallback() external payable {
-        revert FunctionDoesntExist();
     }
 }

@@ -81,7 +81,7 @@ interface ILicenseFactory {
     /// @notice Get full license metadata by ID.
     /// @param id The license ID (token ID).
     /// @return A `License` struct with metadata and configuration.
-    function getLicenseFromID(
+    function getLicenseFromId(
         uint256 id
     ) external view returns (License memory);
 
