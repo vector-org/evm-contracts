@@ -33,6 +33,7 @@
     "deploy:license": "forge script script/DeployLicenseContract.s.sol:DeployLicenseContract --rpc-url sepolia --broadcast --verify",
     "export:vector": "node script/export-contract.js --script MasterDeployment.s.sol",
     "test": "forge test",
+    "forge:lint": "forge lint --severity high --severity gas",
     "lint": "solhint 'src/**/*.sol'",
     "format:check": "prettier --list-different --plugin=prettier-plugin-solidity 'src/**/*.sol'",
     "format:fix": "prettier --write --plugin=prettier-plugin-solidity '**/*.sol'",
