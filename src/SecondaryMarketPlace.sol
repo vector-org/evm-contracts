@@ -1,16 +1,14 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.28;
 
+import {Initializable} from "openzeppelin-contracts-upgradeable/contracts/proxy/utils/Initializable.sol";
+import {UUPSUpgradeable} from "openzeppelin-contracts-upgradeable/contracts/proxy/utils/UUPSUpgradeable.sol";
+import {OwnableUpgradeable} from "openzeppelin-contracts-upgradeable/contracts/access/OwnableUpgradeable.sol";
 import {ILicenseContract} from "./interfaces/ILicenseContract.sol";
 import {IPrimaryMarketPlace} from "./interfaces/IPrimaryMarketPlace.sol";
 import {Addresses} from "./constants/Addresses.sol";
 import {Offer} from "./types/Types.sol";
-import {
-    onlyOwner,
-    onlyAdmin,
-    TransferFailed,
-    FunctionDoesntExist
-} from "./errors/Common.sol";
+import {onlyOwner, onlyAdmin, TransferFailed} from "./errors/Common.sol";
 import {
     notNFTOwner,
     priceIsNotPositive,
@@ -21,13 +19,17 @@ import {
     insufficientPayment,
     alreadyListed,
     UnApprovedNFT,
-    SellerNotOwner,
-    ETHTransfersNotAllowed
+    SellerNotOwner
 } from "./errors/SecondaryMarketPlace.sol";
 import {ReentrancyGuard} from "./utils/ReentrancyGuard.sol";
 
-contract SecondaryMarketPlace is Addresses, ReentrancyGuard {
-    address public owner;
+contract SecondaryMarketPlace is
+    Addresses,
+    ReentrancyGuard,
+    Initializable,
+    UUPSUpgradeable,
+    OwnableUpgradeable
+{
     address private coordinator;
     address private factory;
     address private primaryMarketPlace;
@@ -35,6 +37,8 @@ contract SecondaryMarketPlace is Addresses, ReentrancyGuard {
     mapping(uint256 => Offer) public offerById;
     mapping(uint256 => uint256) public tokenIdToOfferIndex;
     bool private _locked;
+
+    uint256[47] private __storageGap;
 
     event NewOfferCreated(
         address indexed seller,
@@ -60,27 +64,31 @@ contract SecondaryMarketPlace is Addresses, ReentrancyGuard {
         uint256 timestamp
     );
 
-    constructor(
-        address _owner,
+    constructor() Addresses(msg.sender) {
+        _disableInitializers();
+    }
+
+    function initialize(
+        address _admin,
         address _coordinator,
         address _factory,
         address _primaryMarketPlace
-    ) Addresses(msg.sender) {
-        if (msg.sender != Addresses.ADMINISTRATOR) {
-            revert onlyAdmin(msg.sender);
+    ) public initializer {
+        __Ownable_init(_admin);
+        __UUPSUpgradeable_init();
+
+        if (_admin != ADMINISTRATOR) {
+            revert onlyAdmin(_admin);
         }
-        owner = _owner;
+
         coordinator = _coordinator;
         factory = _factory;
         primaryMarketPlace = _primaryMarketPlace;
     }
 
-    modifier checkIsOwner() {
-        if (msg.sender != owner) {
-            revert onlyOwner(msg.sender);
-        }
-        _;
-    }
+    function _authorizeUpgrade(
+        address newImplementation
+    ) internal override onlyOwner {}
 
     function createOffer(
         uint256 tokenId,
@@ -90,8 +98,8 @@ contract SecondaryMarketPlace is Addresses, ReentrancyGuard {
         IPrimaryMarketPlace primaryMarket = IPrimaryMarketPlace(
             primaryMarketPlace
         );
-        IPrimaryMarketPlace.GameNFT memory gameNFT = primaryMarket
-            .getNFTDetails(tokenId);
+        IPrimaryMarketPlace.GameNft memory gameNft = primaryMarket
+            .getNftDetails(tokenId);
 
         ILicenseContract licenseContract = ILicenseContract(licenseAddress);
         if (
@@ -101,14 +109,14 @@ contract SecondaryMarketPlace is Addresses, ReentrancyGuard {
             revert UnApprovedNFT(licenseAddress, tokenId);
         }
 
-        if (gameNFT.listedForSale == true) {
+        if (gameNft.listedForSale == true) {
             revert alreadyListed(tokenId);
         }
         if (offerById[tokenId].isActive) {
             revert offerAlreadyActive(tokenId);
         }
         if (
-            gameNFT.owner != msg.sender ||
+            gameNft.owner != msg.sender ||
             licenseContract.ownerOf(tokenId) != msg.sender
         ) {
             revert notNFTOwner(msg.sender);
@@ -117,8 +125,6 @@ contract SecondaryMarketPlace is Addresses, ReentrancyGuard {
         if (price <= 0) {
             revert priceIsNotPositive(price);
         }
-
-        primaryMarket.changeNFTStatus(tokenId, true);
 
         Offer memory newOffer = Offer({
             seller: msg.sender,
@@ -130,9 +136,10 @@ contract SecondaryMarketPlace is Addresses, ReentrancyGuard {
         });
 
         tokenIdToOfferIndex[tokenId] = offers.length;
-
         offers.push(newOffer);
         offerById[tokenId] = newOffer;
+
+        primaryMarket.changeNftStatus(tokenId, true);
 
         emit NewOfferCreated(
             msg.sender,
@@ -159,7 +166,7 @@ contract SecondaryMarketPlace is Addresses, ReentrancyGuard {
         IPrimaryMarketPlace primaryMarket = IPrimaryMarketPlace(
             primaryMarketPlace
         );
-        primaryMarket.changeNFTStatus(tokenId, false);
+        primaryMarket.changeNftStatus(tokenId, false);
 
         emit OfferRemoved(
             msg.sender,
@@ -206,11 +213,11 @@ contract SecondaryMarketPlace is Addresses, ReentrancyGuard {
         IPrimaryMarketPlace primaryMarket = IPrimaryMarketPlace(
             primaryMarketPlace
         );
-        IPrimaryMarketPlace.GameNFT memory nftData = primaryMarket
-            .getNFTDetails(tokenId);
+        IPrimaryMarketPlace.GameNft memory nftData = primaryMarket
+            .getNftDetails(tokenId);
         nftData.listedForSale = false;
         nftData.owner = msg.sender;
-        primaryMarket.updateNFTData(tokenId, nftData);
+        primaryMarket.updateNftData(tokenId, nftData);
 
         licenseContract.safeTransferFrom(offer.seller, msg.sender, tokenId);
 
@@ -229,11 +236,7 @@ contract SecondaryMarketPlace is Addresses, ReentrancyGuard {
         );
     }
 
-    function setOwner(address newOwner) external checkIsOwner {
-        owner = newOwner;
-    }
-
-    function setCoordinator(address newCoordinator) external checkIsOwner {
+    function setCoordinator(address newCoordinator) external onlyOwner {
         coordinator = newCoordinator;
     }
 
@@ -262,13 +265,5 @@ contract SecondaryMarketPlace is Addresses, ReentrancyGuard {
             }
         }
         return openOffers;
-    }
-
-    receive() external payable {
-        revert ETHTransfersNotAllowed();
-    }
-
-    fallback() external payable {
-        revert FunctionDoesntExist();
     }
 }

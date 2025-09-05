@@ -33,7 +33,7 @@ struct LicenseInput {
     address secondaryMarketplace;
 }
 
-struct GameNFT {
+struct GameNft {
     address owner;
     string uri;
     uint256 licenseId;
