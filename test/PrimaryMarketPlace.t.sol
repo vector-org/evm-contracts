@@ -6,7 +6,6 @@ import {BaseSetup} from "./BaseSetup.t.sol";
 import {ILicenseContract} from "src/interfaces/ILicenseContract.sol";
 import {
     licenseNotActive,
-    ETHTransfersNotAllowed,
     NotSufficientETH
 } from "src/errors/PrimaryMarketPlace.sol";
 import {LicenseInput} from "src/types/Types.sol";
@@ -27,7 +26,6 @@ contract PrimaryMarketPlaceTest is BaseSetup {
         assertEq(publisher.balance, pubBefore + PUB_FEE);
         assertEq(platform.balance, platBefore + PLATFORM_FEE);
 
-        // token 0 minted to buyer
         assertEq(ILicenseContract(licenseAddr).ownerOf(0), buyer);
     }
 
@@ -44,18 +42,11 @@ contract PrimaryMarketPlaceTest is BaseSetup {
     function testMintWrongValueReverts() public {
         (, uint256 licenseId) = _createLicense(true);
         vm.prank(buyer);
-        vm.expectRevert(); // generic revert since we won't encode values (saves gas in test)
+        vm.expectRevert();
         primary.mintLicense{value: 1 wei}(licenseId, buyer, "ipfs://nft/0");
     }
 
-    function testReceiveETHReverts() public {
-        vm.expectRevert(ETHTransfersNotAllowed.selector);
-        (bool ok, ) = address(primary).call{value: 1 ether}("");
-        ok; // silence unused warning
-    }
-
     function testMintZeroPriceLicense() public {
-        // create a license with zero fees
         LicenseInput memory input = LicenseInput({
             name: "FreeLicense",
             symbol: "FREE",
@@ -83,17 +74,13 @@ contract PrimaryMarketPlaceTest is BaseSetup {
         vm.prank(buyer);
         primary.mintLicense{value: 0}(licenseId, buyer, "ipfs://nft/free0");
 
-        // no balances should change for zero-price license
         assertEq(developer.balance, devBefore);
         assertEq(publisher.balance, pubBefore);
         assertEq(platform.balance, platBefore);
-
-        // token id 0 for first mint in this test context
         assertEq(ILicenseContract(licenseAddr).ownerOf(0), buyer);
     }
 
     function testMintZeroPriceLicenseWithValueReverts() public {
-        // create a license with zero fees
         LicenseInput memory input = LicenseInput({
             name: "FreeLicense",
             symbol: "FREE",

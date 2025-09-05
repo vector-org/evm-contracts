@@ -16,8 +16,7 @@ import {
 } from "./errors/Common.sol";
 import {
     licenseNotActive,
-    NotSufficientETH,
-    ETHTransfersNotAllowed
+    NotSufficientETH
 } from "./errors/PrimaryMarketPlace.sol";
 import {ReentrancyGuard} from "./utils/ReentrancyGuard.sol";
 
@@ -213,7 +212,10 @@ contract PrimaryMarketPlace is
         );
     }
 
-    function setSecondaryMarketPlace(address _secondary) external onlyOwner {
+    function setSecondaryMarketPlace(address _secondary) external {
+        if (msg.sender != owner() && msg.sender != ADMINISTRATOR) {
+            revert onlyAdmin(msg.sender);
+        }
         secondaryMarketPlace = _secondary;
     }
 }

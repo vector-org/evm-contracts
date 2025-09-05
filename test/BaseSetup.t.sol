@@ -14,7 +14,7 @@ contract BaseSetup is Test {
     PrimaryMarketPlace internal primary;
     SecondaryMarketPlace internal secondary;
 
-    address internal admin; // also deployer
+    address internal admin;
     address internal coordinator;
     address internal developer;
     address internal publisher;
@@ -26,7 +26,7 @@ contract BaseSetup is Test {
     uint256 internal constant PLATFORM_FEE = 0.03 ether;
 
     function setUp() public virtual {
-        admin = address(this); // test contract acts as admin
+        admin = address(this);
         coordinator = makeAddr("coordinator");
         developer = makeAddr("developer");
         publisher = makeAddr("publisher");
@@ -72,16 +72,13 @@ contract BaseSetup is Test {
             )
         );
 
-        // Cast proxies to contract types
         factory = LicenseFactory(address(factoryProxy));
         primary = PrimaryMarketPlace(address(primaryProxy));
         secondary = SecondaryMarketPlace(address(secondaryProxy));
 
-        // grant coordinator rights in factory
         vm.prank(admin);
         factory.setCoordinator(coordinator, true);
 
-        // register secondary marketplace in primary so it can perform ownership updates
         vm.prank(admin);
         primary.setSecondaryMarketPlace(address(secondary));
     }

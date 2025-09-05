@@ -21,7 +21,18 @@ contract LicenseFactoryTest is BaseSetup {
         License memory L = factory.getLicenseFromId(licenseId);
         assertEq(L.contractAddress, licenseAddr, "contract addr mismatch");
         assertEq(L.owner, coordinator, "owner mismatch");
+        assertEq(L.coordinator, coordinator, "coordinator mismatch");
+        assertEq(L.name, "TestLicense", "name mismatch");
+        assertEq(L.symbol, "TL", "symbol mismatch");
+        assertEq(L.uri, "ipfs://root/0", "uri mismatch");
         assertTrue(L.isActive, "should be active");
+        assertEq(L.developerFee, DEV_FEE, "developer fee mismatch");
+        assertEq(L.platformFee, PLATFORM_FEE, "platform fee mismatch");
+        assertEq(L.publisherFee, PUB_FEE, "publisher fee mismatch");
+        assertEq(L.developer, developer, "developer address mismatch");
+        assertEq(L.publisher, publisher, "publisher address mismatch");
+        assertEq(L.platform, platform, "platform address mismatch");
+        assertGt(L.timestamp, 0, "timestamp should be greater than 0");
     }
 
     function testChangeLicenseStatusByOwner() public {
@@ -33,7 +44,8 @@ contract LicenseFactoryTest is BaseSetup {
 
     function testChangeLicenseStatusByAdmin() public {
         (, uint256 licenseId) = _createLicense(true);
-        factory.changeLicenseStatus(licenseId, false); // admin is address(this)
+        vm.prank(admin);
+        factory.changeLicenseStatus(licenseId, false);
         assertFalse(factory.getLicenseFromId(licenseId).isActive);
     }
 
