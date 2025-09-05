@@ -5,3 +5,4 @@ npm run forge:lint
 npm run format:check
 npm run compile
 npm run dev-example:build
+npm run test
