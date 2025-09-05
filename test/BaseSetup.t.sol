@@ -33,19 +33,16 @@ contract BaseSetup is Test {
         platform = makeAddr("platform");
         buyer = makeAddr("buyer");
 
-        // fund participants
         vm.deal(coordinator, 100 ether);
         vm.deal(developer, 1 ether);
         vm.deal(publisher, 1 ether);
         vm.deal(platform, 1 ether);
         vm.deal(buyer, 100 ether);
 
-        // Deploy implementations
         LicenseFactory factoryImpl = new LicenseFactory();
         PrimaryMarketPlace primaryImpl = new PrimaryMarketPlace();
         SecondaryMarketPlace secondaryImpl = new SecondaryMarketPlace();
 
-        // Deploy proxies with initialization data
         ERC1967Proxy factoryProxy = new ERC1967Proxy(
             address(factoryImpl),
             abi.encodeWithSelector(LicenseFactory.initialize.selector, admin)

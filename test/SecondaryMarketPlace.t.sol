@@ -35,7 +35,6 @@ contract SecondaryMarketPlaceTest is BaseSetup {
         vm.prank(buyer);
         secondary.createOffer(tokenId, licenseAddr, price);
 
-        // accept from new buyer2
         address buyer2 = makeAddr("buyer2");
         vm.deal(buyer2, 10 ether);
         vm.prank(buyer2);
@@ -79,7 +78,7 @@ contract SecondaryMarketPlaceTest is BaseSetup {
     function testCreateOfferUnapprovedReverts() public {
         (address licenseAddr, , uint256 tokenId) = _mintForSecondary();
         vm.prank(buyer);
-        vm.expectRevert(); // UnApprovedNFT custom error
+        vm.expectRevert();
         secondary.createOffer(tokenId, licenseAddr, 1 ether);
     }
 
@@ -91,7 +90,6 @@ contract SecondaryMarketPlaceTest is BaseSetup {
         secondary.createOffer(tokenId, licenseAddr, 1 ether);
         vm.prank(buyer);
         secondary.removeOffer(tokenId);
-        // subsequent remove should revert
         vm.prank(buyer);
         vm.expectRevert(
             abi.encodeWithSelector(offerInactive.selector, tokenId)
