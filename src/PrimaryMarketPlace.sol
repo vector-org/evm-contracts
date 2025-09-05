@@ -78,6 +78,13 @@ contract PrimaryMarketPlace is
         _;
     }
 
+    modifier onlyOwnerOrAdmin() {
+        if (msg.sender != ADMINISTRATOR && msg.sender != owner()) {
+            revert UnAuthorizedUser(msg.sender);
+        }
+        _;
+    }
+
     constructor() Addresses(msg.sender) checkIsAdmin() {
         _disableInitializers();
     }
@@ -212,10 +219,9 @@ contract PrimaryMarketPlace is
         );
     }
 
-    function setSecondaryMarketPlace(address _secondary) external {
-        if (msg.sender != owner() && msg.sender != ADMINISTRATOR) {
-            revert onlyAdmin(msg.sender);
-        }
+    function setSecondaryMarketPlace(
+        address _secondary
+    ) external onlyOwnerOrAdmin {
         secondaryMarketPlace = _secondary;
     }
 }

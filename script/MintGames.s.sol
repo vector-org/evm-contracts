@@ -18,7 +18,7 @@ contract MintGames is Script {
 
         LicenseFactory factory = LicenseFactory(factoryProxyAddress);
 
-        uint256 devFee = 19 ether;
+        uint256 devFee = 0.1 ether;
 
         LicenseInput memory lyraInput = LicenseInput({
             name: "Lyra",
@@ -26,8 +26,8 @@ contract MintGames is Script {
             uri: "https://lyra.game/metadata",
             isActive: true,
             developerFee: devFee,
-            platformFee: 0, 
-            publisherFee: 0, 
+            platformFee: 0,
+            publisherFee: 0,
             developer: admin,
             publisher: admin,
             platform: admin,
@@ -71,12 +71,9 @@ contract MintGames is Script {
             pixelDungeonsInput
         );
 
-        console.log("=== Game Licenses Created ===");
         console.log("Lyra License Contract:", lyraContract);
         console.log("Doom License Contract:", doomContract);
         console.log("Pixel Dungeons License Contract:", pixelDungeonsContract);
-        console.log("");
-        console.log("All games created with 19 ETH developer fee");
 
         vm.stopBroadcast();
     }

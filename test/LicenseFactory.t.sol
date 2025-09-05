@@ -4,7 +4,7 @@ pragma solidity ^0.8.28;
 import {Test} from "forge-std/Test.sol";
 import {BaseSetup} from "./BaseSetup.t.sol";
 import {LicenseFactory} from "src/LicenseFactory.sol";
-import {ILicenseFactory} from "src/interfaces/ILicenseFactory.sol"; 
+import {ILicenseFactory} from "src/interfaces/ILicenseFactory.sol";
 import {LicenseInput} from "src/types/Types.sol";
 import {ILicenseContract} from "src/interfaces/ILicenseContract.sol";
 import {License} from "src/types/Types.sol";
