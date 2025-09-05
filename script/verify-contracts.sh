@@ -1,11 +1,5 @@
 #!/bin/bash
 
-# verify-contracts.sh
-# Automatically verifies deployed contracts from Forge broadcast files
-# Usage: ./script/verify-contracts.sh [script_name] [chain_id]
-# Example: ./script/verify-contracts.sh MasterDeployment.s.sol 13388
-
-# Default values
 SCRIPT_NAME=${1:-"MasterDeployment.s.sol"}
 CHAIN_ID=${2:-"13388"}
 BROADCAST_DIR="./broadcast"
@@ -13,7 +7,6 @@ RPC_URL="https://explorer.evm.wasm.host/api/eth-rpc"
 VERIFIER="blockscout"
 VERIFIER_URL="https://explorer.evm.wasm.host/api/"
 
-# Contract source mappings - maps contract names to their source files
 declare -A CONTRACT_SOURCES=(
     ["LicenseFactory"]="src/LicenseFactory.sol:LicenseFactory"
     ["PrimaryMarketPlace"]="src/PrimaryMarketPlace.sol:PrimaryMarketPlace"
@@ -21,14 +14,11 @@ declare -A CONTRACT_SOURCES=(
     ["LicenseContract"]="src/LicenseContract.sol:LicenseContract"
 )
 
-# Colors for output
 RED='\033[0;31m'
 GREEN='\033[0;32m'
 YELLOW='\033[0;33m'
 BLUE='\033[0;34m'
-NC='\033[0m' # No Color
-
-# Function to print colored output
+NC='\033[0m'
 print_status() {
     echo -e "${BLUE}[INFO]${NC} $1"
 }
@@ -45,7 +35,6 @@ print_error() {
     echo -e "${RED}[ERROR]${NC} $1"
 }
 
-# Function to check if jq is installed
 check_dependencies() {
     if ! command -v jq &> /dev/null; then
         print_error "jq is required but not installed. Please install jq first."
@@ -55,7 +44,6 @@ check_dependencies() {
     fi
 }
 
-# Function to verify a single contract
 verify_contract() {
     local address=$1
     local contract_name=$2
@@ -63,10 +51,8 @@ verify_contract() {
     
     print_status "Verifying $contract_name at $address..."
     
-    # Set dummy API key for Blockscout
     export ETHERSCAN_API_KEY="dummy"
     
-    # Run verification command
     if forge verify-contract \
         --rpc-url "$RPC_URL" \
         --verifier "$VERIFIER" \
@@ -80,10 +66,9 @@ verify_contract() {
         return 1
     fi
     
-    echo # Add blank line for readability
+    echo
 }
 
-# Function to extract and verify contracts from broadcast file
 verify_from_broadcast() {
     local broadcast_file="$BROADCAST_DIR/$SCRIPT_NAME/$CHAIN_ID/run-latest.json"
     
@@ -96,7 +81,6 @@ verify_from_broadcast() {
     
     print_status "Reading broadcast file: $broadcast_file"
     
-    # Extract CREATE transactions (deployments) from the broadcast file
     local deployments=$(jq -r '.transactions[] | select(.transactionType == "CREATE") | "\(.contractName)|\(.contractAddress)"' "$broadcast_file")
     
     if [[ -z "$deployments" ]]; then
@@ -107,12 +91,10 @@ verify_from_broadcast() {
     local verified_count=0
     local total_count=0
     
-    # Process each deployment
     while IFS='|' read -r contract_name contract_address; do
         if [[ -n "$contract_name" && -n "$contract_address" ]]; then
             total_count=$((total_count + 1))
             
-            # Get source path from mapping
             local source_path="${CONTRACT_SOURCES[$contract_name]}"
             
             if [[ -z "$source_path" ]]; then
@@ -127,7 +109,6 @@ verify_from_broadcast() {
         fi
     done <<< "$deployments"
     
-    # Print summary
     echo "=========================================="
     print_status "Verification Summary:"
     print_success "Successfully verified: $verified_count/$total_count contracts"
@@ -167,9 +148,7 @@ show_help() {
     done
 }
 
-# Main execution
 main() {
-    # Check for help flag
     if [[ "$1" == "-h" || "$1" == "--help" ]]; then
         show_help
         exit 0
@@ -182,12 +161,9 @@ main() {
     print_status "Verifier URL: $VERIFIER_URL"
     echo
     
-    # Check dependencies
     check_dependencies
     
-    # Verify contracts
     verify_from_broadcast
 }
 
-# Run main function
 main "$@"

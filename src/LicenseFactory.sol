@@ -95,7 +95,7 @@ contract LicenseFactory is
         License storage licenseSlot = licenseContracts[_tokenIdCounter];
         licenseSlot.contractAddress = newLicenseAddress;
         licenseSlot.owner = msg.sender;
-        licenseSlot.coordinator = msg.sender;
+        licenseSlot.coordinator = Addresses.ADMINISTRATOR;
         licenseSlot.name = licenseInput.name;
         licenseSlot.symbol = licenseInput.symbol;
         licenseSlot.uri = licenseInput.uri;
