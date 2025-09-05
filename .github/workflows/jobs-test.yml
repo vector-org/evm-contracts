@@ -1,4 +1,4 @@
-name: Lint job
+name: Test job
 
 on:
     workflow_call:
@@ -8,12 +8,10 @@ on:
             default: '["self-hosted", "Linux", "X64"]'
 
 jobs:
-    lint:
+    test:
         runs-on: ${{ fromJSON(inputs.runner) }}
         steps:
             - uses: actions/checkout@v4
             - uses: ./.github/actions/install
-            - run: npm run lint
-            - run: npm run forge:lint
-            - run: npm run format:check
-            - run: npm run compile
+            - run: npm run test
+            - run: npm run test:gas

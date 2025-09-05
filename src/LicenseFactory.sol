@@ -1,9 +1,11 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.28;
 
+import {Initializable} from "openzeppelin-contracts-upgradeable/contracts/proxy/utils/Initializable.sol";
+import {UUPSUpgradeable} from "openzeppelin-contracts-upgradeable/contracts/proxy/utils/UUPSUpgradeable.sol";
+import {OwnableUpgradeable} from "openzeppelin-contracts-upgradeable/contracts/access/OwnableUpgradeable.sol";
 import {LicenseContract} from "./LicenseContract.sol";
 import {ILicenseContract} from "./interfaces/ILicenseContract.sol";
-import {Counters} from "./utils/Counters.sol";
 import {Addresses} from "./constants/Addresses.sol";
 import {License, LicenseInput} from "./types/Types.sol";
 import {onlyAdmin, onlyCoordinator, onlyOwner} from "./errors/Common.sol";
@@ -13,15 +15,20 @@ import {
     cannotUpdateLicense
 } from "./errors/LicenseFactory.sol";
 
-contract LicenseFactory is Addresses {
+contract LicenseFactory is
+    Addresses,
+    Initializable,
+    UUPSUpgradeable,
+    OwnableUpgradeable
+{
     mapping(uint256 => License) public licenseContracts;
     address[] public allLicenses;
     uint256[] public tokenIds;
     mapping(address => bool) private coordinators;
-    address public owner;
 
-    using Counters for Counters.Counter;
-    Counters.Counter private _tokenIdCounter;
+    uint256 private _tokenIdCounter;
+
+    uint256[47] private __storageGap;
 
     event NewLicenseContract(
         address indexed contractAddress,
@@ -50,17 +57,24 @@ contract LicenseFactory is Addresses {
         _;
     }
 
-    modifier checkIsOwner() {
-        if (msg.sender != owner) {
-            revert onlyOwner(msg.sender);
-        }
-        _;
+    constructor() Addresses(msg.sender) checkAccess {
+        _disableInitializers();
     }
 
-    constructor() Addresses(msg.sender) checkAccess {
-        owner = msg.sender;
-        coordinators[msg.sender] = true;
+    function initialize(address _admin) public initializer {
+        __Ownable_init(_admin);
+        __UUPSUpgradeable_init();
+
+        if (_admin != ADMINISTRATOR) {
+            revert onlyAdmin(_admin);
+        }
+
+        coordinators[_admin] = true;
     }
+
+    function _authorizeUpgrade(
+        address newImplementation
+    ) internal override onlyOwner {}
 
     function createLicense(
         LicenseInput memory licenseInput
@@ -76,11 +90,9 @@ contract LicenseFactory is Addresses {
         );
         allLicenses.push(newLicenseAddress);
 
-        tokenIds.push(_tokenIdCounter.current());
+        tokenIds.push(_tokenIdCounter);
 
-        License storage licenseSlot = licenseContracts[
-            _tokenIdCounter.current()
-        ];
+        License storage licenseSlot = licenseContracts[_tokenIdCounter];
         licenseSlot.contractAddress = newLicenseAddress;
         licenseSlot.owner = msg.sender;
         licenseSlot.coordinator = Addresses.ADMINISTRATOR;
@@ -98,18 +110,18 @@ contract LicenseFactory is Addresses {
 
         emit NewLicenseContract(
             newLicenseAddress,
-            _tokenIdCounter.current(),
+            _tokenIdCounter,
             msg.sender,
             block.timestamp
         );
-        _tokenIdCounter.increment();
+        _tokenIdCounter++;
         return newLicenseAddress;
     }
 
     function changeLicenseStatus(uint256 licenseId, bool status) external {
-        address license_owner = licenseContracts[licenseId].owner;
+        address licenseOwner = licenseContracts[licenseId].owner;
         if (
-            license_owner != msg.sender && msg.sender != Addresses.ADMINISTRATOR
+            licenseOwner != msg.sender && msg.sender != Addresses.ADMINISTRATOR
         ) {
             revert notAdminOrOwner(msg.sender);
         }
@@ -117,8 +129,8 @@ contract LicenseFactory is Addresses {
     }
 
     function updateLicense(uint256 licenseId, string memory uri) external {
-        address license_address = licenseContracts[licenseId].contractAddress;
-        if (license_address == address(0)) {
+        address licenseAddress = licenseContracts[licenseId].contractAddress;
+        if (licenseAddress == address(0)) {
             revert licenseNotFound(licenseId);
         }
         if (
@@ -128,24 +140,19 @@ contract LicenseFactory is Addresses {
         ) {
             revert cannotUpdateLicense(msg.sender);
         }
-        ILicenseContract licenseContract = ILicenseContract(license_address);
+        ILicenseContract licenseContract = ILicenseContract(licenseAddress);
         licenseContract.updateTokenURI(licenseId, uri);
-    }
-
-    function setOwner(address newOwner) external checkIsOwner {
-        owner = newOwner;
-        emit OwnerChanged(newOwner, msg.sender, block.timestamp);
     }
 
     function setCoordinator(
         address _coordinator,
         bool status
-    ) external checkIsOwner {
+    ) external onlyOwner {
         coordinators[_coordinator] = status;
         emit AddCoordinator(_coordinator, block.timestamp);
     }
 
-    function getLicenseFromID(
+    function getLicenseFromId(
         uint256 id
     ) external view returns (License memory) {
         return licenseContracts[id];

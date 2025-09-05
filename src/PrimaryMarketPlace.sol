@@ -1,35 +1,42 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.28;
 
+import {Initializable} from "openzeppelin-contracts-upgradeable/contracts/proxy/utils/Initializable.sol";
+import {UUPSUpgradeable} from "openzeppelin-contracts-upgradeable/contracts/proxy/utils/UUPSUpgradeable.sol";
+import {OwnableUpgradeable} from "openzeppelin-contracts-upgradeable/contracts/access/OwnableUpgradeable.sol";
 import {ILicenseContract} from "./interfaces/ILicenseContract.sol";
 import {ILicenseFactory} from "./interfaces/ILicenseFactory.sol";
-import {Counters} from "./utils/Counters.sol";
 import {Addresses} from "./constants/Addresses.sol";
-import {GameNFT} from "./types/Types.sol";
+import {GameNft} from "./types/Types.sol";
 import {
     onlyAdmin,
     onlyOwner,
     TransferFailed,
-    UnAuthorizedUser,
-    FunctionDoesntExist
+    UnAuthorizedUser
 } from "./errors/Common.sol";
 import {
     licenseNotActive,
-    NotSufficientETH,
-    ETHTransfersNotAllowed
+    NotSufficientETH
 } from "./errors/PrimaryMarketPlace.sol";
 import {ReentrancyGuard} from "./utils/ReentrancyGuard.sol";
 
-contract PrimaryMarketPlace is Addresses, ReentrancyGuard {
-    address private immutable primaryMarketplace = address(this);
-    address public owner;
+contract PrimaryMarketPlace is
+    Addresses,
+    ReentrancyGuard,
+    Initializable,
+    UUPSUpgradeable,
+    OwnableUpgradeable
+{
+    address private immutable PRIMARY_MARKETPLACE = address(this);
     address private coordinator;
     address private factory;
-    mapping(uint256 => GameNFT) public gameNFTs;
-    uint256[] public allNFTIDs;
+    address private secondaryMarketPlace;
+    mapping(uint256 => GameNft) public gameNfts;
+    uint256[] public allNftIds;
 
-    using Counters for Counters.Counter;
-    Counters.Counter private _tokenIdCounter;
+    uint256 private _tokenIdCounter;
+
+    uint256[47] private __storageGap;
 
     event Mint(
         address indexed to,
@@ -60,31 +67,46 @@ contract PrimaryMarketPlace is Addresses, ReentrancyGuard {
         _;
     }
 
-    modifier checkIsAuthorized() {
+    modifier isAuthorizedForSecondary() {
         if (
-            msg.sender != Addresses.ADMINISTRATOR && msg.sender != coordinator
+            msg.sender != coordinator &&
+            msg.sender != ADMINISTRATOR &&
+            msg.sender != secondaryMarketPlace
         ) {
             revert UnAuthorizedUser(msg.sender);
         }
         _;
     }
 
-    modifier checkIsOwner() {
-        if (msg.sender != owner) {
-            revert onlyOwner(msg.sender);
+    modifier onlyOwnerOrAdmin() {
+        if (msg.sender != ADMINISTRATOR && msg.sender != owner()) {
+            revert UnAuthorizedUser(msg.sender);
         }
         _;
     }
 
-    constructor(
-        address _owner,
+    constructor() Addresses(msg.sender) checkIsAdmin() {
+        _disableInitializers();
+    }
+
+    function initialize(
+        address _admin,
         address _coordinator,
         address _factory
-    ) Addresses(msg.sender) checkIsAdmin() {
-        owner = _owner;
+    ) public initializer {
+        __Ownable_init(_admin);
+        __UUPSUpgradeable_init();
+
+        if (_admin != ADMINISTRATOR) {
+            revert onlyAdmin(_admin);
+        }
         coordinator = _coordinator;
         factory = _factory;
     }
+
+    function _authorizeUpgrade(
+        address newImplementation
+    ) internal override onlyOwner {}
 
     function mintLicense(
         uint256 licenseId,
@@ -92,71 +114,72 @@ contract PrimaryMarketPlace is Addresses, ReentrancyGuard {
         string memory uri
     ) external payable nonReentrant {
         ILicenseFactory licenseFactory = ILicenseFactory(factory);
-        ILicenseFactory.License memory License = licenseFactory
-            .getLicenseFromID(licenseId);
-        uint256 totalFee = License.developerFee +
-            License.publisherFee +
-            License.platformFee;
-        if (License.isActive == false) {
+        ILicenseFactory.License memory fetchedLicense = licenseFactory
+            .getLicenseFromId(licenseId);
+        uint256 totalFee = fetchedLicense.developerFee +
+            fetchedLicense.publisherFee +
+            fetchedLicense.platformFee;
+        if (fetchedLicense.isActive == false) {
             revert licenseNotActive(licenseId);
         }
         if (msg.value != totalFee) {
             revert NotSufficientETH(msg.value, totalFee);
         }
 
-        address licenseAddress = License.contractAddress;
+        address licenseAddress = fetchedLicense.contractAddress;
 
         ILicenseContract licenseContract = ILicenseContract(licenseAddress);
-        uint256 nftId = _tokenIdCounter.current();
-        licenseContract.safeMint(uri, _receiver, nftId);
-        _tokenIdCounter.increment();
+        uint256 nftId = _tokenIdCounter;
+        _tokenIdCounter++;
 
-        gameNFTs[nftId] = GameNFT({
+        gameNfts[nftId] = GameNft({
             owner: _receiver,
             uri: uri,
             licenseId: licenseId,
             licenseAddress: licenseAddress,
             listedForSale: false
         });
-        allNFTIDs.push(nftId);
+        allNftIds.push(nftId);
+
+        licenseContract.safeMint(uri, _receiver, nftId);
 
         bool success;
 
-        if (License.developerFee > 0) {
-            (success, ) = payable(License.developer).call{
-                value: License.developerFee
+        if (fetchedLicense.developerFee > 0) {
+            (success, ) = payable(fetchedLicense.developer).call{
+                value: fetchedLicense.developerFee
             }("");
             if (!success) {
                 revert TransferFailed(
                     msg.sender,
-                    License.developer,
-                    License.developerFee
+                    fetchedLicense.developer,
+                    fetchedLicense.developerFee
                 );
             }
         }
 
-        if (License.publisherFee > 0) {
-            (success, ) = payable(License.publisher).call{
-                value: License.publisherFee
+        if (fetchedLicense.publisherFee > 0) {
+            (success, ) = payable(fetchedLicense.publisher).call{
+                value: fetchedLicense.publisherFee
             }("");
             if (!success) {
                 revert TransferFailed(
                     msg.sender,
-                    License.publisher,
-                    License.publisherFee
+                    fetchedLicense.publisher,
+                    fetchedLicense.publisherFee
                 );
             }
         }
 
-        if (License.platformFee > 0) {
-            (success, ) = payable(License.platform).call{
-                value: License.platformFee
+        if (fetchedLicense.platformFee > 0) {
+            (success, ) = payable(fetchedLicense.platform).call{
+                value: fetchedLicense.platformFee
             }("");
             if (!success) {
                 revert TransferFailed(
                     msg.sender,
-                    License.platform,
-                    License.platformFee
+                    fetchedLicense.platform,
+                    fetchedLicense.platformFee
                 );
             }
         }
@@ -164,29 +187,29 @@ contract PrimaryMarketPlace is Addresses, ReentrancyGuard {
         emit Mint(_receiver, licenseAddress, uri, block.timestamp);
     }
 
-    function getAllNFTIds() external view returns (uint256[] memory) {
-        return allNFTIDs;
+    function getAllNftIds() external view returns (uint256[] memory) {
+        return allNftIds;
     }
 
-    function getNFTDetails(
+    function getNftDetails(
         uint256 nftId
-    ) external view returns (GameNFT memory) {
-        return gameNFTs[nftId];
+    ) external view returns (GameNft memory) {
+        return gameNfts[nftId];
     }
 
-    function changeNFTStatus(uint256 nftId, bool status) external {
-        if (msg.sender != gameNFTs[nftId].owner) {
-            revert UnAuthorizedUser(msg.sender);
-        }
-        gameNFTs[nftId].listedForSale = status;
+    function changeNftStatus(
+        uint256 nftId,
+        bool status
+    ) external isAuthorizedForSecondary {
+        gameNfts[nftId].listedForSale = status;
         emit NFTStatusChange(msg.sender, status, nftId, block.timestamp);
     }
 
-    function updateNFTData(
+    function updateNftData(
         uint256 nftId,
-        GameNFT memory nftData
-    ) external checkIsAuthorized {
-        gameNFTs[nftId] = nftData;
+        GameNft memory nftData
+    ) external isAuthorizedForSecondary {
+        gameNfts[nftId] = nftData;
         emit NFTDataUpdate(
             msg.sender,
             nftData.owner,
@@ -196,11 +219,9 @@ contract PrimaryMarketPlace is Addresses, ReentrancyGuard {
         );
     }
 
-    receive() external payable {
-        revert ETHTransfersNotAllowed();
-    }
-
-    fallback() external payable {
-        revert FunctionDoesntExist();
+    function setSecondaryMarketPlace(
+        address _secondary
+    ) external onlyOwnerOrAdmin {
+        secondaryMarketPlace = _secondary;
     }
 }

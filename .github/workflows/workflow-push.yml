@@ -11,3 +11,6 @@ jobs:
 
   lint:
     uses: ./.github/workflows/jobs-lint.yml
+
+  test:
+    uses: ./.github/workflows/jobs-test.yml

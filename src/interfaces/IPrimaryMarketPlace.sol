@@ -5,7 +5,7 @@ pragma solidity ^0.8.28;
 /// @notice Interface for the PrimaryMarketPlace contract that mints NFTs via License contracts, manages NFT status, and updates NFT metadata.
 interface IPrimaryMarketPlace {
     /// @notice Struct storing information about a minted Game NFT.
-    struct GameNFT {
+    struct GameNft {
         address owner;
         string uri;
         uint256 licenseId;
@@ -64,23 +64,23 @@ interface IPrimaryMarketPlace {
 
     /// @notice Get the list of all NFT IDs minted through this contract.
     /// @return An array of NFT token IDs.
-    function getAllNFTIds() external view returns (uint256[] memory);
+    function getAllNftIds() external view returns (uint256[] memory);
 
     /// @notice Get metadata and ownership information of a specific NFT ID.
     /// @param nftId The NFT token ID.
-    /// @return A GameNFT struct with all NFT metadata and ownership info.
-    function getNFTDetails(
+    /// @return A GameNft struct with all NFT metadata and ownership info.
+    function getNftDetails(
         uint256 nftId
-    ) external view returns (GameNFT memory);
+    ) external view returns (GameNft memory);
 
     /// @notice Change the listed-for-sale status of an NFT.
     /// @param nftId The NFT token ID.
     /// @param status The new listedForSale status.
-    function changeNFTStatus(uint256 nftId, bool status) external;
+    function changeNftStatus(uint256 nftId, bool status) external;
 
     /// @notice Update all data fields of an NFT.
     /// @dev Replaces the existing NFT struct entirely.
     /// @param nftId The NFT token ID.
     /// @param nftData The new GameNFT data.
-    function updateNFTData(uint256 nftId, GameNFT memory nftData) external;
+    function updateNftData(uint256 nftId, GameNft memory nftData) external;
 }

@@ -2,27 +2,50 @@
 pragma solidity ^0.8.28;
 
 import {Script, console} from "forge-std/Script.sol";
-import {LicenseFactory} from "../src/LicenseFactory.sol";
 import {PrimaryMarketPlace} from "../src/PrimaryMarketPlace.sol";
+import {ERC1967Proxy} from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
+
+contract DeployPrimaryMarketPlaceProxy is Script {
+    function run() external {
+        uint256 deployerPrivateKey = vm.envUint("PRIVATE_KEY");
+        vm.startBroadcast(deployerPrivateKey);
+
+        address admin = vm.addr(deployerPrivateKey);
+        address factoryProxy = vm.envAddress("FACTORY_PROXY_ADDRESS");
+
+        PrimaryMarketPlace primaryImpl = new PrimaryMarketPlace();
+
+        ERC1967Proxy primaryProxy = new ERC1967Proxy(
+            address(primaryImpl),
+            abi.encodeWithSelector(
+                PrimaryMarketPlace.initialize.selector,
+                admin,
+                admin,
+                factoryProxy
+            )
+        );
+
+        console.log("PrimaryMarketPlace Implementation:", address(primaryImpl));
+        console.log("PrimaryMarketPlace Proxy:", address(primaryProxy));
+
+        vm.stopBroadcast();
+    }
+}
 
 contract DeployPrimaryMarketPlace is Script {
     function run() external {
         uint256 deployerPrivateKey = vm.envUint("PRIVATE_KEY");
         vm.startBroadcast(deployerPrivateKey);
 
-        LicenseFactory licenseFactory = new LicenseFactory();
-        console.log("LicenseFactory deployed to:", address(licenseFactory));
+        address primaryProxy = vm.envAddress("PRIMARY_PROXY_ADDRESS");
+        PrimaryMarketPlace primaryImpl = new PrimaryMarketPlace();
 
-        PrimaryMarketPlace primaryMarketPlace = new PrimaryMarketPlace(
-            0x1d72B383cd2F783e4f2eDafE9D7544A3355507C2,
-            0x1d72B383cd2F783e4f2eDafE9D7544A3355507C2,
-            address(licenseFactory)
+        PrimaryMarketPlace(primaryProxy).upgradeToAndCall(
+            address(primaryImpl),
+            ""
         );
 
-        console.log(
-            "PrimaryMarketPlace deployed to:",
-            address(primaryMarketPlace)
-        );
+        console.log("PrimaryMarketPlace upgraded to:", address(primaryImpl));
 
         vm.stopBroadcast();
     }

@@ -7,4 +7,3 @@ error onlyOwner(address caller);
 error TransferFailed(address from, address to, uint256 amount);
 error ReentrantCall();
 error UnAuthorizedUser(address user);
-error FunctionDoesntExist();
