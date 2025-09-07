@@ -2,311 +2,262 @@
 
 **Audit Date:** September 7, 2024  
 **Auditor:** Security Analysis Bot  
-**Scope:** Complete smart contract ecosystem including Types, Interfaces, LicenseContract, LicenseFactory, PrimaryMarketplace, SecondaryMarketplace, deployment scripts, and supporting infrastructure  
+**Branch Analyzed:** development  
+**Scope:** Complete smart contract ecosystem including Types, Interfaces, LicenseContract, LicenseFactory, PrimaryMarketplace, SecondaryMarketplace, deployment scripts, and supporting infrastructure (Foundry-based implementation)
 
 ## Executive Summary
 
-This security audit examined the Vector EVM contracts repository, focusing on the core marketplace infrastructure for NFT licensing and trading. The audit identified **23 security findings** across **4 severity levels**, including **4 critical vulnerabilities** that require immediate attention.
+This security audit examined the Vector EVM contracts repository's development branch, focusing on the core marketplace infrastructure for NFT licensing and trading. The audit identified **11 security findings** across **4 severity levels**, including **1 critical vulnerability** that requires immediate attention.
 
 ### Risk Distribution
-- 🔴 **Critical:** 4 findings
-- 🟠 **High:** 6 findings  
-- 🟡 **Medium:** 8 findings
-- 🟢 **Low:** 5 findings
+- 🔴 **Critical:** 1 finding
+- 🟠 **High:** 3 findings  
+- 🟡 **Medium:** 4 findings
+- 🟢 **Low:** 3 findings
+
+### Key Security Strengths
+1. **UUPS Upgradeable Pattern** - Properly implemented across core contracts (LicenseFactory, PrimaryMarketPlace, SecondaryMarketPlace)
+2. **Reentrancy Protection** - Custom ReentrancyGuard implemented and used in marketplace contracts
+3. **Access Control Framework** - Comprehensive modifier-based access control with custom error handling
+4. **Foundry Test Coverage** - Well-structured test suite with proper upgrade testing
 
 ### Key Areas of Concern
-1. **Access Control Vulnerabilities** - Hardcoded addresses and missing authorization
-2. **Reentrancy Risks** - Unsafe external calls in payment flows
-3. **Missing Upgradeability** - No proxy patterns despite documentation references
-4. **Input Validation Gaps** - Insufficient parameter validation across contracts
+1. **Access Control Gap** - Critical missing authorization on safeMint function
+2. **Custom Security Implementations** - Custom ReentrancyGuard vs battle-tested OpenZeppelin implementation
+3. **Input Validation** - Missing maximum limits on price parameters
+4. **Event Emissions** - Some functions lack proper event emissions for off-chain tracking
 
 ---
 
 ## 🔴 Critical Severity Findings
 
-### C-01: Hardcoded Administrator Address Creates Single Point of Failure
-**File:** `contracts/constants/Addresses.sol:10`
-```solidity
-ADMINISTRATOR = 0x1d72B383cd2F783e4f2eDafE9D7544A3355507C2;
-```
-**Impact:** If the hardcoded administrator private key is compromised or lost, the entire system becomes unrecoverable.
-
-**Recommendation:** Implement a multi-signature wallet or time-locked admin role transfer mechanism.
-
-### C-02: Reentrancy Vulnerability in Payment Processing
-**File:** `contracts/SecondaryMarketPlace.sol:159-202`
-```solidity
-function acceptOffer(uint256 tokenId) external payable {
-    // ... validation code ...
-    licenseContract.safeTransferFrom(offer.seller, msg.sender, tokenId); // External call
-    payable(offer.seller).transfer(offer.price); // Reentrancy risk
-    // ... state updates ...
-}
-```
-**Impact:** Malicious sellers could potentially drain marketplace funds through reentrant calls.
-
-**Recommendation:** Implement the Checks-Effects-Interactions pattern or use OpenZeppelin's ReentrancyGuard.
-
-### C-03: Missing Access Control on Critical Minting Function
-**File:** `contracts/LicenseContract.sol:41-44`
+### C-01: Missing Access Control on Critical Minting Function
+**File:** `src/LicenseContract.sol:39-42`
 ```solidity
 function safeMint(string memory uri, address to, uint256 licenseId) public {
     _safeMint(to, licenseId);
     _setTokenURI(licenseId, uri);
 }
 ```
-**Impact:** Anyone can mint unlimited NFTs without authorization, breaking the entire economic model.
+**Impact:** Anyone can mint unlimited NFTs without authorization, bypassing the entire marketplace economic model and fee structure. This allows arbitrary NFT creation outside the intended licensing flow.
 
-**Recommendation:** Add proper access control modifiers restricting minting to authorized contracts only.
-
-### C-04: State Desynchronization Between Contracts
-**File:** `contracts/SecondaryMarketPlace.sol:186-192`
+**Recommendation:** Add proper access control modifiers restricting minting to authorized marketplace contracts only:
 ```solidity
-primaryMarket.updateNFTData(tokenId, nftData);
+function safeMint(string memory uri, address to, uint256 licenseId) public {
+    if (msg.sender != PRIMARYMARKETPLACE && msg.sender != SECONDARYMARKETPLACE) {
+        revert notPrimaryOrSecondary(msg.sender);
+    }
+    _safeMint(to, licenseId);
+    _setTokenURI(licenseId, uri);
+}
 ```
-**Impact:** NFT ownership state can become inconsistent between primary and secondary marketplaces, leading to double-spending or lost ownership.
-
-**Recommendation:** Implement a centralized state management contract or ensure atomic updates across all related contracts.
 
 ---
 
 ## 🟠 High Severity Findings
 
-### H-01: Missing Proxy Pattern Implementation
-**Documentation Reference:** `docs/smart-contract-upgradeability.md`
-**Impact:** Contracts cannot be upgraded despite documentation indicating UUPS proxy pattern support.
+### H-01: Custom ReentrancyGuard Implementation Risk
+**File:** `src/utils/ReentrancyGuard.sol:7-15`
+```solidity
+abstract contract ReentrancyGuard {
+    bool private _locked;
 
-**Recommendation:** Implement OpenZeppelin's UUPS upgradeable proxy pattern as documented.
+    modifier nonReentrant() {
+        if (_locked) revert ReentrantCall();
+        _locked = true;
+        _;
+        _locked = false;
+    }
+}
+```
+**Impact:** While functional, custom security implementations are riskier than battle-tested OpenZeppelin versions. The current implementation lacks gas-optimized patterns and comprehensive testing.
 
-### H-02: Insufficient Input Validation on Price Parameters
-**File:** `contracts/SecondaryMarketPlace.sol:104-106`
+**Recommendation:** Replace with OpenZeppelin's ReentrancyGuard which includes gas optimizations and extensive testing:
+```solidity
+import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
+```
+
+### H-02: Missing Maximum Price Validation
+**File:** `src/SecondaryMarketPlace.sol:95-98`
 ```solidity
 if (price <= 0) {
     revert priceIsNotPositive(price);
 }
 ```
-**Impact:** Price can be set to extremely high values, potentially causing overflow in calculations.
+**Impact:** Prices can be set to extremely high values (up to uint256.max), potentially causing overflow in calculations or making offers practically unusable.
 
-**Recommendation:** Add maximum price limits and additional overflow protection.
-
-### H-03: Missing Emergency Pause Functionality
-**Impact:** No circuit breaker mechanism exists to halt operations during security incidents.
-
-**Recommendation:** Implement OpenZeppelin's Pausable contract for emergency stops.
-
-### H-04: Unsafe Owner Transfer Pattern
-**File:** `contracts/LicenseFactory.sol:135-138`
+**Recommendation:** Add reasonable maximum price limits:
 ```solidity
-function setOwner(address newOwner) external checkIsOwner {
-    owner = newOwner;
-    emit OwnerChanged(newOwner, msg.sender, block.timestamp);
+uint256 public constant MAX_PRICE = 1000 ether; // Example maximum
+if (price <= 0 || price > MAX_PRICE) {
+    revert invalidPrice(price);
 }
 ```
-**Impact:** Single-step ownership transfer could permanently lock the contract if wrong address is provided.
 
-**Recommendation:** Implement two-step ownership transfer with acceptance requirement.
+### H-03: Missing Emergency Pause Functionality
+**Impact:** No circuit breaker mechanism exists to halt operations during security incidents or upgrades. This could prevent timely response to discovered vulnerabilities.
 
-### H-05: Missing Input Validation for Address Parameters
-**Files:** Multiple constructor functions
-**Impact:** Zero addresses or invalid addresses could be set during deployment, breaking contract functionality.
+**Recommendation:** Implement OpenZeppelin's Pausable contract in marketplace contracts:
+```solidity
+import "@openzeppelin/contracts/security/Pausable.sol";
 
-**Recommendation:** Add address validation checks for all address parameters.
-
-### H-06: Factory Pattern Security Concerns
-**File:** `contracts/LicenseFactory.sol:65-107`
-**Impact:** Coordinators can deploy unlimited contracts without gas limits or restrictions.
-
-**Recommendation:** Implement deployment limits, gas cost requirements, or additional authorization layers.
+function createOffer(...) external whenNotPaused {
+    // existing logic
+}
+```
 
 ---
 
 ## 🟡 Medium Severity Findings
 
-### M-01: Gas Optimization Issues
-**Files:** Multiple locations identified by linter
-**Impact:** Inefficient gas usage increases transaction costs for users.
+### M-01: Storage Layout Collision Risk in Upgradeable Contracts
+**File:** `src/LicenseFactory.sol:21`, `src/PrimaryMarketPlace.sol:27`, `src/SecondaryMarketPlace.sol:27`
+```solidity
+uint256[47] private __storageGap;
+```
+**Impact:** While storage gaps are implemented, the contract storage layout could still be vulnerable to collisions if new variables are added without proper planning.
 
-**Recommendation:** Implement suggested optimizations from linter output (pre-increment, struct packing, etc.).
+**Recommendation:** Implement proper storage layout documentation and use storage slot annotations for critical variables.
 
-### M-02: Storage Layout Collision Risks
-**Files:** All main contracts
-**Impact:** If upgradeability is implemented later, storage collisions could corrupt contract state.
-
-**Recommendation:** Reserve storage gaps and implement proper storage layout documentation.
-
-### M-03: Missing Event Indexing
-**Files:** Multiple event declarations
-**Impact:** Poor off-chain event filtering performance and increased query costs.
-
-**Recommendation:** Add indexed parameters to frequently queried events.
-
-### M-04: Inconsistent Error Handling
-**Files:** Various contract functions
-**Impact:** Some functions use require() while others use custom errors, creating inconsistent UX.
-
-**Recommendation:** Standardize on custom errors throughout the codebase for gas efficiency.
-
-### M-05: Missing License Validation in Minting
-**File:** `contracts/PrimaryMarketPlace.sol:69-96`
-**Impact:** Minting could occur with invalid or corrupted license data.
-
-**Recommendation:** Add comprehensive license validation before minting operations.
-
-### M-06: Array Length DoS Vulnerability
-**File:** `contracts/SecondaryMarketPlace.sol:220-237`
+### M-02: Potential DoS via Unbounded Array Operations
+**File:** `src/SecondaryMarketPlace.sol:222-235`
 ```solidity
 function getOpenOffers() external view returns (Offer[] memory) {
-    for (uint256 i = 0; i < offers.length; i++) { // Unbounded loop
+    // Loops through entire offers array
+    for (uint256 i = 0; i < offers.length; i++) {
+        // ... processing
+    }
+}
 ```
-**Impact:** Large arrays could cause function to exceed gas limits, making it unusable.
+**Impact:** As the number of offers grows, this function could exceed gas limits and become unusable.
 
-**Recommendation:** Implement pagination or limit maximum array sizes.
+**Recommendation:** Implement pagination or limit the array size:
+```solidity
+function getOpenOffers(uint256 offset, uint256 limit) external view returns (Offer[] memory) {
+    // Implement pagination logic
+}
+```
 
-### M-07: Missing Price Update Mechanism
-**Files:** Marketplace contracts
-**Impact:** Once offers are created, prices cannot be updated without removing and recreating offers.
+### M-03: Missing Zero Address Validation
+**File:** `src/LicenseFactory.sol:76-78`
+```solidity
+function initialize(address _admin) public initializer {
+    // Missing zero address check for _admin
+}
+```
+**Impact:** Initializing with zero address could break administrative functions.
 
-**Recommendation:** Add price update functionality with proper access controls.
+**Recommendation:** Add zero address validation:
+```solidity
+if (_admin == address(0)) {
+    revert InvalidAddress(_admin);
+}
+```
 
-### M-08: Incomplete Offer Cleanup
-**File:** `contracts/SecondaryMarketPlace.sol:133-157`
-**Impact:** Inactive offers remain in arrays, causing unnecessary gas consumption and storage bloat.
+### M-04: Event Indexing Optimization Missing
+**File:** Multiple contracts - various events
+**Impact:** Events lack proper indexing, affecting off-chain integration efficiency and gas costs for filtering.
 
-**Recommendation:** Implement proper offer removal that cleans up array storage.
+**Recommendation:** Add indexed parameters to frequently queried events:
+```solidity
+event NewOfferCreated(
+    address indexed seller,
+    uint256 indexed tokenId,
+    address indexed licenseAddress,
+    uint256 price,
+    uint256 timestamp
+);
+```
 
 ---
 
 ## 🟢 Low Severity Findings
 
 ### L-01: Missing NatSpec Documentation
-**Files:** All contract files (245 linter warnings)
-**Impact:** Poor code maintainability and developer experience.
+**File:** Multiple contracts
+**Impact:** Functions lack comprehensive NatSpec documentation, affecting code maintainability and developer experience.
 
-**Recommendation:** Add comprehensive NatSpec documentation as identified by linter.
-
-### L-02: Inconsistent Naming Conventions
-**Files:** Various contracts
-**Impact:** Reduced code readability and maintainability.
-
-**Recommendation:** Adopt consistent naming conventions (camelCase for functions, PascalCase for contracts).
-
-### L-03: Redundant Interface Imports
-**File:** `contracts/SecondaryMarketPlace.sol:5-6`
+**Recommendation:** Add complete NatSpec documentation for all public functions:
 ```solidity
-import {IPrimaryMarketPlace} from "./interfaces/IPrimaryMarketPlace.sol";
-import {IPrimaryMarketPlace} from "./interfaces/IPrimaryMarketPlace.sol"; // Duplicate
+/**
+ * @notice Creates a new offer for an NFT
+ * @param tokenId The ID of the token to offer
+ * @param licenseAddress The address of the license contract
+ * @param price The offer price in wei
+ */
+function createOffer(uint256 tokenId, address licenseAddress, uint256 price) external {
+    // implementation
+}
 ```
-**Impact:** Unnecessary code bloat and potential confusion.
 
-**Recommendation:** Remove duplicate imports.
+### L-02: Gas Optimization Opportunities
+**File:** Various contracts
+**Impact:** Several gas optimization patterns are missing, increasing transaction costs for users.
 
-### L-04: Missing Contract Size Optimization
-**Files:** All main contracts
-**Impact:** Contracts may exceed Ethereum's 24KB size limit as they grow.
+**Recommendations:**
+- Use `unchecked` blocks for counter increments in loops
+- Pack structs to optimize storage usage
+- Cache array lengths in loops
 
-**Recommendation:** Monitor contract sizes and implement modular architecture if needed.
+### L-03: Inconsistent Error Message Patterns
+**File:** Error handling across contracts
+**Impact:** Error messages and custom errors follow different patterns, affecting user experience and debugging.
 
-### L-05: Hardcoded Values in Deployment Scripts
-**File:** `ignition/modules/PrimaryMarketPlace.js:7-8`
-```javascript
-"0x1d72B383cd2F783e4f2eDafE9D7544A3355507C2",
-"0x1d72B383cd2F783e4f2eDafE9D7544A3355507C2",
-```
-**Impact:** Deployment inflexibility and potential misconfiguration.
-
-**Recommendation:** Use environment variables or configuration files for deployment parameters.
+**Recommendation:** Standardize error handling patterns and provide consistent error messages across all contracts.
 
 ---
 
-## Infrastructure Security Analysis
+## Security Infrastructure Analysis
 
-### Hardhat Configuration
-- ✅ Proper compiler version (0.8.28)
-- ✅ Optimization enabled
-- ⚠️ Network private keys should use environment variables only
-- ❌ Missing contract verification configuration
+### ✅ Implemented Security Features
 
-### Deployment Scripts
-- ⚠️ Hardcoded addresses in deployment scripts
-- ❌ No deployment verification or post-deployment checks
-- ❌ Missing deployment documentation
+1. **UUPS Upgradeable Pattern**: Properly implemented in LicenseFactory, PrimaryMarketPlace, and SecondaryMarketPlace with appropriate access controls
+2. **Reentrancy Protection**: Custom ReentrancyGuard implemented and correctly applied to payable functions
+3. **Access Control**: Comprehensive modifier-based access control with custom error handling
+4. **Storage Gaps**: Proper storage gap implementation for future upgrades
+5. **Custom Error Handling**: Gas-efficient custom errors instead of string messages
+6. **Foundry Test Coverage**: Well-structured test suite including upgrade testing
 
-### Testing Infrastructure
-- ❌ No test files found in repository
-- ❌ Missing integration tests for marketplace workflows
-- ❌ No security-specific test cases
+### 📋 Deployment Security
 
----
+The Foundry deployment scripts in `script/` directory properly implement:
+- UUPS proxy deployment patterns
+- Initialization parameter validation
+- Multi-step deployment verification
 
-## Compliance and Standards Analysis
+### 🔧 Recommendations for Production Deployment
 
-### ERC Standards Compliance
-- ✅ ERC-721 implementation via OpenZeppelin
-- ⚠️ Missing ERC-165 interface support documentation
-- ❌ No ERC-2981 royalty standard implementation
+1. **Immediate Priority (Critical)**:
+   - Fix safeMint access control in LicenseContract
+   
+2. **High Priority**:
+   - Replace custom ReentrancyGuard with OpenZeppelin implementation
+   - Add maximum price validation
+   - Implement emergency pause functionality
 
-### OpenZeppelin Usage
-- ✅ Using stable OpenZeppelin contracts (v4.7.0)
-- ⚠️ Not using latest version (consider upgrading to v5.x)
-- ❌ Missing recommended security extensions (ReentrancyGuard, Pausable)
+3. **Medium Priority**:
+   - Add comprehensive zero address validation
+   - Implement pagination for array operations
+   - Optimize event indexing
 
----
-
-## Recommendations Summary
-
-### Immediate Actions Required (Critical)
-1. **Implement emergency pause functionality** across all contracts
-2. **Fix reentrancy vulnerability** in SecondaryMarketPlace
-3. **Add access control** to safeMint function
-4. **Replace hardcoded admin** with proper governance mechanism
-
-### Short-term Improvements (High/Medium)
-1. Implement comprehensive input validation
-2. Add proper event indexing for better off-chain integration
-3. Implement two-step ownership transfers
-4. Add gas optimization improvements
-5. Implement proxy pattern for upgradeability
-
-### Long-term Enhancements (Low)
-1. Add comprehensive test suite
-2. Implement proper documentation
-3. Add contract size monitoring
-4. Implement modular architecture
+4. **Long-term Improvements**:
+   - Complete NatSpec documentation
+   - Gas optimization implementation
+   - Standardize error patterns
 
 ---
 
-## Testing Recommendations
+## Risk Assessment
 
-### Critical Test Cases Needed
-1. **Reentrancy attack simulations** on payment functions
-2. **Access control bypass attempts** on privileged functions
-3. **State synchronization tests** between marketplace contracts
-4. **Edge case testing** for price and quantity limits
+**Overall Risk Level: MEDIUM-HIGH** - While the system implements many security best practices including upgradeability and reentrancy protection, the critical safeMint access control issue must be addressed before production deployment.
 
-### Integration Test Requirements
-1. Full marketplace workflow testing (mint → list → purchase)
-2. Multi-contract interaction testing
-3. Gas limit testing for array operations
-4. Emergency pause scenario testing
+**Recommended Timeline:**
+- **Week 1**: Address critical finding (safeMint access control)
+- **Week 2-3**: Implement high-priority fixes
+- **Week 4+**: Medium and low priority improvements
 
 ---
 
 ## Conclusion
 
-The Vector EVM contracts represent a functional NFT marketplace system but contain several critical security vulnerabilities that must be addressed before production deployment. The most pressing concerns are the reentrancy vulnerability in payment processing and the missing access controls on the minting function.
-
-**Overall Risk Assessment: HIGH**
-
-The system requires significant security improvements before being considered production-ready. Priority should be given to addressing critical and high-severity findings, implementing proper testing infrastructure, and establishing secure deployment practices.
-
-### Next Steps
-1. Address all critical vulnerabilities immediately
-2. Implement comprehensive test suite
-3. Conduct follow-up security review after fixes
-4. Consider professional third-party audit before mainnet deployment
-
----
-
-**Audit Methodology:** This audit was conducted through static code analysis, manual review of smart contract logic, examination of access control patterns, analysis of external dependencies, and review of deployment infrastructure. The findings are based on the contract code as it exists in the current repository state.
-
-**Disclaimer:** This audit identifies potential security issues but does not guarantee the complete absence of vulnerabilities. Regular security reviews and testing are recommended as the codebase evolves.
+The Vector EVM contracts development branch demonstrates a solid foundation with proper upgradeability patterns, reentrancy protection, and comprehensive testing. However, the critical access control vulnerability in the safeMint function requires immediate attention before production deployment. Once addressed, the system should provide a secure foundation for NFT licensing and marketplace operations.
