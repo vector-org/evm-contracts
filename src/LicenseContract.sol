@@ -7,7 +7,8 @@ import {Addresses} from "./constants/Addresses.sol";
 import {
     notFactory,
     notOwnerOrFactory,
-    notPrimaryOrSecondary
+    notPrimaryOrSecondary,
+    notPrimaryMarketPlace
 } from "./errors/LicenseContract.sol";
 
 contract LicenseContract is ERC721, ERC721URIStorage, Addresses {
@@ -19,6 +20,13 @@ contract LicenseContract is ERC721, ERC721URIStorage, Addresses {
     modifier onlyFactory(address _factory) {
         if (msg.sender != _factory) {
             revert notFactory(msg.sender);
+        }
+        _;
+    }
+
+    modifier onlyPrimaryMarketPlace() {
+        if (msg.sender != PRIMARYMARKETPLACE) {
+            revert notPrimaryMarketPlace();
         }
         _;
     }
@@ -36,7 +44,11 @@ contract LicenseContract is ERC721, ERC721URIStorage, Addresses {
         SECONDARYMARKETPLACE = secondaryMarketplace;
     }
 
-    function safeMint(string memory uri, address to, uint256 licenseId) public {
+    function safeMint(
+        string memory uri,
+        address to,
+        uint256 licenseId
+    ) public onlyPrimaryMarketPlace {
         _safeMint(to, licenseId);
         _setTokenURI(licenseId, uri);
     }
