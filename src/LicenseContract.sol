@@ -10,6 +10,7 @@ import {
     notPrimaryOrSecondary,
     notPrimaryMarketPlace
 } from "./errors/LicenseContract.sol";
+import {ZeroAddressInput} from "./errors/Common.sol";
 
 contract LicenseContract is ERC721, ERC721URIStorage, Addresses {
     address public owner;
@@ -38,6 +39,13 @@ contract LicenseContract is ERC721, ERC721URIStorage, Addresses {
         address primaryMarketplace,
         address secondaryMarketplace
     ) ERC721(name, symbol) onlyFactory(_factory) Addresses(msg.sender) {
+        if (
+            _factory == ZERO_ADDRESS ||
+            primaryMarketplace == ZERO_ADDRESS ||
+            secondaryMarketplace == ZERO_ADDRESS
+        ) {
+            revert ZeroAddressInput();
+        }
         FACTORY = _factory;
         owner = msg.sender;
         PRIMARYMARKETPLACE = primaryMarketplace;

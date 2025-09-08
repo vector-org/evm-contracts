@@ -8,7 +8,12 @@ import {LicenseContract} from "./LicenseContract.sol";
 import {ILicenseContract} from "./interfaces/ILicenseContract.sol";
 import {Addresses} from "./constants/Addresses.sol";
 import {License, LicenseInput} from "./types/Types.sol";
-import {onlyAdmin, onlyCoordinator, onlyOwner} from "./errors/Common.sol";
+import {
+    onlyAdmin,
+    onlyCoordinator,
+    onlyOwner,
+    ZeroAddressInput
+} from "./errors/Common.sol";
 import {
     notAdminOrOwner,
     licenseNotFound,
@@ -64,13 +69,16 @@ contract LicenseFactory is
     }
 
     function initialize(address _admin) public initializer {
-        __Ownable_init(_admin);
-        __UUPSUpgradeable_init();
-        __Pausable_init();
-
+        if (_admin == ZERO_ADDRESS) {
+            revert ZeroAddressInput();
+        }
         if (_admin != ADMINISTRATOR) {
             revert onlyAdmin(_admin);
         }
+
+        __Ownable_init(_admin);
+        __UUPSUpgradeable_init();
+        __Pausable_init();
 
         coordinators[_admin] = true;
     }

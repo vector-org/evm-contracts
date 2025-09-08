@@ -30,47 +30,7 @@ This security audit examined the Vector EVM contracts repository's development b
 
 ## 🟠 High Severity Findings
 
-### H-02: Missing Maximum Price Validation
-**File:** `src/SecondaryMarketPlace.sol:95-98`
-```solidity
-if (price <= 0) {
-    revert priceIsNotPositive(price);
-}
-```
-**Impact:** Prices can be set to extremely high values (up to uint256.max), potentially causing overflow in calculations or making offers practically unusable.
-
-**Recommendation:** Add reasonable maximum price limits:
-```solidity
-uint256 public constant MAX_PRICE = 1000 ether; // Example maximum
-if (price <= 0 || price > MAX_PRICE) {
-    revert invalidPrice(price);
-}
-```
-
-### H-03: Missing Emergency Pause Functionality
-**Impact:** No circuit breaker mechanism exists to halt operations during security incidents or upgrades. This could prevent timely response to discovered vulnerabilities.
-
-**Recommendation:** Implement OpenZeppelin's Pausable contract in marketplace contracts:
-```solidity
-import "@openzeppelin/contracts/security/Pausable.sol";
-
-function createOffer(...) external whenNotPaused {
-    // existing logic
-}
-```
-
----
-
 ## 🟡 Medium Severity Findings
-
-### M-01: Storage Layout Collision Risk in Upgradeable Contracts
-**File:** `src/LicenseFactory.sol:21`, `src/PrimaryMarketPlace.sol:27`, `src/SecondaryMarketPlace.sol:27`
-```solidity
-uint256[47] private __storageGap;
-```
-**Impact:** While storage gaps are implemented, the contract storage layout could still be vulnerable to collisions if new variables are added without proper planning.
-
-**Recommendation:** Implement proper storage layout documentation and use storage slot annotations for critical variables.
 
 ### M-02: Potential DoS via Unbounded Array Operations
 **File:** `src/SecondaryMarketPlace.sol:222-235`
@@ -89,37 +49,6 @@ function getOpenOffers() external view returns (Offer[] memory) {
 function getOpenOffers(uint256 offset, uint256 limit) external view returns (Offer[] memory) {
     // Implement pagination logic
 }
-```
-
-### M-03: Missing Zero Address Validation
-**File:** `src/LicenseFactory.sol:76-78`
-```solidity
-function initialize(address _admin) public initializer {
-    // Missing zero address check for _admin
-}
-```
-**Impact:** Initializing with zero address could break administrative functions.
-
-**Recommendation:** Add zero address validation:
-```solidity
-if (_admin == address(0)) {
-    revert InvalidAddress(_admin);
-}
-```
-
-### M-04: Event Indexing Optimization Missing
-**File:** Multiple contracts - various events
-**Impact:** Events lack proper indexing, affecting off-chain integration efficiency and gas costs for filtering.
-
-**Recommendation:** Add indexed parameters to frequently queried events:
-```solidity
-event NewOfferCreated(
-    address indexed seller,
-    uint256 indexed tokenId,
-    address indexed licenseAddress,
-    uint256 price,
-    uint256 timestamp
-);
 ```
 
 ---

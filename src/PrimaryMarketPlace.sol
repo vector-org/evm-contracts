@@ -12,7 +12,8 @@ import {
     onlyAdmin,
     onlyOwner,
     TransferFailed,
-    UnAuthorizedUser
+    UnAuthorizedUser,
+    ZeroAddressInput
 } from "./errors/Common.sol";
 import {
     licenseNotActive,
@@ -76,13 +77,21 @@ contract PrimaryMarketPlace is
         address _coordinator,
         address _factory
     ) public initializer {
+        if (
+            _admin == ZERO_ADDRESS ||
+            _coordinator == ZERO_ADDRESS ||
+            _factory == ZERO_ADDRESS
+        ) {
+            revert ZeroAddressInput();
+        }
+        if (_admin != ADMINISTRATOR) {
+            revert onlyAdmin(_admin);
+        }
+
         __Ownable_init(_admin);
         __UUPSUpgradeable_init();
         __Pausable_init();
 
-        if (_admin != ADMINISTRATOR) {
-            revert onlyAdmin(_admin);
-        }
         coordinator = _coordinator;
         factory = _factory;
     }
@@ -205,6 +214,9 @@ contract PrimaryMarketPlace is
     function setSecondaryMarketPlace(
         address _secondary
     ) external whenNotPaused onlyOwnerOrAdmin {
+        if (_secondary == ZERO_ADDRESS) {
+            revert ZeroAddressInput();
+        }
         secondaryMarketPlace = _secondary;
     }
 
