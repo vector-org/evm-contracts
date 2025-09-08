@@ -199,7 +199,7 @@ contract PrimaryMarketPlace is
 
     function updateNftData(
         uint256 nftId,
-        GameNft memory nftData
+        GameNft calldata nftData
     ) external whenNotPaused isAuthorizedForSecondary {
         gameNfts[nftId] = nftData;
         emit NFTDataUpdate(

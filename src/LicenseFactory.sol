@@ -144,7 +144,7 @@ contract LicenseFactory is
 
     function updateLicense(
         uint256 licenseId,
-        string memory uri
+        string calldata uri
     ) external whenNotPaused {
         address licenseAddress = licenseContracts[licenseId].contractAddress;
         if (licenseAddress == address(0)) {
