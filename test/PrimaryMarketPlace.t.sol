@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.28;
 
-import {Test} from "forge-std/Test.sol";
 import {BaseSetup} from "./BaseSetup.t.sol";
 import {ILicenseContract} from "src/interfaces/ILicenseContract.sol";
 import {

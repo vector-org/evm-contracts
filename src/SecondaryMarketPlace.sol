@@ -21,7 +21,7 @@ import {
     UnApprovedNFT,
     SellerNotOwner
 } from "./errors/SecondaryMarketPlace.sol";
-import {ReentrancyGuard} from "./utils/ReentrancyGuard.sol";
+import {ReentrancyGuard} from "openzeppelin-contracts/contracts/utils/ReentrancyGuard.sol";
 
 contract SecondaryMarketPlace is
     Addresses,
