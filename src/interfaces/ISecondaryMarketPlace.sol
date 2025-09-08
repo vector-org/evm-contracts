@@ -82,5 +82,5 @@ interface ISecondaryMarketPlace {
 
     /// @notice Get all currently active (open) offers.
     /// @return An array of active Offer structs.
-    function getOpenOffers() external view returns (Offer[] memory); // SPDX-License-Identifier: MIT
+    function getOpenOffers() external view returns (Offer[] memory);
 }
