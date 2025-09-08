@@ -30,27 +30,6 @@ This security audit examined the Vector EVM contracts repository's development b
 
 ## 🟠 High Severity Findings
 
-### H-01: Custom ReentrancyGuard Implementation Risk
-**File:** `src/utils/ReentrancyGuard.sol:7-15`
-```solidity
-abstract contract ReentrancyGuard {
-    bool private _locked;
-
-    modifier nonReentrant() {
-        if (_locked) revert ReentrantCall();
-        _locked = true;
-        _;
-        _locked = false;
-    }
-}
-```
-**Impact:** While functional, custom security implementations are riskier than battle-tested OpenZeppelin versions. The current implementation lacks gas-optimized patterns and comprehensive testing.
-
-**Recommendation:** Replace with OpenZeppelin's ReentrancyGuard which includes gas optimizations and extensive testing:
-```solidity
-import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
-```
-
 ### H-02: Missing Maximum Price Validation
 **File:** `src/SecondaryMarketPlace.sol:95-98`
 ```solidity
