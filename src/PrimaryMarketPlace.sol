@@ -19,13 +19,17 @@ import {
     NotSufficientETH
 } from "./errors/PrimaryMarketPlace.sol";
 import {ReentrancyGuard} from "openzeppelin-contracts/contracts/utils/ReentrancyGuard.sol";
+import {IPrimaryMarketPlace} from "./interfaces/IPrimaryMarketPlace.sol";
+import {PausableUpgradeable} from "@openzeppelin/contracts-upgradeable/utils/PausableUpgradeable.sol";
 
 contract PrimaryMarketPlace is
     Addresses,
     ReentrancyGuard,
     Initializable,
     UUPSUpgradeable,
-    OwnableUpgradeable
+    OwnableUpgradeable,
+    PausableUpgradeable,
+    IPrimaryMarketPlace
 {
     address private immutable PRIMARY_MARKETPLACE = address(this);
     address private coordinator;
@@ -37,28 +41,6 @@ contract PrimaryMarketPlace is
     uint256 private _tokenIdCounter;
 
     uint256[47] private __storageGap;
-
-    event Mint(
-        address indexed to,
-        address indexed licenseAddress,
-        string uri,
-        uint256 timestamp
-    );
-
-    event NFTStatusChange(
-        address indexed user,
-        bool status,
-        uint256 indexed tokenId,
-        uint256 timestamp
-    );
-
-    event NFTDataUpdate(
-        address indexed user,
-        address indexed owner,
-        address indexed licenseAddress,
-        string uri,
-        uint256 timestamp
-    );
 
     modifier checkIsAdmin() {
         if (msg.sender != Addresses.ADMINISTRATOR) {
@@ -96,6 +78,7 @@ contract PrimaryMarketPlace is
     ) public initializer {
         __Ownable_init(_admin);
         __UUPSUpgradeable_init();
+        __Pausable_init();
 
         if (_admin != ADMINISTRATOR) {
             revert onlyAdmin(_admin);
@@ -112,7 +95,7 @@ contract PrimaryMarketPlace is
         uint256 licenseId,
         address _receiver,
         string memory uri
-    ) external payable nonReentrant {
+    ) external payable whenNotPaused nonReentrant {
         ILicenseFactory licenseFactory = ILicenseFactory(factory);
         ILicenseFactory.License memory fetchedLicense = licenseFactory
             .getLicenseFromId(licenseId);
@@ -200,7 +183,7 @@ contract PrimaryMarketPlace is
     function changeNftStatus(
         uint256 nftId,
         bool status
-    ) external isAuthorizedForSecondary {
+    ) external whenNotPaused isAuthorizedForSecondary {
         gameNfts[nftId].listedForSale = status;
         emit NFTStatusChange(msg.sender, status, nftId, block.timestamp);
     }
@@ -208,7 +191,7 @@ contract PrimaryMarketPlace is
     function updateNftData(
         uint256 nftId,
         GameNft memory nftData
-    ) external isAuthorizedForSecondary {
+    ) external whenNotPaused isAuthorizedForSecondary {
         gameNfts[nftId] = nftData;
         emit NFTDataUpdate(
             msg.sender,
@@ -221,7 +204,15 @@ contract PrimaryMarketPlace is
 
     function setSecondaryMarketPlace(
         address _secondary
-    ) external onlyOwnerOrAdmin {
+    ) external whenNotPaused onlyOwnerOrAdmin {
         secondaryMarketPlace = _secondary;
+    }
+
+    function pause() external onlyOwner {
+        _pause();
+    }
+
+    function unpause() external onlyOwner {
+        _unpause();
     }
 }
