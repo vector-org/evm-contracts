@@ -2,7 +2,7 @@
 pragma solidity ^0.8.28;
 
 contract Addresses {
-    address public constant BURNINGADDRESS = address(0);
+    address public constant ZERO_ADDRESS = address(0);
     address public immutable ADMINISTRATOR;
     string public constant VERSION = "0.1.0";
 

@@ -8,7 +8,12 @@ import {ILicenseContract} from "./interfaces/ILicenseContract.sol";
 import {IPrimaryMarketPlace} from "./interfaces/IPrimaryMarketPlace.sol";
 import {Addresses} from "./constants/Addresses.sol";
 import {Offer} from "./types/Types.sol";
-import {onlyOwner, onlyAdmin, TransferFailed} from "./errors/Common.sol";
+import {
+    onlyOwner,
+    onlyAdmin,
+    TransferFailed,
+    ZeroAddressInput
+} from "./errors/Common.sol";
 import {
     notNFTOwner,
     priceIsInvalid,
@@ -56,13 +61,21 @@ contract SecondaryMarketPlace is
         address _factory,
         address _primaryMarketPlace
     ) public initializer {
-        __Ownable_init(_admin);
-        __UUPSUpgradeable_init();
-        __Pausable_init();
-
+        if (
+            _admin == ZERO_ADDRESS ||
+            _coordinator == ZERO_ADDRESS ||
+            _factory == ZERO_ADDRESS ||
+            _primaryMarketPlace == ZERO_ADDRESS
+        ) {
+            revert ZeroAddressInput();
+        }
         if (_admin != ADMINISTRATOR) {
             revert onlyAdmin(_admin);
         }
+
+        __Ownable_init(_admin);
+        __UUPSUpgradeable_init();
+        __Pausable_init();
 
         coordinator = _coordinator;
         factory = _factory;
