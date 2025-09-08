@@ -18,7 +18,7 @@ import {
     licenseNotActive,
     NotSufficientETH
 } from "./errors/PrimaryMarketPlace.sol";
-import {ReentrancyGuard} from "./utils/ReentrancyGuard.sol";
+import {ReentrancyGuard} from "openzeppelin-contracts/contracts/utils/ReentrancyGuard.sol";
 
 contract PrimaryMarketPlace is
     Addresses,

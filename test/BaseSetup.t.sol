@@ -6,7 +6,6 @@ import {LicenseFactory} from "src/LicenseFactory.sol";
 import {PrimaryMarketPlace} from "src/PrimaryMarketPlace.sol";
 import {SecondaryMarketPlace} from "src/SecondaryMarketPlace.sol";
 import {ERC1967Proxy} from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
-import {LicenseContract} from "src/LicenseContract.sol";
 import {LicenseInput} from "src/types/Types.sol";
 
 contract BaseSetup is Test {
