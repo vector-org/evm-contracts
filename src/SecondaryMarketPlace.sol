@@ -11,7 +11,7 @@ import {Offer} from "./types/Types.sol";
 import {onlyOwner, onlyAdmin, TransferFailed} from "./errors/Common.sol";
 import {
     notNFTOwner,
-    priceIsNotPositive,
+    priceIsInvalid,
     offerAlreadyActive,
     offerInactive,
     notSeller,
@@ -22,13 +22,17 @@ import {
     SellerNotOwner
 } from "./errors/SecondaryMarketPlace.sol";
 import {ReentrancyGuard} from "openzeppelin-contracts/contracts/utils/ReentrancyGuard.sol";
+import {ISecondaryMarketPlace} from "./interfaces/ISecondaryMarketPlace.sol";
+import {PausableUpgradeable} from "@openzeppelin/contracts-upgradeable/utils/PausableUpgradeable.sol";
 
 contract SecondaryMarketPlace is
     Addresses,
     ReentrancyGuard,
     Initializable,
     UUPSUpgradeable,
-    OwnableUpgradeable
+    OwnableUpgradeable,
+    ISecondaryMarketPlace,
+    PausableUpgradeable
 {
     address private coordinator;
     address private factory;
@@ -40,29 +44,7 @@ contract SecondaryMarketPlace is
 
     uint256[47] private __storageGap;
 
-    event NewOfferCreated(
-        address indexed seller,
-        uint256 indexed tokenId,
-        address indexed licenseAddress,
-        uint256 price,
-        uint256 timestamp
-    );
-
-    event OfferRemoved(
-        address indexed seller,
-        uint256 indexed tokenId,
-        address indexed licenseAddress,
-        uint256 timestamp
-    );
-
-    event OfferAccepted(
-        address indexed seller,
-        address indexed buyer,
-        uint256 indexed tokenId,
-        address licenseAddress,
-        uint256 price,
-        uint256 timestamp
-    );
+    uint256 private constant MAX_PRICE = 1 ether;
 
     constructor() Addresses(msg.sender) {
         _disableInitializers();
@@ -76,6 +58,7 @@ contract SecondaryMarketPlace is
     ) public initializer {
         __Ownable_init(_admin);
         __UUPSUpgradeable_init();
+        __Pausable_init();
 
         if (_admin != ADMINISTRATOR) {
             revert onlyAdmin(_admin);
@@ -94,7 +77,7 @@ contract SecondaryMarketPlace is
         uint256 tokenId,
         address licenseAddress,
         uint256 price
-    ) external nonReentrant {
+    ) external whenNotPaused nonReentrant {
         IPrimaryMarketPlace primaryMarket = IPrimaryMarketPlace(
             primaryMarketPlace
         );
@@ -122,8 +105,8 @@ contract SecondaryMarketPlace is
             revert notNFTOwner(msg.sender);
         }
         // here should be a logic to check if the game NFT is tradeable or not, involving a new attribute in primary mrktplace
-        if (price <= 0) {
-            revert priceIsNotPositive(price);
+        if (price <= 0 || price > MAX_PRICE) {
+            revert priceIsInvalid(price);
         }
 
         Offer memory newOffer = Offer({
@@ -150,7 +133,7 @@ contract SecondaryMarketPlace is
         );
     }
 
-    function removeOffer(uint256 tokenId) external {
+    function removeOffer(uint256 tokenId) external whenNotPaused nonReentrant {
         Offer storage offer = offerById[tokenId];
         if (offer.isActive == false) {
             revert offerInactive(tokenId);
@@ -176,7 +159,9 @@ contract SecondaryMarketPlace is
         );
     }
 
-    function acceptOffer(uint256 tokenId) external payable nonReentrant {
+    function acceptOffer(
+        uint256 tokenId
+    ) external payable whenNotPaused nonReentrant {
         Offer storage offer = offerById[tokenId];
         if (offer.isActive == false) {
             revert offerInactive(tokenId);
@@ -265,5 +250,13 @@ contract SecondaryMarketPlace is
             }
         }
         return openOffers;
+    }
+
+    function pause() external onlyOwner {
+        _pause();
+    }
+
+    function unpause() external onlyOwner {
+        _unpause();
     }
 }

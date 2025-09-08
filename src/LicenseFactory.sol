@@ -14,12 +14,14 @@ import {
     licenseNotFound,
     cannotUpdateLicense
 } from "./errors/LicenseFactory.sol";
+import {PausableUpgradeable} from "@openzeppelin/contracts-upgradeable/utils/PausableUpgradeable.sol";
 
 contract LicenseFactory is
     Addresses,
     Initializable,
     UUPSUpgradeable,
-    OwnableUpgradeable
+    OwnableUpgradeable,
+    PausableUpgradeable
 {
     mapping(uint256 => License) public licenseContracts;
     address[] public allLicenses;
@@ -64,6 +66,7 @@ contract LicenseFactory is
     function initialize(address _admin) public initializer {
         __Ownable_init(_admin);
         __UUPSUpgradeable_init();
+        __Pausable_init();
 
         if (_admin != ADMINISTRATOR) {
             revert onlyAdmin(_admin);
@@ -78,7 +81,7 @@ contract LicenseFactory is
 
     function createLicense(
         LicenseInput memory licenseInput
-    ) external checkIsCoordinator returns (address) {
+    ) external whenNotPaused checkIsCoordinator returns (address) {
         address newLicenseAddress = address(
             new LicenseContract(
                 licenseInput.name,
@@ -118,7 +121,10 @@ contract LicenseFactory is
         return newLicenseAddress;
     }
 
-    function changeLicenseStatus(uint256 licenseId, bool status) external {
+    function changeLicenseStatus(
+        uint256 licenseId,
+        bool status
+    ) external whenNotPaused {
         address licenseOwner = licenseContracts[licenseId].owner;
         if (
             licenseOwner != msg.sender && msg.sender != Addresses.ADMINISTRATOR
@@ -128,7 +134,10 @@ contract LicenseFactory is
         licenseContracts[licenseId].isActive = status;
     }
 
-    function updateLicense(uint256 licenseId, string memory uri) external {
+    function updateLicense(
+        uint256 licenseId,
+        string memory uri
+    ) external whenNotPaused {
         address licenseAddress = licenseContracts[licenseId].contractAddress;
         if (licenseAddress == address(0)) {
             revert licenseNotFound(licenseId);
@@ -147,7 +156,7 @@ contract LicenseFactory is
     function setCoordinator(
         address _coordinator,
         bool status
-    ) external onlyOwner {
+    ) external whenNotPaused onlyOwner {
         coordinators[_coordinator] = status;
         emit AddCoordinator(_coordinator, block.timestamp);
     }
@@ -168,5 +177,13 @@ contract LicenseFactory is
 
     function getAllLicenseIds() external view returns (uint256[] memory) {
         return tokenIds;
+    }
+
+    function pause() external onlyOwner {
+        _pause();
+    }
+
+    function unpause() external onlyOwner {
+        _unpause();
     }
 }
