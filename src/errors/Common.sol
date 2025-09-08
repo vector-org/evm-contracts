@@ -6,3 +6,4 @@ error onlyCoordinator(address caller);
 error onlyOwner(address caller);
 error TransferFailed(address from, address to, uint256 amount);
 error UnAuthorizedUser(address user);
+error ZeroAddressInput();
