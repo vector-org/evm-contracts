@@ -16,7 +16,8 @@ import {
 } from "./errors/Common.sol";
 import {
     licenseNotActive,
-    NotSufficientETH
+    NotSufficientETH,
+    nftIdNotFound
 } from "./errors/PrimaryMarketPlace.sol";
 import {ReentrancyGuard} from "openzeppelin-contracts/contracts/utils/ReentrancyGuard.sol";
 import {IPrimaryMarketPlace} from "./interfaces/IPrimaryMarketPlace.sol";
@@ -39,8 +40,9 @@ contract PrimaryMarketPlace is
     uint256[] public allNftIds;
 
     uint256 private _tokenIdCounter;
+    mapping(address => uint256[]) private userNftIds;
 
-    uint256[47] private __storageGap;
+    uint256[46] private __storageGap;
 
     modifier checkIsAdmin() {
         if (msg.sender != Addresses.ADMINISTRATOR) {
@@ -133,6 +135,7 @@ contract PrimaryMarketPlace is
             listedForSale: false
         });
         allNftIds.push(nftId);
+        userNftIds[_receiver].push(nftId);
 
         licenseContract.safeMint(uri, _receiver, nftId);
 
@@ -180,6 +183,14 @@ contract PrimaryMarketPlace is
         emit Mint(_receiver, licenseAddress, uri, block.timestamp);
     }
 
+    function addToUserLicenseNftIds(
+        address user,
+        uint256 nftId
+    ) external whenNotPaused isAuthorizedForSecondary {
+        uint256[] storage nftList = userNftIds[user];
+        nftList.push(nftId);
+    }
+
     function getAllNftIds() external view returns (uint256[] memory) {
         return allNftIds;
     }
@@ -190,12 +201,41 @@ contract PrimaryMarketPlace is
         return gameNfts[nftId];
     }
 
+    function getUserNftIds(
+        address user
+    ) external view returns (uint256[] memory) {
+        return userNftIds[user];
+    }
+
     function changeNftStatus(
         uint256 nftId,
         bool status
     ) external whenNotPaused isAuthorizedForSecondary {
         gameNfts[nftId].listedForSale = status;
         emit NFTStatusChange(msg.sender, status, nftId, block.timestamp);
+    }
+
+    function removeNftIdsFromUser(
+        address user,
+        uint256 nftId
+    ) external whenNotPaused nonReentrant isAuthorizedForSecondary {
+        uint256[] storage newNftList = userNftIds[user];
+        uint256 length = newNftList.length;
+        bool nftIdFound = false;
+        for (uint256 i = 0; i < length; ) {
+            if (newNftList[i] == nftId) {
+                newNftList[i] = newNftList[length - 1];
+                newNftList.pop();
+                nftIdFound = true;
+                break;
+            }
+            unchecked {
+                ++i;
+            }
+        }
+        if (!nftIdFound) {
+            revert nftIdNotFound(nftId);
+        }
     }
 
     function updateNftData(
