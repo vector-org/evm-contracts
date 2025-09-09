@@ -14,7 +14,7 @@ library Counters {
 
     function increment(Counter storage counter) internal {
         unchecked {
-            counter._value += 1;
+            ++counter._value;
         }
     }
 
@@ -24,7 +24,7 @@ library Counters {
             revert decrementOverflow(value);
         }
         unchecked {
-            counter._value = value - 1;
+            --counter._value;
         }
     }
 

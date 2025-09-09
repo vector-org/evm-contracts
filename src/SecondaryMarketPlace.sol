@@ -8,12 +8,7 @@ import {ILicenseContract} from "./interfaces/ILicenseContract.sol";
 import {IPrimaryMarketPlace} from "./interfaces/IPrimaryMarketPlace.sol";
 import {Addresses} from "./constants/Addresses.sol";
 import {Offer} from "./types/Types.sol";
-import {
-    onlyOwner,
-    onlyAdmin,
-    TransferFailed,
-    ZeroAddressInput
-} from "./errors/Common.sol";
+import {onlyAdmin, TransferFailed, ZeroAddressInput} from "./errors/Common.sol";
 import {
     notNFTOwner,
     priceIsInvalid,
@@ -82,9 +77,11 @@ contract SecondaryMarketPlace is
         primaryMarketPlace = _primaryMarketPlace;
     }
 
+    /* solhint-disable no-empty-blocks */
     function _authorizeUpgrade(
         address newImplementation
     ) internal override onlyOwner {}
+    /* solhint-enable no-empty-blocks */
 
     function createOffer(
         uint256 tokenId,
@@ -248,18 +245,24 @@ contract SecondaryMarketPlace is
 
     function getOpenOffers() external view returns (Offer[] memory) {
         uint256 openCount = 0;
-        for (uint256 i = 0; i < offers.length; i++) {
+        for (uint256 i = 0; i < offers.length; ) {
             if (offers[i].isActive) {
-                openCount++;
+                ++openCount;
+            }
+            unchecked {
+                ++i;
             }
         }
 
         Offer[] memory openOffers = new Offer[](openCount);
         uint256 index = 0;
-        for (uint256 i = 0; i < offers.length; i++) {
+        for (uint256 i = 0; i < offers.length; ) {
             if (offers[i].isActive) {
                 openOffers[index] = offers[i];
-                index++;
+                ++index;
+            }
+            unchecked {
+                ++i;
             }
         }
         return openOffers;
