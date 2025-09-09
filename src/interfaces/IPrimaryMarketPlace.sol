@@ -78,6 +78,23 @@ interface IPrimaryMarketPlace {
     /// @param status The new listedForSale status.
     function changeNftStatus(uint256 nftId, bool status) external;
 
+    /// @notice Add an NFT ID to a user's list of owned NFTs.
+    /// @param user The address of the user.
+    /// @param nftId The NFT token ID to add.
+    function addToUserLicenseNftIds(address user, uint256 nftId) external;
+
+    /// @notice Remove an NFT ID from a user's list of owned NFTs.
+    /// @param user The address of the user.
+    /// @param nftId The NFT token ID to remove.
+    function removeNftIdsFromUser(address user, uint256 nftId) external;
+
+    /// @notice Get all NFT IDs owned by a specific user.
+    /// @param user The address of the user.
+    /// @return An array of NFT token IDs owned by the user.
+    function getUserNftIds(
+        address user
+    ) external view returns (uint256[] memory);
+
     /// @notice Update all data fields of an NFT.
     /// @dev Replaces the existing NFT struct entirely.
     /// @param nftId The NFT token ID.
