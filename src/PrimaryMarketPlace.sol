@@ -17,7 +17,6 @@ import {
 import {
     licenseNotActive,
     NotSufficientETH,
-    UserNotFound,
     nftIdNotFound
 } from "./errors/PrimaryMarketPlace.sol";
 import {ReentrancyGuard} from "openzeppelin-contracts/contracts/utils/ReentrancyGuard.sol";
@@ -136,7 +135,7 @@ contract PrimaryMarketPlace is
             listedForSale: false
         });
         allNftIds.push(nftId);
-        userNftIds[msg.sender].push(nftId);
+        userNftIds[_receiver].push(nftId);
 
         licenseContract.safeMint(uri, _receiver, nftId);
 
@@ -222,9 +221,6 @@ contract PrimaryMarketPlace is
     ) external whenNotPaused nonReentrant isAuthorizedForSecondary {
         uint256[] storage newNftList = userNftIds[user];
         uint256 length = newNftList.length;
-        if (length == 0) {
-            revert UserNotFound(user);
-        }
         bool nftIdFound = false;
         for (uint256 i = 0; i < length; ) {
             if (newNftList[i] == nftId) {
