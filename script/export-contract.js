@@ -32,6 +32,10 @@ if (!txs.length) {
 fs.mkdirSync(targetDir, { recursive: true });
 
 const findArtifact = (contractName) => {
+  // Try foundry's default: out/ContractName.sol/ContractName.json
+  const foundryPath = path.join(outDir, `${contractName}.sol`, `${contractName}.json`);
+  if (fs.existsSync(foundryPath)) return foundryPath;
+  // Fallback: search recursively as before
   const stack = [outDir];
   while (stack.length) {
     const dir = stack.pop();
