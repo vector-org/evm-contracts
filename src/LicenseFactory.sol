@@ -11,7 +11,6 @@ import {License, LicenseInput} from "./types/Types.sol";
 import {
     onlyAdmin,
     onlyCoordinator,
-    onlyOwner,
     ZeroAddressInput
 } from "./errors/Common.sol";
 import {
@@ -83,9 +82,11 @@ contract LicenseFactory is
         coordinators[_admin] = true;
     }
 
+    /* solhint-disable no-empty-blocks */
     function _authorizeUpgrade(
         address newImplementation
     ) internal override onlyOwner {}
+    /* solhint-enable no-empty-blocks */
 
     function createLicense(
         LicenseInput memory licenseInput
@@ -125,7 +126,7 @@ contract LicenseFactory is
             msg.sender,
             block.timestamp
         );
-        _tokenIdCounter++;
+        ++_tokenIdCounter;
         return newLicenseAddress;
     }
 
@@ -144,7 +145,7 @@ contract LicenseFactory is
 
     function updateLicense(
         uint256 licenseId,
-        string memory uri
+        string calldata uri
     ) external whenNotPaused {
         address licenseAddress = licenseContracts[licenseId].contractAddress;
         if (licenseAddress == address(0)) {

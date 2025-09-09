@@ -10,7 +10,6 @@ import {Addresses} from "./constants/Addresses.sol";
 import {GameNft} from "./types/Types.sol";
 import {
     onlyAdmin,
-    onlyOwner,
     TransferFailed,
     UnAuthorizedUser,
     ZeroAddressInput
@@ -96,9 +95,11 @@ contract PrimaryMarketPlace is
         factory = _factory;
     }
 
+    /* solhint-disable no-empty-blocks */
     function _authorizeUpgrade(
         address newImplementation
     ) internal override onlyOwner {}
+    /* solhint-enable no-empty-blocks */
 
     function mintLicense(
         uint256 licenseId,
@@ -122,7 +123,7 @@ contract PrimaryMarketPlace is
 
         ILicenseContract licenseContract = ILicenseContract(licenseAddress);
         uint256 nftId = _tokenIdCounter;
-        _tokenIdCounter++;
+        ++_tokenIdCounter;
 
         gameNfts[nftId] = GameNft({
             owner: _receiver,
@@ -199,7 +200,7 @@ contract PrimaryMarketPlace is
 
     function updateNftData(
         uint256 nftId,
-        GameNft memory nftData
+        GameNft calldata nftData
     ) external whenNotPaused isAuthorizedForSecondary {
         gameNfts[nftId] = nftData;
         emit NFTDataUpdate(
