@@ -20,7 +20,7 @@ const vector = {
   name: "Vector Testnet",
   nativeCurrency: { name: 'Vector Testnet', symbol: 'VCTR', decimals: 18},
   rpcUrls: {
-    default: { http: ["http://localhost:8545"] }
+    default: { http: ["https://rpc.evm.wasm.host/"] }
   }
 }
 

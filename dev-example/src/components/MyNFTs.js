@@ -14,19 +14,19 @@ import { CONTRACTS } from '@/lib/contracts';
 
 export default function MyNFTs() {
   const { address, isConnected } = useAccount()
-  const { 
-    useGetAllNFTIds, 
-    useGetNFTDetails, 
+  const {
+    useGetUserNftIds,
+    useGetNFTDetails,
     useCreateOffer,
     useApprove,
     useGetApproved
   } = useContract()
-  
+
   // Core state
   const [nfts, setNfts] = useState([])
   const [loading, setLoading] = useState(true)
   const [txNotification, setTxNotification] = useState(null)
-  
+
   // Dialog state - isolated to prevent flickering
   const [dialogState, setDialogState] = useState({
     open: false,
@@ -35,17 +35,18 @@ export default function MyNFTs() {
     txHash: null,
     error: null
   })
-  
+
   // Price state - separate to prevent dialog re-renders
   const [salePrice, setSalePrice] = useState('')
-  
+
   // Refs for stability
   const processedNFTIds = useRef(new Set())
   const pollingTimeoutRef = useRef(null)
   const notificationTimeout = useRef(null)
   const inputRef = useRef(null)
-  
-  const { data: allNFTIds, isLoading: loadingIds } = useGetAllNFTIds()
+
+  // Fetch NFT IDs owned by the connected wallet
+  const { data: userNFTIds, isLoading: loadingIds } = useGetUserNftIds(address)
   const { createOffer } = useCreateOffer()
   const { approve } = useApprove()
 
@@ -82,22 +83,22 @@ export default function MyNFTs() {
     }, 5000)
   }, [])
 
-  // Load NFTs when IDs change
+  // Load NFTs for the connected wallet
   useEffect(() => {
     if (loadingIds) return
-    
-    if (allNFTIds && allNFTIds.length > 0) {
-      const idsString = allNFTIds.join(',')
+
+    if (userNFTIds && userNFTIds.length > 0) {
+      const idsString = userNFTIds.join(',')
       if (!processedNFTIds.current.has(idsString)) {
         processedNFTIds.current.add(idsString)
-        setNfts(allNFTIds.map(id => ({ id: id.toString() })))
+        setNfts(userNFTIds.map(id => ({ id: id.toString() })))
         setLoading(false)
       }
     } else {
       setNfts([])
       setLoading(false)
     }
-  }, [allNFTIds, loadingIds])
+  }, [userNFTIds, loadingIds])
 
   // Poll transaction status with cleanup
   const pollTransactionStatus = useCallback(async (hash, onSuccess, onFailure, maxAttempts = 20) => {
@@ -518,7 +519,7 @@ export default function MyNFTs() {
             
             <div className="space-y-2">
               <Label htmlFor="price-input" className="text-gray-800 font-semibold">
-                Sale Price (ETH)
+                Sale Price (VCTR)
               </Label>
               <Input
                 ref={inputRef}
@@ -579,7 +580,7 @@ export default function MyNFTs() {
             <p className="text-sm text-gray-700 font-medium">
               {dialogState.step === 'approving' 
                 ? 'Please wait while your approval is confirmed on the blockchain...' 
-                : `Creating listing for ${salePrice} ETH...`}
+                : `Creating listing for ${salePrice} VCTR...`}
             </p>
             <p className="text-xs text-gray-500">
               This may take a few moments depending on network congestion.
@@ -587,7 +588,7 @@ export default function MyNFTs() {
             {dialogState.txHash && (
               <div className="mt-4">
                 <a
-                  href={`https://sepolia.etherscan.io/tx/${dialogState.txHash}`}
+                  href={`https://explorer.evm.wasm.host/tx/${dialogState.txHash}`}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="text-xs text-blue-600 hover:underline flex items-center justify-center"
@@ -619,7 +620,7 @@ export default function MyNFTs() {
             <div>
               <p className="text-lg font-semibold text-gray-900">Game NFT Listed Successfully!</p>
               <p className="text-sm text-gray-600 mt-2">
-                Your NFT is now available for purchase at {salePrice} ETH
+                Your NFT is now available for purchase at {salePrice} VCTR
               </p>
             </div>
           </div>
@@ -677,12 +678,12 @@ export default function MyNFTs() {
             {txNotification.hash && (
               <div className="mt-2">
                 <a
-                  href={`https://sepolia.etherscan.io/tx/${txNotification.hash}`}
+                  href={`https://explorer.evm.wasm.host/tx/${txNotification.hash}`}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="text-xs text-blue-600 hover:underline flex items-center"
                 >
-                  View on Etherscan <ExternalLink className="h-3 w-3 ml-1" />
+                  View on Explorer <ExternalLink className="h-3 w-3 ml-1" />
                 </a>
               </div>
             )}

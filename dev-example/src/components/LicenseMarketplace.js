@@ -17,8 +17,8 @@ const LicenseCard = ({
   pendingMints, 
   handleMintLicense 
 }) => {
-  const { useGetLicenseFromID } = useContract()
-  const { data: licenseData, isLoading: isLoadingLicense } = useGetLicenseFromID(licenseId)
+  const { useGetLicenseFromId } = useContract()
+  const { data: licenseData, isLoading: isLoadingLicense } = useGetLicenseFromId(licenseId)
   const [metadata, setMetadata] = useState(null)
   const [imageUrl, setImageUrl] = useState(null)
   const [metadataLoaded, setMetadataLoaded] = useState(false)
@@ -138,12 +138,43 @@ const LicenseCard = ({
             <span className="text-gray-600">Symbol:</span>
             <span className="font-semibold text-gray-900">{licenseData?.symbol || 'N/A'}</span>
           </div>
-          <div className="flex items-center justify-between text-sm">
-            <span className="text-gray-600">Dev Fee:</span>
-            <span className="font-semibold text-gray-900">
-              {licenseData?.developerFee ? `${formatEther(licenseData.developerFee)} ETH` : '0 ETH'}
-            </span>
-          </div>
+          {/* Fee summary */}
+          {(() => {
+            const devFee = BigInt(licenseData?.developerFee || 0)
+            const platFee = BigInt(licenseData?.platformFee || 0)
+            const pubFee = BigInt(licenseData?.publisherFee || 0)
+            if (devFee > 0n || platFee > 0n || pubFee > 0n) {
+              return (
+                <div className="flex flex-col gap-1 mt-2">
+                  {devFee > 0n && (
+                    <div className="flex items-center justify-between text-sm">
+                      <span className="text-gray-600">Developer Fee:</span>
+                      <span className="font-semibold text-gray-900">{formatEther(devFee)} VCTR</span>
+                    </div>
+                  )}
+                  {platFee > 0n && (
+                    <div className="flex items-center justify-between text-sm">
+                      <span className="text-gray-600">Platform Fee:</span>
+                      <span className="font-semibold text-gray-900">{formatEther(platFee)} VCTR</span>
+                    </div>
+                  )}
+                  {pubFee > 0n && (
+                    <div className="flex items-center justify-between text-sm">
+                      <span className="text-gray-600">Publisher Fee:</span>
+                      <span className="font-semibold text-gray-900">{formatEther(pubFee)} VCTR</span>
+                    </div>
+                  )}
+                </div>
+              )
+            } else {
+              return (
+                <div className="flex items-center justify-between text-sm mt-2">
+                  <span className="text-gray-600">Price:</span>
+                  <span className="font-semibold text-green-700">FREE</span>
+                </div>
+              )
+            }
+          })()}
         </div>
       </CardContent>
 
@@ -224,12 +255,12 @@ const TransactionNotification = ({ txNotification, setTxNotification }) => {
           {txNotification.hash && (
             <div className="mt-2">
               <a
-                href={`https://sepolia.etherscan.io/tx/${txNotification.hash}`}
+                href={`https://explorer.evm.wasm.host/tx/${txNotification.hash}`}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="text-xs text-blue-600 hover:underline flex items-center"
               >
-                View on Etherscan <ExternalLink className="h-3 w-3 ml-1" />
+                View on Explorer <ExternalLink className="h-3 w-3 ml-1" />
               </a>
             </div>
           )}
@@ -243,7 +274,7 @@ export default function LicenseMarketplace() {
   const { address, isConnected } = useAccount()
   const { 
     useGetAllLicenseIds, 
-    useGetLicenseFromID, 
+  useGetLicenseFromId, 
     useMintLicense
   } = useContract()
 
@@ -394,6 +425,12 @@ export default function LicenseMarketplace() {
       return
     }
 
+    // Calculate total fee (developerFee + platformFee + publisherFee)
+    const devFee = BigInt(licenseData?.developerFee || 0)
+    const platFee = BigInt(licenseData?.platformFee || 0)
+    const pubFee = BigInt(licenseData?.publisherFee || 0)
+    const totalFee = devFee + platFee + pubFee
+
     try {
       setMintingLicense(licenseId)
       setPendingMints(prev => new Set([...prev, licenseId])) // Track pending mint
@@ -401,7 +438,8 @@ export default function LicenseMarketplace() {
       const result = await mintLicense({
         licenseId,
         receiver: address,
-        metadataURI: licenseData.uri
+        metadataURI: licenseData.uri,
+        value: totalFee
       })
       
       const txHash = result.hash
