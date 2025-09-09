@@ -17,6 +17,14 @@
       "double"
     ],
     "gas-calldata-parameters": "error",
-    "gas-custom-errors": "error"
+    "gas-custom-errors": "error",
+    "gas-indexed-events": "off",
+    "imports-on-top": "error",
+    "interface-starts-with-i": "error",
+    "use-natspec": ["off"],
+    "import-path-check": "off",
+    "function-max-lines": ["warn", 80],
+    "gas-increment-by-one": "error",
+    "no-unused-import": "error"
   }
 }
