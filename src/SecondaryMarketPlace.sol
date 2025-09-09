@@ -213,6 +213,8 @@ contract SecondaryMarketPlace is
         nftData.listedForSale = false;
         nftData.owner = msg.sender;
         primaryMarket.updateNftData(tokenId, nftData);
+        primaryMarket.removeNftIdsFromUser(offer.seller, tokenId);
+        primaryMarket.addToUserLicenseNftIds(msg.sender, tokenId);
 
         licenseContract.safeTransferFrom(offer.seller, msg.sender, tokenId);
 
