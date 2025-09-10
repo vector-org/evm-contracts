@@ -219,9 +219,6 @@ contract SecondaryMarketPlace is
         primaryMarket.addToUserLicenseNftIds(msg.sender, tokenId);
 
         licenseContract.safeTransferFrom(address(this), msg.sender, tokenId);
-        if (licenseContract.ownerOf(tokenId) != msg.sender) {
-            revert NftTransferFailed(address(this), msg.sender, tokenId);
-        }
 
         emit OfferRemoved(
             msg.sender,
