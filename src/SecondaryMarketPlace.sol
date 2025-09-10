@@ -19,8 +19,7 @@ import {
     insufficientPayment,
     alreadyListed,
     UnApprovedNFT,
-    ContractNotOwner,
-    NftTransferFailed
+    ContractNotOwner
 } from "./errors/SecondaryMarketPlace.sol";
 import {ReentrancyGuard} from "openzeppelin-contracts/contracts/utils/ReentrancyGuard.sol";
 import {ISecondaryMarketPlace} from "./interfaces/ISecondaryMarketPlace.sol";

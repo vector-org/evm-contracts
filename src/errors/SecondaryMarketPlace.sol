@@ -11,4 +11,3 @@ error alreadyListed(uint256 offerId);
 error UnApprovedNFT(address licenseAddress, uint256 tokenId);
 error ContractNotOwner();
 error offerAlreadyActive(uint256 offerId);
-error NftTransferFailed(address from, address to, uint256 tokenId);
