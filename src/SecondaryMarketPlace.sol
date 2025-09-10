@@ -365,7 +365,6 @@ contract SecondaryMarketPlace is
      * @param _tokenId The NFT identifier which is being transferred.
      * @param _data Additional data with no specified format.
      * @return The selector to confirm the token transfer.
-     * @custom:solhint-disable-next-line no-unused-vars
      */
     function onERC721Received(
         address _operator,
