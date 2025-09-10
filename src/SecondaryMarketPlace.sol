@@ -25,6 +25,18 @@ import {ReentrancyGuard} from "openzeppelin-contracts/contracts/utils/Reentrancy
 import {ISecondaryMarketPlace} from "./interfaces/ISecondaryMarketPlace.sol";
 import {PausableUpgradeable} from "@openzeppelin/contracts-upgradeable/utils/PausableUpgradeable.sol";
 
+/**
+ * @author DJ (PlayOnVector)
+ * @title SecondaryMarketPlace
+ * @notice Marketplace contract for secondary trading of game license NFTs.
+ * @dev Handles offer creation, acceptance, and removal. Integrates with PrimaryMarketPlace and LicenseContract. Only authorized addresses can manage offers and transfer NFTs.
+ *
+ * @custom:usage
+ * - Users list NFTs for sale via `createOffer`.
+ * - Buyers purchase NFTs via `acceptOffer`.
+ * - Only authorized addresses can remove offers or set coordinator.
+ * - Integrates with upgradeable proxy pattern (UUPS).
+ */
 contract SecondaryMarketPlace is
     Addresses,
     ReentrancyGuard,
@@ -37,19 +49,33 @@ contract SecondaryMarketPlace is
     address private coordinator;
     address private factory;
     address private primaryMarketPlace;
+    /// @notice List of all offers (active and inactive) on the secondary marketplace.
     Offer[] public offers;
+    /// @notice Mapping from NFT tokenId to its offer details.
     mapping(uint256 => Offer) public offerById;
+    /// @notice Mapping from NFT tokenId to its index in the offers array.
     mapping(uint256 => uint256) public tokenIdToOfferIndex;
-    bool private _locked;
 
     uint256[47] private __storageGap;
 
     uint256 private constant MAX_PRICE = 1 ether;
 
+    /**
+     * @notice Constructs the SecondaryMarketPlace contract.
+     * @dev Disables initializers to prevent proxy misuse.
+     */
     constructor() Addresses(msg.sender) {
         _disableInitializers();
     }
 
+    /**
+     * @notice Initializes the SecondaryMarketPlace contract.
+     * @param _admin The administrator address.
+     * @param _coordinator The coordinator address.
+     * @param _factory The LicenseFactory address.
+     * @param _primaryMarketPlace The PrimaryMarketPlace address.
+     * @dev Can only be called once. Sets up ownership, UUPS, and pausable modules.
+     */
     function initialize(
         address _admin,
         address _coordinator,
@@ -78,11 +104,23 @@ contract SecondaryMarketPlace is
     }
 
     /* solhint-disable no-empty-blocks */
+    /**
+     * @notice Authorizes contract upgrades.
+     * @param newImplementation The address of the new implementation.
+     * @dev Only callable by the contract owner (UUPS pattern).
+     */
     function _authorizeUpgrade(
         address newImplementation
     ) internal override onlyOwner {}
     /* solhint-enable no-empty-blocks */
 
+    /**
+     * @notice Create a new offer to sell an NFT.
+     * @param tokenId The NFT ID to list for sale.
+     * @param licenseAddress The address of the LicenseContract.
+     * @param price The sale price in wei.
+     * @dev Only the NFT owner can create an offer. NFT must be approved for this contract. Emits NewOfferCreated event.
+     */
     function createOffer(
         uint256 tokenId,
         address licenseAddress,
@@ -143,6 +181,11 @@ contract SecondaryMarketPlace is
         );
     }
 
+    /**
+     * @notice Remove an active offer for an NFT.
+     * @param tokenId The NFT ID whose offer is to be removed.
+     * @dev Only the seller or coordinator can remove an offer. Emits OfferRemoved event.
+     */
     function removeOffer(uint256 tokenId) external whenNotPaused nonReentrant {
         Offer storage offer = offerById[tokenId];
         if (offer.isActive == false) {
@@ -169,6 +212,11 @@ contract SecondaryMarketPlace is
         );
     }
 
+    /**
+     * @notice Accept an active offer and purchase the NFT.
+     * @param tokenId The NFT ID to purchase.
+     * @dev Buyer must send the exact offer price. NFT is transferred to buyer. Emits OfferAccepted event.
+     */
     function acceptOffer(
         uint256 tokenId
     ) external payable whenNotPaused nonReentrant {
@@ -233,18 +281,36 @@ contract SecondaryMarketPlace is
         );
     }
 
+    /**
+     * @notice Set the coordinator address.
+     * @param newCoordinator The new coordinator address.
+     * @dev Only callable by the contract owner.
+     */
     function setCoordinator(address newCoordinator) external onlyOwner {
         coordinator = newCoordinator;
     }
 
+    /**
+     * @notice Get the offer details for a specific NFT.
+     * @param tokenId The NFT ID.
+     * @return The Offer struct.
+     */
     function getOffer(uint256 tokenId) external view returns (Offer memory) {
         return offerById[tokenId];
     }
 
+    /**
+     * @notice Get all offers (active and inactive).
+     * @return Array of Offer structs.
+     */
     function getOffers() external view returns (Offer[] memory) {
         return offers;
     }
 
+    /**
+     * @notice Get all currently active (open) offers.
+     * @return Array of active Offer structs.
+     */
     function getOpenOffers() external view returns (Offer[] memory) {
         uint256 openCount = 0;
         for (uint256 i = 0; i < offers.length; ) {
@@ -270,10 +336,18 @@ contract SecondaryMarketPlace is
         return openOffers;
     }
 
+    /**
+     * @notice Pause the contract (emergency stop).
+     * @dev Only callable by the contract owner.
+     */
     function pause() external onlyOwner {
         _pause();
     }
 
+    /**
+     * @notice Unpause the contract.
+     * @dev Only callable by the contract owner.
+     */
     function unpause() external onlyOwner {
         _unpause();
     }

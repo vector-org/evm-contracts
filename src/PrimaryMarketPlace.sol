@@ -23,6 +23,17 @@ import {ReentrancyGuard} from "openzeppelin-contracts/contracts/utils/Reentrancy
 import {IPrimaryMarketPlace} from "./interfaces/IPrimaryMarketPlace.sol";
 import {PausableUpgradeable} from "@openzeppelin/contracts-upgradeable/utils/PausableUpgradeable.sol";
 
+/**
+ * @author DJ (PlayOnVector)
+ * @title PrimaryMarketPlace
+ * @notice Marketplace contract for minting and managing game license NFTs.
+ * @dev Handles minting, user NFT tracking, and fee distribution. Integrates with LicenseFactory and LicenseContract. Only authorized addresses can update or transfer NFTs.
+ *
+ * @custom:usage
+ * - Users mint new license NFTs via `mintLicense`.
+ * - Only authorized addresses (admin, coordinator, secondary marketplace) can update or transfer NFTs.
+ * - Integrates with upgradeable proxy pattern (UUPS).
+ */
 contract PrimaryMarketPlace is
     Addresses,
     ReentrancyGuard,
@@ -36,7 +47,9 @@ contract PrimaryMarketPlace is
     address private coordinator;
     address private factory;
     address private secondaryMarketPlace;
+    /// @notice Mapping from NFT ID to its GameNft metadata.
     mapping(uint256 => GameNft) public gameNfts;
+    /// @notice List of all NFT IDs managed by the marketplace.
     uint256[] public allNftIds;
 
     uint256 private _tokenIdCounter;
@@ -44,6 +57,7 @@ contract PrimaryMarketPlace is
 
     uint256[46] private __storageGap;
 
+    /// @notice Restricts function to only the administrator.
     modifier checkIsAdmin() {
         if (msg.sender != Addresses.ADMINISTRATOR) {
             revert onlyAdmin(msg.sender);
@@ -51,6 +65,7 @@ contract PrimaryMarketPlace is
         _;
     }
 
+    /// @notice Restricts function to coordinator, admin, or secondary marketplace.
     modifier isAuthorizedForSecondary() {
         if (
             msg.sender != coordinator &&
@@ -62,6 +77,7 @@ contract PrimaryMarketPlace is
         _;
     }
 
+    /// @notice Restricts function to only the owner or administrator.
     modifier onlyOwnerOrAdmin() {
         if (msg.sender != ADMINISTRATOR && msg.sender != owner()) {
             revert UnAuthorizedUser(msg.sender);
@@ -69,10 +85,21 @@ contract PrimaryMarketPlace is
         _;
     }
 
+    /**
+     * @notice Constructs the PrimaryMarketPlace contract.
+     * @dev Disables initializers to prevent proxy misuse.
+     */
     constructor() Addresses(msg.sender) checkIsAdmin() {
         _disableInitializers();
     }
 
+    /**
+     * @notice Initializes the PrimaryMarketPlace contract.
+     * @param _admin The administrator address.
+     * @param _coordinator The coordinator address.
+     * @param _factory The LicenseFactory address.
+     * @dev Can only be called once. Sets up ownership, UUPS, and pausable modules.
+     */
     function initialize(
         address _admin,
         address _coordinator,
@@ -98,11 +125,23 @@ contract PrimaryMarketPlace is
     }
 
     /* solhint-disable no-empty-blocks */
+    /**
+     * @notice Authorizes contract upgrades.
+     * @param newImplementation The address of the new implementation.
+     * @dev Only callable by the contract owner (UUPS pattern).
+     */
     function _authorizeUpgrade(
         address newImplementation
     ) internal override onlyOwner {}
     /* solhint-enable no-empty-blocks */
 
+    /**
+     * @notice Mint a new license NFT for a user.
+     * @param licenseId The license ID to mint from.
+     * @param _receiver The address to receive the NFT.
+     * @param uri The metadata URI for the NFT.
+     * @dev Requires payment of all license fees. Only active licenses can be minted. Emits Mint event.
+     */
     function mintLicense(
         uint256 licenseId,
         address _receiver,
@@ -183,6 +222,12 @@ contract PrimaryMarketPlace is
         emit Mint(_receiver, licenseAddress, uri, block.timestamp);
     }
 
+    /**
+     * @notice Add an NFT ID to a user's list (for secondary marketplace integration).
+     * @param user The user address.
+     * @param nftId The NFT ID to add.
+     * @dev Only callable by authorized addresses.
+     */
     function addToUserLicenseNftIds(
         address user,
         uint256 nftId
@@ -191,22 +236,42 @@ contract PrimaryMarketPlace is
         nftList.push(nftId);
     }
 
+    /**
+     * @notice Get all NFT IDs managed by the marketplace.
+     * @return Array of NFT IDs.
+     */
     function getAllNftIds() external view returns (uint256[] memory) {
         return allNftIds;
     }
 
+    /**
+     * @notice Get details for a specific NFT.
+     * @param nftId The NFT ID.
+     * @return The GameNft struct.
+     */
     function getNftDetails(
         uint256 nftId
     ) external view returns (GameNft memory) {
         return gameNfts[nftId];
     }
 
+    /**
+     * @notice Get all NFT IDs owned by a user.
+     * @param user The user address.
+     * @return Array of NFT IDs.
+     */
     function getUserNftIds(
         address user
     ) external view returns (uint256[] memory) {
         return userNftIds[user];
     }
 
+    /**
+     * @notice Change the listed-for-sale status of an NFT.
+     * @param nftId The NFT ID.
+     * @param status The new listed status.
+     * @dev Only callable by authorized addresses. Emits NFTStatusChange event.
+     */
     function changeNftStatus(
         uint256 nftId,
         bool status
@@ -215,6 +280,12 @@ contract PrimaryMarketPlace is
         emit NFTStatusChange(msg.sender, status, nftId, block.timestamp);
     }
 
+    /**
+     * @notice Remove an NFT ID from a user's list (for secondary marketplace integration).
+     * @param user The user address.
+     * @param nftId The NFT ID to remove.
+     * @dev Only callable by authorized addresses. Reverts if NFT ID not found.
+     */
     function removeNftIdsFromUser(
         address user,
         uint256 nftId
@@ -238,6 +309,12 @@ contract PrimaryMarketPlace is
         }
     }
 
+    /**
+     * @notice Update the data for a specific NFT.
+     * @param nftId The NFT ID.
+     * @param nftData The new GameNft struct data.
+     * @dev Only callable by authorized addresses. Emits NFTDataUpdate event.
+     */
     function updateNftData(
         uint256 nftId,
         GameNft calldata nftData
@@ -252,6 +329,11 @@ contract PrimaryMarketPlace is
         );
     }
 
+    /**
+     * @notice Set the address of the secondary marketplace contract.
+     * @param _secondary The secondary marketplace address.
+     * @dev Only callable by owner or admin.
+     */
     function setSecondaryMarketPlace(
         address _secondary
     ) external whenNotPaused onlyOwnerOrAdmin {
@@ -261,10 +343,18 @@ contract PrimaryMarketPlace is
         secondaryMarketPlace = _secondary;
     }
 
+    /**
+     * @notice Pause the contract (emergency stop).
+     * @dev Only callable by the contract owner.
+     */
     function pause() external onlyOwner {
         _pause();
     }
 
+    /**
+     * @notice Unpause the contract.
+     * @dev Only callable by the contract owner.
+     */
     function unpause() external onlyOwner {
         _unpause();
     }

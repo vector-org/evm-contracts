@@ -20,6 +20,18 @@ import {
 } from "./errors/LicenseFactory.sol";
 import {PausableUpgradeable} from "@openzeppelin/contracts-upgradeable/utils/PausableUpgradeable.sol";
 
+/**
+ * @author DJ (PlayOnVector)
+ * @title LicenseFactory
+ * @notice Factory contract for deploying and managing LicenseContract instances representing game licenses as NFTs.
+ * @dev Handles creation, status updates, and metadata management for LicenseContracts. Integrates with coordinators and enforces access control for license management.
+ *
+ * @custom:usage
+ * - Deploys new LicenseContract contracts for each license via `createLicense`.
+ * - Only coordinators can create new licenses.
+ * - License metadata and status can be updated by owners, administrators, or coordinators.
+ * - Integrates with upgradeable proxy pattern (UUPS).
+ */
 contract LicenseFactory is
     Addresses,
     Initializable,
@@ -27,8 +39,11 @@ contract LicenseFactory is
     OwnableUpgradeable,
     PausableUpgradeable
 {
+    /// @notice Mapping from license ID to License struct.
     mapping(uint256 => License) public licenseContracts;
+    /// @notice List of all LicenseContract addresses deployed by the factory.
     address[] public allLicenses;
+    /// @notice List of all license IDs managed by the factory.
     uint256[] public tokenIds;
     mapping(address => bool) private coordinators;
 
@@ -36,19 +51,32 @@ contract LicenseFactory is
 
     uint256[47] private __storageGap;
 
+    /// @notice Emitted when a new LicenseContract is deployed.
+    /// @param contractAddress The address of the new LicenseContract.
+    /// @param tokenId The license ID assigned to the contract.
+    /// @param creator The address that initiated the creation.
+    /// @param timestamp The block timestamp of creation.
     event NewLicenseContract(
         address indexed contractAddress,
         uint256 tokenId,
         address indexed creator,
         uint256 timestamp
     );
+    /// @notice Emitted when the contract owner is changed.
+    /// @param newOwner The new owner address.
+    /// @param oldOwner The previous owner address.
+    /// @param timestamp The block timestamp of the change.
     event OwnerChanged(
         address indexed newOwner,
         address indexed oldOwner,
         uint256 timestamp
     );
+    /// @notice Emitted when a coordinator is added or removed.
+    /// @param coordinator The coordinator address.
+    /// @param timestamp The block timestamp of the change.
     event AddCoordinator(address indexed coordinator, uint256 timestamp);
 
+    /// @notice Restricts function to only the administrator.
     modifier checkAccess() {
         if (msg.sender != ADMINISTRATOR) {
             revert onlyAdmin(msg.sender);
@@ -56,6 +84,7 @@ contract LicenseFactory is
         _;
     }
 
+    /// @notice Restricts function to only coordinators.
     modifier checkIsCoordinator() {
         if (coordinators[msg.sender] == false) {
             revert onlyCoordinator(msg.sender);
@@ -63,10 +92,19 @@ contract LicenseFactory is
         _;
     }
 
+    /**
+     * @notice Constructs the LicenseFactory contract.
+     * @dev Disables initializers to prevent proxy misuse.
+     */
     constructor() Addresses(msg.sender) checkAccess {
         _disableInitializers();
     }
 
+    /**
+     * @notice Initializes the LicenseFactory contract.
+     * @param _admin The administrator address.
+     * @dev Can only be called once. Sets up ownership, UUPS, and pausable modules. Adds admin as coordinator.
+     */
     function initialize(address _admin) public initializer {
         if (_admin == ZERO_ADDRESS) {
             revert ZeroAddressInput();
@@ -83,11 +121,22 @@ contract LicenseFactory is
     }
 
     /* solhint-disable no-empty-blocks */
+    /**
+     * @notice Authorizes contract upgrades.
+     * @param newImplementation The address of the new implementation.
+     * @dev Only callable by the contract owner (UUPS pattern).
+     */
     function _authorizeUpgrade(
         address newImplementation
     ) internal override onlyOwner {}
     /* solhint-enable no-empty-blocks */
 
+    /**
+     * @notice Deploys a new LicenseContract for a game license.
+     * @param licenseInput The license metadata and configuration.
+     * @return The address of the new LicenseContract.
+     * @dev Only callable by coordinators. Emits NewLicenseContract event.
+     */
     function createLicense(
         LicenseInput memory licenseInput
     ) external whenNotPaused checkIsCoordinator returns (address) {
@@ -130,6 +179,12 @@ contract LicenseFactory is
         return newLicenseAddress;
     }
 
+    /**
+     * @notice Change the active status of a license.
+     * @param licenseId The license ID.
+     * @param status The new active status.
+     * @dev Only the license owner or administrator can change status.
+     */
     function changeLicenseStatus(
         uint256 licenseId,
         bool status
@@ -143,6 +198,12 @@ contract LicenseFactory is
         licenseContracts[licenseId].isActive = status;
     }
 
+    /**
+     * @notice Update the metadata URI for a license.
+     * @param licenseId The license ID.
+     * @param uri The new metadata URI.
+     * @dev Only the license owner, administrator, or coordinator can update.
+     */
     function updateLicense(
         uint256 licenseId,
         string calldata uri
@@ -162,6 +223,12 @@ contract LicenseFactory is
         licenseContract.updateTokenURI(licenseId, uri);
     }
 
+    /**
+     * @notice Set or unset a coordinator address.
+     * @param _coordinator The coordinator address.
+     * @param status True to add, false to remove.
+     * @dev Only callable by the contract owner. Emits AddCoordinator event.
+     */
     function setCoordinator(
         address _coordinator,
         bool status
@@ -170,28 +237,55 @@ contract LicenseFactory is
         emit AddCoordinator(_coordinator, block.timestamp);
     }
 
+    /**
+     * @notice Get license metadata from its ID.
+     * @param id The license ID.
+     * @return The License struct.
+     */
     function getLicenseFromId(
         uint256 id
     ) external view returns (License memory) {
         return licenseContracts[id];
     }
 
+    /**
+     * @notice Get the owner address of a license.
+     * @param id The license ID.
+     * @return The owner address.
+     */
     function getOwnerOfLicense(uint256 id) external view returns (address) {
         return licenseContracts[id].owner;
     }
 
+    /**
+     * @notice Get the coordinator address of a license.
+     * @param id The license ID.
+     * @return The coordinator address.
+     */
     function getCoordinator(uint256 id) external view returns (address) {
         return licenseContracts[id].coordinator;
     }
 
+    /**
+     * @notice Get all license IDs managed by the factory.
+     * @return Array of license IDs.
+     */
     function getAllLicenseIds() external view returns (uint256[] memory) {
         return tokenIds;
     }
 
+    /**
+     * @notice Pause the contract (emergency stop).
+     * @dev Only callable by the contract owner.
+     */
     function pause() external onlyOwner {
         _pause();
     }
 
+    /**
+     * @notice Unpause the contract.
+     * @dev Only callable by the contract owner.
+     */
     function unpause() external onlyOwner {
         _unpause();
     }
