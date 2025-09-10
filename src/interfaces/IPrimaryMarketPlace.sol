@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.28;
 
-/// @author DJ (PlayOnVector)
+/// @author Vector Blockchain AG
 /// @title IPrimaryMarketPlace
 /// @notice Interface for the PrimaryMarketPlace contract that mints NFTs via License contracts, manages NFT status, and updates NFT metadata.
 interface IPrimaryMarketPlace {

@@ -4,7 +4,7 @@ pragma solidity ^0.8.28;
 import {decrementOverflow} from "../errors/Counters.sol";
 
 /**
- * @author DJ (PlayOnVector)
+ * @author Vector Blockchain AG
  * @title Counters
  * @notice Library for managing counters that can be incremented, decremented, reset, or set to a value.
  * @dev Used for tracking counts such as token IDs in contracts.

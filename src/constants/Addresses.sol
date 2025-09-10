@@ -2,7 +2,7 @@
 pragma solidity ^0.8.28;
 
 /**
- * @author DJ (PlayOnVector)
+ * @author Vector Blockchain AG
  * @title Addresses
  * @notice Provides global addresses and versioning for the protocol.
  * @dev Holds the administrator address and zero address constant for use across contracts.

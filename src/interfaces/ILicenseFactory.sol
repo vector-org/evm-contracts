@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.28;
 
-/// @author DJ (PlayOnVector)
+/// @author Vector Blockchain AG
 /// @title ILicenseFactory
 /// @notice Interface for the LicenseFactory contract that deploys and manages license contracts.
 interface ILicenseFactory {
