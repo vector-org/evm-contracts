@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.28;
 
+/// @author Vector Blockchain AG
 /// @title ILicenseContract
 /// @notice Interface for interacting with the LicenseContract ERC-721 implementation with restricted minting and transfer rules.
 interface ILicenseContract {
