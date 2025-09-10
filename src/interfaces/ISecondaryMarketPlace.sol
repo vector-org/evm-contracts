@@ -3,6 +3,7 @@ pragma solidity ^0.8.28;
 
 import {Offer} from "../types/Types.sol";
 
+/// @author DJ (PlayOnVector)
 /// @title ISecondaryMarketPlace
 /// @notice Interface for the SecondaryMarketPlace contract that manages secondary sales of NFTs (offers, acceptances, removals).
 interface ISecondaryMarketPlace {
