@@ -9,5 +9,6 @@ error cannotBuyYourOwnOffer(address caller);
 error insufficientPayment(uint256 offerId, uint256 payment);
 error alreadyListed(uint256 offerId);
 error UnApprovedNFT(address licenseAddress, uint256 tokenId);
-error SellerNotOwner(address seller);
+error ContractNotOwner();
 error offerAlreadyActive(uint256 offerId);
+error NftTransferFailed(address from, address to, uint256 tokenId);
