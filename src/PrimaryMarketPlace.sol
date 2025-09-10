@@ -24,7 +24,7 @@ import {IPrimaryMarketPlace} from "./interfaces/IPrimaryMarketPlace.sol";
 import {PausableUpgradeable} from "@openzeppelin/contracts-upgradeable/utils/PausableUpgradeable.sol";
 
 /**
- * @author DJ (PlayOnVector)
+ * @author Vector Blockchain AG
  * @title PrimaryMarketPlace
  * @notice Marketplace contract for minting and managing game license NFTs.
  * @dev Handles minting, user NFT tracking, and fee distribution. Integrates with LicenseFactory and LicenseContract. Only authorized addresses can update or transfer NFTs.

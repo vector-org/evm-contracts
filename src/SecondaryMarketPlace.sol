@@ -26,7 +26,7 @@ import {ISecondaryMarketPlace} from "./interfaces/ISecondaryMarketPlace.sol";
 import {PausableUpgradeable} from "@openzeppelin/contracts-upgradeable/utils/PausableUpgradeable.sol";
 
 /**
- * @author DJ (PlayOnVector)
+ * @author Vector Blockchain AG
  * @title SecondaryMarketPlace
  * @notice Marketplace contract for secondary trading of game license NFTs.
  * @dev Handles offer creation, acceptance, and removal. Integrates with PrimaryMarketPlace and LicenseContract. Only authorized addresses can manage offers and transfer NFTs.

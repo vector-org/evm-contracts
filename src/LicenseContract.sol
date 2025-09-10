@@ -13,7 +13,7 @@ import {
 import {ZeroAddressInput} from "./errors/Common.sol";
 
 /**
- * @author DJ (PlayOnVector)
+ * @author Vector Blockchain AG
  * @title LicenseContract
  * @notice ERC721 contract for representing game licenses as NFTs.
  * @dev This contract is deployed and managed by the LicenseFactory. Minting and transfer logic is tightly controlled and only allowed for trusted marketplace contracts.

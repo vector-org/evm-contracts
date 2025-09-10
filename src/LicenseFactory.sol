@@ -21,7 +21,7 @@ import {
 import {PausableUpgradeable} from "@openzeppelin/contracts-upgradeable/utils/PausableUpgradeable.sol";
 
 /**
- * @author DJ (PlayOnVector)
+ * @author Vector Blockchain AG
  * @title LicenseFactory
  * @notice Factory contract for deploying and managing LicenseContract instances representing game licenses as NFTs.
  * @dev Handles creation, status updates, and metadata management for LicenseContracts. Integrates with coordinators and enforces access control for license management.
