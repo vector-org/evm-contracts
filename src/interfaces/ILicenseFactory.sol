@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.28;
 
+/// @author Vector Blockchain AG
 /// @title ILicenseFactory
 /// @notice Interface for the LicenseFactory contract that deploys and manages license contracts.
 interface ILicenseFactory {
@@ -38,7 +39,13 @@ interface ILicenseFactory {
         address secondaryMarketplace;
     }
 
-    /// @notice Emitted when a new license contract is deployed.
+    /**
+     * @notice Emitted when a new license contract is deployed.
+     * @param contractAddress The address of the newly deployed license contract.
+     * @param tokenId The token ID of the license.
+     * @param creator The creator of the license contract.
+     * @param timestamp The timestamp when the contract was deployed.
+     */
     event NewLicenseContract(
         address indexed contractAddress,
         uint256 tokenId,
@@ -46,14 +53,23 @@ interface ILicenseFactory {
         uint256 timestamp
     );
 
-    /// @notice Emitted when the owner is changed.
+    /**
+     * @notice Emitted when the owner is changed.
+     * @param newOwner The new owner address.
+     * @param oldOwner The previous owner address.
+     * @param timestamp The timestamp when the owner was changed.
+     */
     event OwnerChanged(
         address indexed newOwner,
         address indexed oldOwner,
         uint256 timestamp
     );
 
-    /// @notice Emitted when a coordinator is added or removed.
+    /**
+     * @notice Emitted when a coordinator is added or removed.
+     * @param coordinator The address of the coordinator added or removed.
+     * @param timestamp The timestamp when the coordinator was added or removed.
+     */
     event AddCoordinator(address indexed coordinator, uint256 timestamp);
 
     /// @notice Deploy a new license contract and store its metadata.

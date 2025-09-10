@@ -12,12 +12,30 @@ import {
 } from "./errors/LicenseContract.sol";
 import {ZeroAddressInput} from "./errors/Common.sol";
 
+/**
+ * @author Vector Blockchain AG
+ * @title LicenseContract
+ * @notice ERC721 contract for representing game licenses as NFTs.
+ * @dev This contract is deployed and managed by the LicenseFactory. Minting and transfer logic is tightly controlled and only allowed for trusted marketplace contracts.
+ *
+ * @custom:usage
+ * - The LicenseFactory deploys this contract for each new license.
+ * - Only the PrimaryMarketPlace contract can mint new NFTs via `safeMint`.
+ * - Only the PrimaryMarketPlace and SecondaryMarketPlace contracts can transfer NFTs (enforced in `_update`).
+ * - The LicenseFactory, contract owner, or administrator can update token URIs.
+ */
 contract LicenseContract is ERC721, ERC721URIStorage, Addresses {
+    /// @notice The owner of this LicenseContract instance.
     address public owner;
+    /// @notice The LicenseFactory address that deployed this contract.
     address public immutable FACTORY;
+    /// @notice The PrimaryMarketPlace contract address allowed to mint and transfer.
     address public immutable PRIMARYMARKETPLACE;
+    /// @notice The SecondaryMarketPlace contract address allowed to transfer.
     address public immutable SECONDARYMARKETPLACE;
 
+    /// @notice Restricts function to only the factory.
+    /// @param _factory The factory address to check.
     modifier onlyFactory(address _factory) {
         if (msg.sender != _factory) {
             revert notFactory(msg.sender);
@@ -25,6 +43,7 @@ contract LicenseContract is ERC721, ERC721URIStorage, Addresses {
         _;
     }
 
+    /// @notice Restricts function to only the PrimaryMarketPlace.
     modifier onlyPrimaryMarketPlace() {
         if (msg.sender != PRIMARYMARKETPLACE) {
             revert notPrimaryMarketPlace();
@@ -32,6 +51,15 @@ contract LicenseContract is ERC721, ERC721URIStorage, Addresses {
         _;
     }
 
+    /**
+     * @notice Deploys a new LicenseContract.
+     * @param name The ERC721 name.
+     * @param symbol The ERC721 symbol.
+     * @param _factory The LicenseFactory address.
+     * @param primaryMarketplace The PrimaryMarketPlace address.
+     * @param secondaryMarketplace The SecondaryMarketPlace address.
+     * @dev Only the factory can deploy. All addresses must be nonzero.
+     */
     constructor(
         string memory name,
         string memory symbol,
@@ -52,6 +80,14 @@ contract LicenseContract is ERC721, ERC721URIStorage, Addresses {
         SECONDARYMARKETPLACE = secondaryMarketplace;
     }
 
+    /**
+     * @notice Mint a new license NFT to a user.
+     * @dev Only callable by the PrimaryMarketPlace contract.
+     * @param uri The metadata URI for the NFT.
+     * @param to The address to receive the NFT.
+     * @param licenseId The tokenId for the NFT.
+     * @custom:called-by PrimaryMarketPlace when a user purchases/mints a license.
+     */
     function safeMint(
         string memory uri,
         address to,
@@ -61,12 +97,24 @@ contract LicenseContract is ERC721, ERC721URIStorage, Addresses {
         _setTokenURI(licenseId, uri);
     }
 
+    /**
+     * @notice Get the metadata URI for a license NFT.
+     * @param licenseId The tokenId of the NFT.
+     * @return The metadata URI.
+     */
     function tokenURI(
         uint256 licenseId
     ) public view override(ERC721, ERC721URIStorage) returns (string memory) {
         return super.tokenURI(licenseId);
     }
 
+    /**
+     * @notice Update the metadata URI for a license NFT.
+     * @dev Only the contract owner, factory, or administrator can update.
+     * @param licenseId The tokenId of the NFT.
+     * @param newUri The new metadata URI.
+     * @custom:called-by LicenseFactory, contract owner, or administrator for metadata updates.
+     */
     function updateTokenURI(uint256 licenseId, string memory newUri) public {
         if (
             msg.sender != owner &&
@@ -78,6 +126,15 @@ contract LicenseContract is ERC721, ERC721URIStorage, Addresses {
         _setTokenURI(licenseId, newUri);
     }
 
+    /**
+     * @notice Internal transfer logic override for NFT transfers and burns.
+     * @dev Only PrimaryMarketPlace and SecondaryMarketPlace can transfer NFTs. Clears token URI on burn.
+     * @param to The recipient address.
+     * @param tokenId The tokenId being transferred.
+     * @param auth The address initiating the transfer.
+     * @return The previous owner address.
+     * @custom:called-by PrimaryMarketPlace and SecondaryMarketPlace for transfers.
+     */
     function _update(
         address to,
         uint256 tokenId,
@@ -100,6 +157,11 @@ contract LicenseContract is ERC721, ERC721URIStorage, Addresses {
         return super._update(to, tokenId, auth);
     }
 
+    /**
+     * @notice Check if this contract supports an interface.
+     * @param interfaceId The interface identifier.
+     * @return True if supported.
+     */
     function supportsInterface(
         bytes4 interfaceId
     ) public view override(ERC721, ERC721URIStorage) returns (bool) {

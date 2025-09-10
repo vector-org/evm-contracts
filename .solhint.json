@@ -21,7 +21,20 @@
     "gas-indexed-events": "off",
     "imports-on-top": "error",
     "interface-starts-with-i": "error",
-    "use-natspec": ["off"],
+    "use-natspec": ["warn", {
+      "notice": {
+        "enabled": true,
+        "ignore": {}
+      },
+      "param": {
+        "enabled": true,
+        "ignore": {}
+      },
+      "return": {
+        "enabled": true,
+        "ignore": {}
+      }
+    }],
     "import-path-check": "off",
     "function-max-lines": ["warn", 80],
     "gas-increment-by-one": "error",

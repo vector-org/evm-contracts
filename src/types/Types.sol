@@ -1,6 +1,12 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.28;
+/**
+ * @title Types
+ * @notice Shared data structures for licenses, NFTs, and marketplace offers.
+ * @dev Used by LicenseFactory, PrimaryMarketPlace, and SecondaryMarketPlace contracts.
+ */
 
+/// @notice Stores metadata and configuration for a deployed license contract.
 struct License {
     address contractAddress;
     address owner;
@@ -18,6 +24,7 @@ struct License {
     address platform;
 }
 
+/// @notice Input parameters for creating a new license contract.
 struct LicenseInput {
     string name;
     string symbol;
@@ -33,6 +40,7 @@ struct LicenseInput {
     address secondaryMarketplace;
 }
 
+/// @notice Metadata for a minted game license NFT.
 struct GameNft {
     address owner;
     string uri;
@@ -41,6 +49,7 @@ struct GameNft {
     bool listedForSale;
 }
 
+/// @notice Offer details for secondary marketplace listings.
 struct Offer {
     address seller;
     address buyer;
