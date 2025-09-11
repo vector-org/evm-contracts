@@ -19,7 +19,8 @@ import {
     insufficientPayment,
     alreadyListed,
     UnApprovedNFT,
-    ContractNotOwner
+    ContractNotOwner,
+    LicenseAddressDifferent
 } from "./errors/SecondaryMarketPlace.sol";
 import {ReentrancyGuard} from "openzeppelin-contracts/contracts/utils/ReentrancyGuard.sol";
 import {ISecondaryMarketPlace} from "./interfaces/ISecondaryMarketPlace.sol";
@@ -135,6 +136,10 @@ contract SecondaryMarketPlace is
             .getNftDetails(tokenId);
 
         ILicenseContract licenseContract = ILicenseContract(licenseAddress);
+
+        if (licenseAddress != gameNft.licenseAddress) {
+            revert LicenseAddressDifferent(licenseAddress);
+        }
         if (
             !licenseContract.isApprovedForAll(msg.sender, address(this)) &&
             licenseContract.getApproved(tokenId) != address(this)
@@ -193,6 +198,13 @@ contract SecondaryMarketPlace is
      */
     function removeOffer(uint256 tokenId) external whenNotPaused nonReentrant {
         Offer storage offer = offerById[tokenId];
+        ILicenseContract licenseContract = ILicenseContract(
+            offer.licenseAddress
+        );
+
+        if (licenseContract.ownerOf(tokenId) != address(this)) {
+            revert ContractNotOwner();
+        }
         if (offer.isActive == false) {
             revert offerInactive(tokenId);
         }
@@ -207,14 +219,11 @@ contract SecondaryMarketPlace is
         IPrimaryMarketPlace primaryMarket = IPrimaryMarketPlace(
             primaryMarketPlace
         );
-        ILicenseContract licenseContract = ILicenseContract(
-            offer.licenseAddress
-        );
 
         primaryMarket.changeNftStatus(tokenId, false);
         primaryMarket.addToUserLicenseNftIds(msg.sender, tokenId);
 
-        licenseContract.safeTransferFrom(address(this), msg.sender, tokenId);
+        licenseContract.safeTransferFrom(address(this), offer.seller, tokenId);
 
         emit OfferRemoved(
             msg.sender,

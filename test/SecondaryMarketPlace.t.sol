@@ -4,9 +4,9 @@ pragma solidity ^0.8.28;
 import {BaseSetup} from "./BaseSetup.t.sol";
 import {ILicenseContract} from "src/interfaces/ILicenseContract.sol";
 import {
-    offerInactive,
     insufficientPayment,
-    cannotBuyYourOwnOffer
+    cannotBuyYourOwnOffer,
+    ContractNotOwner
 } from "src/errors/SecondaryMarketPlace.sol";
 
 contract SecondaryMarketPlaceTest is BaseSetup {
@@ -87,9 +87,7 @@ contract SecondaryMarketPlaceTest is BaseSetup {
         vm.prank(buyer);
         secondary.removeOffer(tokenId);
         vm.prank(buyer);
-        vm.expectRevert(
-            abi.encodeWithSelector(offerInactive.selector, tokenId)
-        );
+        vm.expectRevert(abi.encodeWithSelector(ContractNotOwner.selector));
         secondary.removeOffer(tokenId);
     }
 }
