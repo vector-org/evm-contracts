@@ -221,12 +221,12 @@ contract SecondaryMarketPlace is
         );
 
         primaryMarket.changeNftStatus(tokenId, false);
-        primaryMarket.addToUserLicenseNftIds(msg.sender, tokenId);
+        primaryMarket.addToUserLicenseNftIds(offer.seller, tokenId);
 
         licenseContract.safeTransferFrom(address(this), offer.seller, tokenId);
 
         emit OfferRemoved(
-            msg.sender,
+            offer.seller,
             tokenId,
             offer.licenseAddress,
             block.timestamp
