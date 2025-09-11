@@ -19,11 +19,13 @@ import {
     insufficientPayment,
     alreadyListed,
     UnApprovedNFT,
-    SellerNotOwner
+    ContractNotOwner,
+    LicenseAddressDifferent
 } from "./errors/SecondaryMarketPlace.sol";
 import {ReentrancyGuard} from "openzeppelin-contracts/contracts/utils/ReentrancyGuard.sol";
 import {ISecondaryMarketPlace} from "./interfaces/ISecondaryMarketPlace.sol";
 import {PausableUpgradeable} from "@openzeppelin/contracts-upgradeable/utils/PausableUpgradeable.sol";
+import {IERC721Receiver} from "@openzeppelin/contracts/token/ERC721/IERC721Receiver.sol";
 
 /**
  * @author Vector Blockchain AG
@@ -44,7 +46,8 @@ contract SecondaryMarketPlace is
     UUPSUpgradeable,
     OwnableUpgradeable,
     ISecondaryMarketPlace,
-    PausableUpgradeable
+    PausableUpgradeable,
+    IERC721Receiver
 {
     address private coordinator;
     address private factory;
@@ -133,6 +136,10 @@ contract SecondaryMarketPlace is
             .getNftDetails(tokenId);
 
         ILicenseContract licenseContract = ILicenseContract(licenseAddress);
+
+        if (licenseAddress != gameNft.licenseAddress) {
+            revert LicenseAddressDifferent(licenseAddress);
+        }
         if (
             !licenseContract.isApprovedForAll(msg.sender, address(this)) &&
             licenseContract.getApproved(tokenId) != address(this)
@@ -171,6 +178,9 @@ contract SecondaryMarketPlace is
         offerById[tokenId] = newOffer;
 
         primaryMarket.changeNftStatus(tokenId, true);
+        primaryMarket.removeNftIdsFromUser(msg.sender, tokenId);
+
+        licenseContract.safeTransferFrom(msg.sender, address(this), tokenId);
 
         emit NewOfferCreated(
             msg.sender,
@@ -188,6 +198,13 @@ contract SecondaryMarketPlace is
      */
     function removeOffer(uint256 tokenId) external whenNotPaused nonReentrant {
         Offer storage offer = offerById[tokenId];
+        ILicenseContract licenseContract = ILicenseContract(
+            offer.licenseAddress
+        );
+
+        if (licenseContract.ownerOf(tokenId) != address(this)) {
+            revert ContractNotOwner();
+        }
         if (offer.isActive == false) {
             revert offerInactive(tokenId);
         }
@@ -202,10 +219,14 @@ contract SecondaryMarketPlace is
         IPrimaryMarketPlace primaryMarket = IPrimaryMarketPlace(
             primaryMarketPlace
         );
+
         primaryMarket.changeNftStatus(tokenId, false);
+        primaryMarket.addToUserLicenseNftIds(offer.seller, tokenId);
+
+        licenseContract.safeTransferFrom(address(this), offer.seller, tokenId);
 
         emit OfferRemoved(
-            msg.sender,
+            offer.seller,
             tokenId,
             offer.licenseAddress,
             block.timestamp
@@ -235,15 +256,8 @@ contract SecondaryMarketPlace is
             offer.licenseAddress
         );
 
-        if (
-            !licenseContract.isApprovedForAll(offer.seller, address(this)) &&
-            licenseContract.getApproved(tokenId) != address(this)
-        ) {
-            revert UnApprovedNFT(offer.licenseAddress, tokenId);
-        }
-
-        if (licenseContract.ownerOf(tokenId) != offer.seller) {
-            revert SellerNotOwner(offer.seller);
+        if (licenseContract.ownerOf(tokenId) != address(this)) {
+            revert ContractNotOwner();
         }
 
         offer.buyer = msg.sender;
@@ -261,10 +275,9 @@ contract SecondaryMarketPlace is
         nftData.listedForSale = false;
         nftData.owner = msg.sender;
         primaryMarket.updateNftData(tokenId, nftData);
-        primaryMarket.removeNftIdsFromUser(offer.seller, tokenId);
         primaryMarket.addToUserLicenseNftIds(msg.sender, tokenId);
 
-        licenseContract.safeTransferFrom(offer.seller, msg.sender, tokenId);
+        licenseContract.safeTransferFrom(address(this), msg.sender, tokenId);
 
         (bool success, ) = payable(offer.seller).call{value: offer.price}("");
         if (!success) {
@@ -351,4 +364,24 @@ contract SecondaryMarketPlace is
     function unpause() external onlyOwner {
         _unpause();
     }
+
+    /* solhint-disable no-unused-vars */
+    /**
+     * @notice Handles the receipt of an NFT (ERC721) to this contract.
+     * @dev Always returns the selector to confirm the token transfer.
+     * @param _operator The address which called `safeTransferFrom`.
+     * @param _from The address which previously owned the token.
+     * @param _tokenId The NFT identifier which is being transferred.
+     * @param _data Additional data with no specified format.
+     * @return The selector to confirm the token transfer.
+     */
+    function onERC721Received(
+        address _operator,
+        address _from,
+        uint256 _tokenId,
+        bytes calldata _data
+    ) external pure override returns (bytes4) {
+        return IERC721Receiver.onERC721Received.selector;
+    }
+    /* solhint-enable no-unused-vars */
 }
