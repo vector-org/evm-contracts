@@ -14,6 +14,8 @@ contract Addresses {
     address public immutable ADMINISTRATOR;
     /// @notice The version string for the protocol.
     string public constant VERSION = "0.1.0";
+    /// @notice The platform fee for the protocol.
+    uint8 public constant PLATFORM_FEE = 5;
 
     /**
      * @notice Constructs the Addresses contract.
