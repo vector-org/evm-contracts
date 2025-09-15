@@ -12,7 +12,7 @@ import {LicenseInput} from "src/types/Types.sol";
 contract PrimaryMarketPlaceTest is BaseSetup {
     function testMintLicenseDistributesFees() public {
         (address licenseAddr, uint256 licenseId) = _createLicense(true);
-        uint256 total = DEV_FEE + PUB_FEE + PLATFORM_FEE;
+        uint256 total = TOTAL_FEE;
 
         uint256 devBefore = developer.balance;
         uint256 pubBefore = publisher.balance;
@@ -51,9 +51,7 @@ contract PrimaryMarketPlaceTest is BaseSetup {
             symbol: "FREE",
             uri: "ipfs://root/free",
             isActive: true,
-            developerFee: 0,
-            platformFee: 0,
-            publisherFee: 0,
+            totalFee: 0,
             developer: developer,
             publisher: publisher,
             platform: platform,
@@ -85,9 +83,7 @@ contract PrimaryMarketPlaceTest is BaseSetup {
             symbol: "FREE",
             uri: "ipfs://root/free",
             isActive: true,
-            developerFee: 0,
-            platformFee: 0,
-            publisherFee: 0,
+            totalFee: 0,
             developer: developer,
             publisher: publisher,
             platform: platform,

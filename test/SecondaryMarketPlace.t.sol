@@ -93,7 +93,9 @@ contract SecondaryMarketPlaceTest is BaseSetup {
         secondary.removeOffer(tokenId);
     }
 
-    function testCoordinatorRemoveOfferReturnsToSellerAndUpdatesPrimary() public {
+    function testCoordinatorRemoveOfferReturnsToSellerAndUpdatesPrimary()
+        public
+    {
         (address licenseAddr, , uint256 tokenId) = _mintForSecondary();
         vm.prank(buyer);
         ILicenseContract(licenseAddr).approve(address(secondary), tokenId);
@@ -109,18 +111,20 @@ contract SecondaryMarketPlaceTest is BaseSetup {
             "NFT not returned to seller on coordinator cancel"
         );
 
-        IPrimaryMarketPlace.GameNft memory nftData = primary.getNftDetails(tokenId);
+        IPrimaryMarketPlace.GameNft memory nftData = primary.getNftDetails(
+            tokenId
+        );
         assertEq(nftData.listedForSale, false, "listedForSale not reset");
         assertEq(nftData.owner, buyer, "primary owner not reset to seller");
 
         uint256[] memory userIds = primary.getUserNftIds(buyer);
         bool found;
-        for (uint256 i = 0; i < userIds.length;) {
+        for (uint256 i = 0; i < userIds.length; ) {
             if (userIds[i] == tokenId) {
                 found = true;
                 break;
             }
-            unchecked{
+            unchecked {
                 ++i;
             }
         }
@@ -136,7 +140,10 @@ contract SecondaryMarketPlaceTest is BaseSetup {
 
         vm.prank(buyer);
         vm.expectRevert(
-            abi.encodeWithSelector(LicenseAddressDifferent.selector, wrongLicenseAddr)
+            abi.encodeWithSelector(
+                LicenseAddressDifferent.selector,
+                wrongLicenseAddr
+            )
         );
         secondary.createOffer(tokenId, wrongLicenseAddr, 1 ether);
     }

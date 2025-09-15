@@ -20,9 +20,10 @@ contract BaseSetup is Test {
     address internal platform;
     address internal buyer;
 
-    uint256 internal constant DEV_FEE = 0.01 ether;
-    uint256 internal constant PUB_FEE = 0.02 ether;
-    uint256 internal constant PLATFORM_FEE = 0.03 ether;
+    uint256 internal constant TOTAL_FEE = 0.8 ether;
+    uint256 internal constant PUB_FEE = (TOTAL_FEE * 5) / 100;
+    uint256 internal constant PLATFORM_FEE = (TOTAL_FEE * 5) / 100;
+    uint256 internal constant DEV_FEE = TOTAL_FEE - PUB_FEE - PLATFORM_FEE;
 
     function setUp() public virtual {
         admin = address(this);
@@ -33,9 +34,9 @@ contract BaseSetup is Test {
         buyer = makeAddr("buyer");
 
         vm.deal(coordinator, 100 ether);
-        vm.deal(developer, 1 ether);
-        vm.deal(publisher, 1 ether);
-        vm.deal(platform, 1 ether);
+        vm.deal(developer, 2 ether);
+        vm.deal(publisher, 2 ether);
+        vm.deal(platform, 2 ether);
         vm.deal(buyer, 100 ether);
 
         LicenseFactory factoryImpl = new LicenseFactory();
@@ -87,9 +88,7 @@ contract BaseSetup is Test {
             symbol: "TL",
             uri: "ipfs://root/0",
             isActive: active,
-            developerFee: DEV_FEE,
-            platformFee: PLATFORM_FEE,
-            publisherFee: PUB_FEE,
+            totalFee: TOTAL_FEE,
             developer: developer,
             publisher: publisher,
             platform: platform,
