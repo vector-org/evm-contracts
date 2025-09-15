@@ -29,9 +29,7 @@ interface ILicenseFactory {
         string symbol;
         string uri;
         bool isActive;
-        uint256 developerFee;
-        uint256 platformFee;
-        uint256 publisherFee;
+        uint256 totalFee;
         address developer;
         address publisher;
         address platform;
