@@ -153,9 +153,9 @@ contract LicenseFactory is
 
         tokenIds.push(_tokenIdCounter);
 
-        uint256 pubAndPlatformFee = (licenseInput.totalFee * PLATFORM_FEE) /
-            100;
-        uint256 devFee = licenseInput.totalFee - (2 * pubAndPlatformFee);
+        uint256 platformFee = (licenseInput.totalFee * PLATFORM_FEE) / 100;
+        uint256 publisherFee = (licenseInput.totalFee * PUBLISHER_FEE) / 100;
+        uint256 devFee = licenseInput.totalFee - platformFee - publisherFee;
 
         License storage licenseSlot = licenseContracts[_tokenIdCounter];
         licenseSlot.contractAddress = newLicenseAddress;
@@ -167,8 +167,8 @@ contract LicenseFactory is
         licenseSlot.isActive = licenseInput.isActive;
         licenseSlot.timestamp = block.timestamp;
         licenseSlot.developerFee = devFee;
-        licenseSlot.platformFee = pubAndPlatformFee;
-        licenseSlot.publisherFee = pubAndPlatformFee;
+        licenseSlot.platformFee = platformFee;
+        licenseSlot.publisherFee = publisherFee;
         licenseSlot.developer = licenseInput.developer;
         licenseSlot.publisher = licenseInput.publisher;
         licenseSlot.platform = licenseInput.platform;
