@@ -61,8 +61,6 @@ contract SecondaryMarketPlace is
 
     uint256[47] private __storageGap;
 
-    uint256 private constant MAX_PRICE = 1 ether;
-
     /**
      * @notice Constructs the SecondaryMarketPlace contract.
      * @dev Disables initializers to prevent proxy misuse.
@@ -160,7 +158,7 @@ contract SecondaryMarketPlace is
             revert notNFTOwner(msg.sender);
         }
         // here should be a logic to check if the game NFT is tradeable or not, involving a new attribute in primary mrktplace
-        if (price <= 0 || price > MAX_PRICE) {
+        if (price <= 0 || price > Addresses.MAX_PRICE) {
             revert priceIsInvalid(price);
         }
 

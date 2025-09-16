@@ -18,6 +18,8 @@ contract Addresses {
     uint8 public constant PLATFORM_FEE = 5;
     /// @notice The publisher fee % for the protocol.
     uint8 public constant PUBLISHER_FEE = 5;
+    /// @notice The max price for listing license on Secondary Market
+    uint256 public constant MAX_PRICE = 100 ether;
 
     /**
      * @notice Constructs the Addresses contract.

@@ -140,30 +140,37 @@ const LicenseCard = ({
           </div>
           {/* Fee summary */}
           {(() => {
-            const devFee = BigInt(licenseData?.developerFee || 0)
-            const platFee = BigInt(licenseData?.platformFee || 0)
-            const pubFee = BigInt(licenseData?.publisherFee || 0)
-            if (devFee > 0n || platFee > 0n || pubFee > 0n) {
+            // Use developerFee, platformFee, publisherFee from licenseData
+            // Always treat as string for replace
+            let devFeeRaw = licenseData?.developerFee ?? '0';
+            let platformFeeRaw = licenseData?.platformFee ?? '0';
+            let publisherFeeRaw = licenseData?.publisherFee ?? '0';
+            devFeeRaw = String(devFeeRaw).replace(/,/g, '');
+            platformFeeRaw = String(platformFeeRaw).replace(/,/g, '');
+            publisherFeeRaw = String(publisherFeeRaw).replace(/,/g, '');
+            let developerFee = BigInt(0), platformFee = BigInt(0), publisherFee = BigInt(0);
+            try { developerFee = BigInt(devFeeRaw); } catch (e) { developerFee = 0n; }
+            try { platformFee = BigInt(platformFeeRaw); } catch (e) { platformFee = 0n; }
+            try { publisherFee = BigInt(publisherFeeRaw); } catch (e) { publisherFee = 0n; }
+            const totalFee = developerFee + platformFee + publisherFee;
+            if (totalFee > 0n) {
               return (
                 <div className="flex flex-col gap-1 mt-2">
-                  {devFee > 0n && (
-                    <div className="flex items-center justify-between text-sm">
-                      <span className="text-gray-600">Developer Fee:</span>
-                      <span className="font-semibold text-gray-900">{formatEther(devFee)} VCTR</span>
-                    </div>
-                  )}
-                  {platFee > 0n && (
-                    <div className="flex items-center justify-between text-sm">
-                      <span className="text-gray-600">Platform Fee:</span>
-                      <span className="font-semibold text-gray-900">{formatEther(platFee)} VCTR</span>
-                    </div>
-                  )}
-                  {pubFee > 0n && (
-                    <div className="flex items-center justify-between text-sm">
-                      <span className="text-gray-600">Publisher Fee:</span>
-                      <span className="font-semibold text-gray-900">{formatEther(pubFee)} VCTR</span>
-                    </div>
-                  )}
+                  <div className="flex items-center justify-between text-sm">
+                    <span className="text-gray-600">Developer Share:</span>
+                    <span className="font-semibold text-gray-900">{formatEther(developerFee)} VCTR</span>
+                  </div>
+                  <div className="flex items-center justify-between text-sm">
+                    <span className="text-gray-600">Platform Fee:</span>
+                    <span className="font-semibold text-gray-900">{formatEther(platformFee)} VCTR</span>
+                  </div>
+                  <div className="flex items-center justify-between text-sm">
+                    <span className="text-gray-600">Publisher Fee:</span>
+                    <span className="font-semibold text-gray-900">{formatEther(publisherFee)} VCTR</span>
+                  </div>
+                  <div className="text-xs text-orange-600 mt-1">
+                    5% of the total fee goes to the platform, 5% to the publisher, and the rest to the developer.
+                  </div>
                 </div>
               )
             } else {
@@ -425,11 +432,8 @@ export default function LicenseMarketplace() {
       return
     }
 
-    // Calculate total fee (developerFee + platformFee + publisherFee)
-    const devFee = BigInt(licenseData?.developerFee || 0)
-    const platFee = BigInt(licenseData?.platformFee || 0)
-    const pubFee = BigInt(licenseData?.publisherFee || 0)
-    const totalFee = devFee + platFee + pubFee
+  // Use totalFee from contract
+  const totalFee = BigInt(licenseData?.totalFee || 0)
 
     try {
       setMintingLicense(licenseId)

@@ -36,7 +36,7 @@
     "test:gas": "forge test --gas-report",
     "forge:lint": "forge lint --severity high --severity gas",
     "lint": "solhint 'src/**/*.sol'",
-    "cast:setSecondaryOnPrimary": "source .env && cast send $PRIMARY_PROXY_ADDRESS setSecondaryMarketPlace() $SECONDARY_PROXY_ADDRESS --private-key $PRIVATE_KEY --rpc-url vector",
+    "cast:setSecondaryOnPrimary": "source .env && cast send $PRIMARY_PROXY_ADDRESS 'setSecondaryMarketPlace(address)' $SECONDARY_PROXY_ADDRESS --private-key $PRIVATE_KEY --rpc-url vector",
     "format:check": "prettier --list-different --plugin=prettier-plugin-solidity 'src/**/*.sol'",
     "format:fix": "prettier --write --plugin=prettier-plugin-solidity '**/*.sol'",
     "contracts:static-analysis": "slither .",

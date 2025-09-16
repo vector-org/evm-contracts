@@ -9,18 +9,18 @@ import {SecondaryMarketPlace} from "../src/SecondaryMarketPlace.sol";
 import {LicenseInput} from "../src/types/Types.sol";
 
 contract UpgradeTest is Test {
-    LicenseFactory licenseFactory;
-    PrimaryMarketPlace primaryMarketPlace;
-    SecondaryMarketPlace secondaryMarketPlace;
+    LicenseFactory public licenseFactory;
+    PrimaryMarketPlace public primaryMarketPlace;
+    SecondaryMarketPlace public secondaryMarketPlace;
 
-    address licenseFactoryProxy;
-    address payable primaryMarketPlaceProxy;
-    address secondaryMarketPlaceProxy;
+    address public licenseFactoryProxy;
+    address payable public primaryMarketPlaceProxy;
+    address public secondaryMarketPlaceProxy;
 
-    address admin = makeAddr("admin");
-    address coordinator = makeAddr("coordinator");
-    address user1 = makeAddr("user1");
-    address user2 = makeAddr("user2");
+    address public admin = makeAddr("admin");
+    address public coordinator = makeAddr("coordinator");
+    address public user1 = makeAddr("user1");
+    address public user2 = makeAddr("user2");
 
     function setUp() public {
         vm.startPrank(admin);

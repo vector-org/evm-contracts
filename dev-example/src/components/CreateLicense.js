@@ -25,9 +25,7 @@ export default function CreateLicense() {
     developer: '',
     publisher: '',
     platform: '',
-    developerFee: '',
-    platformFee: '',
-    publisherFee: '',
+    totalFee: '',
     genre: '',
     externalUrl: '',
     youtubeUrl: ''
@@ -91,9 +89,7 @@ export default function CreateLicense() {
       developer: address || '',
       publisher: address || '',
       platform: address || '',
-      developerFee: '',
-      platformFee: '',
-      publisherFee: '',
+      totalFee: '',
       genre: '',
       externalUrl: '',
       youtubeUrl: ''
@@ -227,11 +223,9 @@ export default function CreateLicense() {
       const licenseInput = {
         name: formData.name.trim(),
         symbol: formData.symbol.trim().toUpperCase(),
-        uri: `ipfs://${uploadResult.metadataHash}`, // Use the IPFS URI format
+        uri: `ipfs://${uploadResult.metadataHash}`,
         isActive: true,
-        developerFee: formData.developerFee ? parseEther(formData.developerFee) : 0n,
-        platformFee: formData.platformFee ? parseEther(formData.platformFee) : 0n,
-        publisherFee: formData.publisherFee ? parseEther(formData.publisherFee) : 0n,
+        totalFee: formData.totalFee ? parseEther(formData.totalFee) : 0n,
         developer: formData.developer.trim(),
         publisher: formData.publisher.trim(),
         platform: formData.platform.trim(),
@@ -239,15 +233,7 @@ export default function CreateLicense() {
         secondaryMarketplace: CONTRACT_ADDRESSES.SECONDARY_MARKETPLACE
       }
       
-      console.log('🔧 [CreateLicense] License input prepared:', {
-        ...licenseInput,
-        uri: licenseInput.uri,
-        fees: {
-          developer: licenseInput.developerFee.toString(),
-          platform: licenseInput.platformFee.toString(),
-          publisher: licenseInput.publisherFee.toString()
-        }
-      })
+      console.log('🔧 [CreateLicense] License input prepared:', licenseInput)
       
       const txHash = await createLicense(licenseInput)
       console.log('📤 [CreateLicense] Transaction submitted:', txHash)
@@ -526,55 +512,28 @@ export default function CreateLicense() {
               </div>
             </div>
 
-            {/* Fee Structure */}
+            {/* Total Fee */}
             <div className="space-y-6">
-              <h3 className="text-xl font-semibold text-gray-900 border-b pb-2">Fee Structure (Optional)</h3>
-              
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              <h3 className="text-xl font-semibold text-gray-900 border-b pb-2">Total Fee</h3>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div className="space-y-2">
-                  <Label htmlFor="developerFee" className="text-sm font-medium text-gray-700">Developer Fee (ETH)</Label>
+                  <Label htmlFor="totalFee" className="text-sm font-medium text-gray-700">Total Fee (ETH) *</Label>
                   <Input
-                    id="developerFee"
-                    name="developerFee"
+                    id="totalFee"
+                    name="totalFee"
                     type="number"
                     step="0.001"
                     min="0"
-                    value={formData.developerFee}
+                    value={formData.totalFee}
                     onChange={handleInputChange}
                     placeholder="0.0"
+                    required
                     disabled={isCreating}
                     className="h-12 text-base border-gray-300 focus:border-blue-500 focus:ring-blue-500"
                   />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="platformFee" className="text-sm font-medium text-gray-700">Platform Fee (ETH)</Label>
-                  <Input
-                    id="platformFee"
-                    name="platformFee"
-                    type="number"
-                    step="0.001"
-                    min="0"
-                    value={formData.platformFee}
-                    onChange={handleInputChange}
-                    placeholder="0.0"
-                    disabled={isCreating}
-                    className="h-12 text-base border-gray-300 focus:border-blue-500 focus:ring-blue-500"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="publisherFee" className="text-sm font-medium text-gray-700">Publisher Fee (ETH)</Label>
-                  <Input
-                    id="publisherFee"
-                    name="publisherFee"
-                    type="number"
-                    step="0.001"
-                    min="0"
-                    value={formData.publisherFee}
-                    onChange={handleInputChange}
-                    placeholder="0.0"
-                    disabled={isCreating}
-                    className="h-12 text-base border-gray-300 focus:border-blue-500 focus:ring-blue-500"
-                  />
+                  <div className="text-xs text-orange-600 mt-1">
+                    5% of the total fee will go to the platform, 5% to the publisher, and the rest to the developer.
+                  </div>
                 </div>
               </div>
             </div>
