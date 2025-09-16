@@ -1,5 +1,5 @@
 {
-  "address": "0xE00bdd8b0a10bb483770A3F076f75681f45502bC",
+  "address": "0x2C7548B2BBecF649976D4eEe6c0Ff586fab444b7",
   "abi": [
     {
       "type": "constructor",
@@ -15,6 +15,45 @@
           "name": "",
           "type": "address",
           "internalType": "address"
+        }
+      ],
+      "stateMutability": "view"
+    },
+    {
+      "type": "function",
+      "name": "MAX_PRICE",
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "",
+          "type": "uint256",
+          "internalType": "uint256"
+        }
+      ],
+      "stateMutability": "view"
+    },
+    {
+      "type": "function",
+      "name": "PLATFORM_FEE",
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "",
+          "type": "uint8",
+          "internalType": "uint8"
+        }
+      ],
+      "stateMutability": "view"
+    },
+    {
+      "type": "function",
+      "name": "PUBLISHER_FEE",
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "",
+          "type": "uint8",
+          "internalType": "uint8"
         }
       ],
       "stateMutability": "view"
@@ -125,17 +164,7 @@
               "internalType": "bool"
             },
             {
-              "name": "developerFee",
-              "type": "uint256",
-              "internalType": "uint256"
-            },
-            {
-              "name": "platformFee",
-              "type": "uint256",
-              "internalType": "uint256"
-            },
-            {
-              "name": "publisherFee",
+              "name": "totalFee",
               "type": "uint256",
               "internalType": "uint256"
             },
