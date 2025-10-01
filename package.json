@@ -7,7 +7,7 @@
     "prettier-plugin-solidity": "^2.1.0"
   },
   "dependencies": {
-    "dotenv": "^17.1.0",
+    "dotenv": "^17.2.3",
     "husky": "^9.1.7",
     "solhint": "^6.0.0"
   },
