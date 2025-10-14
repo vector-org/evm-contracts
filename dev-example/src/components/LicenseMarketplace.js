@@ -27,7 +27,7 @@ const LicenseCard = ({
   useEffect(() => {
     if (licenseData?.uri && !metadataLoaded) {
       setMetadataLoaded(true)
-      
+      console.log('license data', licenseData);
       MetadataUtils.fetchMetadataEnhanced(licenseData.uri)
         .then(data => {
           const normalized = MetadataUtils.normalizeImageUrls(data)
