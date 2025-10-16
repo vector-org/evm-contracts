@@ -17,19 +17,11 @@ import {License, LicenseInput} from "src/types/Types.sol";
  *      --rpc-url $RPC_URL --broadcast -vvvv
  */
 contract AdjustLicensePrices is Script {
-    // Proxy addresses (given in user request)
-    address constant FACTORY_PROXY_ADDRESS =
-        0x2C7548B2BBecF649976D4eEe6c0Ff586fab444b7;
-    address constant PRIMARY_PROXY_ADDRESS =
-        0x8bFef9D303DB1EcE5Ed9B5Bdb39521f608fcf182;
-    address constant SECONDARY_PROXY_ADDRESS =
-        0x5AeBe1d988e556eEc0D74E009E9831CEE70B988F;
-
-    uint256 constant PRICE_DOOM = 999 * 1e16; // doom
-    uint256 constant PRICE_GASSHOOTER = 199 * 1e16; // GASShooter
-    uint256 constant PRICE_LYRA_ON_VECTOR = 1999 * 1e16; // Lyra On Vector
-    uint256 constant PRICE_SHATTERED_PIXEL_DUNGEON = 499 * 1e16; // Shattered Pixel Dungeon
-    uint256 constant PRICE_LAST_DROP = 0; // Last Drop
+    uint256 constant PRICE_DOOM = 999 * 1e16;
+    uint256 constant PRICE_GASSHOOTER = 199 * 1e16;
+    uint256 constant PRICE_LYRA_ON_VECTOR = 1999 * 1e16;
+    uint256 constant PRICE_SHATTERED_PIXEL_DUNGEON = 499 * 1e16;
+    uint256 constant PRICE_LAST_DROP = 0;
 
     function run() external {
         uint256 pk = vm.envUint("PRIVATE_KEY");
@@ -37,8 +29,12 @@ contract AdjustLicensePrices is Script {
         console.log("AdjustLicensePrices executing from");
         console.log(sender);
 
+        address factoryAddr = vm.envAddress("FACTORY_PROXY_ADDRESS");
+        address primaryAddr = vm.envAddress("PRIMARY_PROXY_ADDRESS");
+        address secondaryAddr = vm.envAddress("SECONDARY_PROXY_ADDRESS");
+
         vm.startBroadcast(pk);
-        LicenseFactory factory = LicenseFactory(FACTORY_PROXY_ADDRESS);
+        LicenseFactory factory = LicenseFactory(factoryAddr);
 
         uint256[] memory ids = factory.getAllLicenseIds();
         console.log("Found license IDs count:");
@@ -71,8 +67,8 @@ contract AdjustLicensePrices is Script {
                 developer: L.developer,
                 publisher: L.publisher,
                 platform: L.platform,
-                primaryMarketplace: PRIMARY_PROXY_ADDRESS,
-                secondaryMarketplace: SECONDARY_PROXY_ADDRESS
+                primaryMarketplace: primaryAddr,
+                secondaryMarketplace: secondaryAddr
             });
 
             factory.changeLicenseData(id, input);

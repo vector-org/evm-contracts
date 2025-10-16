@@ -27,9 +27,7 @@ contract ListLicenses is Script {
             if (a != address(0)) {
                 factoryAddr = a;
             }
-        } catch {
-            /* ignore missing env */
-        }
+        } catch {}
         console.log("Listing licenses from factory:");
         console.log(factoryAddr);
 
