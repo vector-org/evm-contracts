@@ -39,8 +39,7 @@ contract LicenseFactoryTest is BaseSetup {
         address newPub = makeAddr("newPub");
         address newPlat = makeAddr("newPlat");
 
-        uint256 newTotal = 1 ether; // new total fee for recalculation
-        // Percentages are fixed at 5% each as per Addresses constants.
+        uint256 newTotal = 1 ether;
         uint256 expectedPlatform = (newTotal * 5) / 100;
         uint256 expectedPublisher = (newTotal * 5) / 100;
         uint256 expectedDev = newTotal - expectedPlatform - expectedPublisher;
@@ -72,9 +71,7 @@ contract LicenseFactoryTest is BaseSetup {
         assertEq(L.platformFee, expectedPlatform, "platform fee wrong");
         assertEq(L.publisherFee, expectedPublisher, "publisher fee wrong");
         assertEq(L.developerFee, expectedDev, "dev fee wrong");
-        // owner and contract address should remain unchanged
         assertEq(L.owner, coordinator, "owner should not change");
-        // coordinator is hard-set to admin in _storeNewLicense; verify it
         assertEq(L.coordinator, admin, "coordinator should remain admin");
     }
 
