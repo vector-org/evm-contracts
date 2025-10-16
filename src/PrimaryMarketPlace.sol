@@ -6,6 +6,7 @@ import {UUPSUpgradeable} from "openzeppelin-contracts-upgradeable/contracts/prox
 import {OwnableUpgradeable} from "openzeppelin-contracts-upgradeable/contracts/access/OwnableUpgradeable.sol";
 import {ILicenseContract} from "./interfaces/ILicenseContract.sol";
 import {ILicenseFactory} from "./interfaces/ILicenseFactory.sol";
+import {License} from "./types/Types.sol";
 import {Addresses} from "./constants/Addresses.sol";
 import {GameNft} from "./types/Types.sol";
 import {
@@ -148,8 +149,9 @@ contract PrimaryMarketPlace is
         string memory uri
     ) external payable whenNotPaused nonReentrant {
         ILicenseFactory licenseFactory = ILicenseFactory(factory);
-        ILicenseFactory.License memory fetchedLicense = licenseFactory
-            .getLicenseFromId(licenseId);
+        License memory fetchedLicense = licenseFactory.getLicenseFromId(
+            licenseId
+        );
         uint256 totalFee = fetchedLicense.developerFee +
             fetchedLicense.publisherFee +
             fetchedLicense.platformFee;

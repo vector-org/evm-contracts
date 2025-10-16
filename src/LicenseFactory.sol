@@ -5,6 +5,7 @@ import {Initializable} from "openzeppelin-contracts-upgradeable/contracts/proxy/
 import {UUPSUpgradeable} from "openzeppelin-contracts-upgradeable/contracts/proxy/utils/UUPSUpgradeable.sol";
 import {OwnableUpgradeable} from "openzeppelin-contracts-upgradeable/contracts/access/OwnableUpgradeable.sol";
 import {LicenseContract} from "./LicenseContract.sol";
+import {ILicenseFactory} from "./interfaces/ILicenseFactory.sol";
 import {ILicenseContract} from "./interfaces/ILicenseContract.sol";
 import {Addresses} from "./constants/Addresses.sol";
 import {License, LicenseInput} from "./types/Types.sol";
@@ -37,7 +38,8 @@ contract LicenseFactory is
     Initializable,
     UUPSUpgradeable,
     OwnableUpgradeable,
-    PausableUpgradeable
+    PausableUpgradeable,
+    ILicenseFactory
 {
     /// @notice Mapping from license ID to License struct.
     mapping(uint256 => License) public licenseContracts;
@@ -50,31 +52,6 @@ contract LicenseFactory is
     uint256 private _tokenIdCounter;
 
     uint256[47] private __storageGap;
-
-    /// @notice Emitted when a new LicenseContract is deployed.
-    /// @param contractAddress The address of the new LicenseContract.
-    /// @param tokenId The license ID assigned to the contract.
-    /// @param creator The address that initiated the creation.
-    /// @param timestamp The block timestamp of creation.
-    event NewLicenseContract(
-        address indexed contractAddress,
-        uint256 tokenId,
-        address indexed creator,
-        uint256 timestamp
-    );
-    /// @notice Emitted when the contract owner is changed.
-    /// @param newOwner The new owner address.
-    /// @param oldOwner The previous owner address.
-    /// @param timestamp The block timestamp of the change.
-    event OwnerChanged(
-        address indexed newOwner,
-        address indexed oldOwner,
-        uint256 timestamp
-    );
-    /// @notice Emitted when a coordinator is added or removed.
-    /// @param coordinator The coordinator address.
-    /// @param timestamp The block timestamp of the change.
-    event AddCoordinator(address indexed coordinator, uint256 timestamp);
 
     /// @notice Restricts function to only the administrator.
     modifier checkAccess() {
@@ -153,25 +130,21 @@ contract LicenseFactory is
 
         tokenIds.push(_tokenIdCounter);
 
-        uint256 platformFee = (licenseInput.totalFee * PLATFORM_FEE) / 100;
-        uint256 publisherFee = (licenseInput.totalFee * PUBLISHER_FEE) / 100;
-        uint256 devFee = licenseInput.totalFee - platformFee - publisherFee;
+        (
+            uint256 platformFee,
+            uint256 publisherFee,
+            uint256 devFee
+        ) = _splitFees(licenseInput.totalFee);
 
-        License storage licenseSlot = licenseContracts[_tokenIdCounter];
-        licenseSlot.contractAddress = newLicenseAddress;
-        licenseSlot.owner = msg.sender;
-        licenseSlot.coordinator = Addresses.ADMINISTRATOR;
-        licenseSlot.name = licenseInput.name;
-        licenseSlot.symbol = licenseInput.symbol;
-        licenseSlot.uri = licenseInput.uri;
-        licenseSlot.isActive = licenseInput.isActive;
-        licenseSlot.timestamp = block.timestamp;
-        licenseSlot.developerFee = devFee;
-        licenseSlot.platformFee = platformFee;
-        licenseSlot.publisherFee = publisherFee;
-        licenseSlot.developer = licenseInput.developer;
-        licenseSlot.publisher = licenseInput.publisher;
-        licenseSlot.platform = licenseInput.platform;
+        _storeNewLicense(
+            _tokenIdCounter,
+            newLicenseAddress,
+            msg.sender,
+            licenseInput,
+            devFee,
+            platformFee,
+            publisherFee
+        );
 
         emit NewLicenseContract(
             newLicenseAddress,
@@ -203,6 +176,44 @@ contract LicenseFactory is
     }
 
     /**
+     * @notice Update mutable license data (metadata, parties and fee split) for an existing license.
+     * @param licenseId The license ID to modify.
+     * @param licenseInput New license input values (totalFee will be repartitioned into fees).
+     * @dev Only coordinators can call. Recomputes platform / publisher / developer fees from totalFee.
+     *      Preserves original owner, coordinator and contractAddress.
+     *      Reverts if license does not exist.
+     */
+    function changeLicenseData(
+        uint256 licenseId,
+        LicenseInput calldata licenseInput
+    ) external whenNotPaused checkIsCoordinator {
+        License storage licenseSlot = licenseContracts[licenseId];
+        if (licenseSlot.contractAddress == ZERO_ADDRESS) {
+            revert licenseNotFound(licenseId);
+        }
+        (
+            uint256 platformFee,
+            uint256 publisherFee,
+            uint256 devFee
+        ) = _splitFees(licenseInput.totalFee);
+        _storeNewLicense(
+            licenseId,
+            licenseSlot.contractAddress,
+            licenseSlot.owner,
+            licenseInput,
+            devFee,
+            platformFee,
+            publisherFee
+        );
+
+        emit ChangeLicenseDetails(
+            licenseSlot.contractAddress,
+            licenseId,
+            block.timestamp
+        );
+    }
+
+    /**
      * @notice Update the metadata URI for a license.
      * @param licenseId The license ID.
      * @param uri The new metadata URI.
@@ -228,6 +239,25 @@ contract LicenseFactory is
     }
 
     /**
+     * @notice Split a total license fee into platform, publisher and developer portions.
+     * @param totalFees The aggregate fee amount.
+     * @return platformFee Portion assigned to the platform.
+     * @return publisherFee Portion assigned to the publisher.
+     * @return devFee Remaining portion assigned to the developer.
+     */
+    function _splitFees(
+        uint256 totalFees
+    )
+        internal
+        pure
+        returns (uint256 platformFee, uint256 publisherFee, uint256 devFee)
+    {
+        platformFee = (totalFees * PLATFORM_FEE) / 100;
+        publisherFee = (totalFees * PUBLISHER_FEE) / 100;
+        devFee = totalFees - platformFee - publisherFee;
+    }
+
+    /**
      * @notice Set or unset a coordinator address.
      * @param _coordinator The coordinator address.
      * @param status True to add, false to remove.
@@ -239,6 +269,43 @@ contract LicenseFactory is
     ) external whenNotPaused onlyOwner {
         coordinators[_coordinator] = status;
         emit AddCoordinator(_coordinator, block.timestamp);
+    }
+
+    /**
+     * @notice Persist a newly created (or refreshed) license record in storage.
+     * @param id License ID (token ID).
+     * @param licenseAddr Deployed LicenseContract address.
+     * @param creator Address set as license owner.
+     * @param licenseInput Source input (metadata + parties).
+     * @param devFee Developer fee portion (post‑split).
+     * @param platformFee Platform fee portion (post‑split).
+     * @param publisherFee Publisher fee portion (post‑split).
+     * @dev Sets coordinator to ADMINISTRATOR and stamps current block timestamp.
+     */
+    function _storeNewLicense(
+        uint256 id,
+        address licenseAddr,
+        address creator,
+        LicenseInput memory licenseInput,
+        uint256 devFee,
+        uint256 platformFee,
+        uint256 publisherFee
+    ) internal whenNotPaused {
+        License storage licenseSlot = licenseContracts[id];
+        licenseSlot.contractAddress = licenseAddr;
+        licenseSlot.owner = creator;
+        licenseSlot.coordinator = ADMINISTRATOR;
+        licenseSlot.name = licenseInput.name;
+        licenseSlot.symbol = licenseInput.symbol;
+        licenseSlot.uri = licenseInput.uri;
+        licenseSlot.isActive = licenseInput.isActive;
+        licenseSlot.timestamp = block.timestamp;
+        licenseSlot.developerFee = devFee;
+        licenseSlot.platformFee = platformFee;
+        licenseSlot.publisherFee = publisherFee;
+        licenseSlot.developer = licenseInput.developer;
+        licenseSlot.publisher = licenseInput.publisher;
+        licenseSlot.platform = licenseInput.platform;
     }
 
     /**

@@ -1,42 +1,12 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.28;
 
+import {License, LicenseInput} from "../types/Types.sol";
+
 /// @author Vector Blockchain AG
 /// @title ILicenseFactory
 /// @notice Interface for the LicenseFactory contract that deploys and manages license contracts.
 interface ILicenseFactory {
-    /// @dev License metadata stored in the factory mapping.
-    struct License {
-        address contractAddress;
-        address owner;
-        address coordinator;
-        string name;
-        string symbol;
-        string uri;
-        bool isActive;
-        uint256 timestamp;
-        uint256 developerFee;
-        uint256 platformFee;
-        uint256 publisherFee;
-        address developer;
-        address publisher;
-        address platform;
-    }
-
-    /// @dev Input struct passed to `createLicense()`.
-    struct LicenseInput {
-        string name;
-        string symbol;
-        string uri;
-        bool isActive;
-        uint256 totalFee;
-        address developer;
-        address publisher;
-        address platform;
-        address primaryMarketplace;
-        address secondaryMarketplace;
-    }
-
     /**
      * @notice Emitted when a new license contract is deployed.
      * @param contractAddress The address of the newly deployed license contract.
@@ -48,6 +18,18 @@ interface ILicenseFactory {
         address indexed contractAddress,
         uint256 tokenId,
         address indexed creator,
+        uint256 timestamp
+    );
+
+    /**
+     * @notice Emitted when mutable license data (metadata / parties / fee split) is updated.
+     * @param contractAddress The address of the underlying license contract.
+     * @param licenseId The license token ID whose data was updated.
+     * @param timestamp The block timestamp when the update occurred.
+     */
+    event ChangeLicenseDetails(
+        address indexed contractAddress,
+        uint256 licenseId,
         uint256 timestamp
     );
 
@@ -112,8 +94,4 @@ interface ILicenseFactory {
     /// @notice Return all license IDs ever created.
     /// @return An array of uint256 license IDs.
     function getAllLicenseIds() external view returns (uint256[] memory);
-
-    /// @notice Return the current owner of the LicenseFactory contract.
-    /// @return The owner address.
-    function owner() external view returns (address);
 }
