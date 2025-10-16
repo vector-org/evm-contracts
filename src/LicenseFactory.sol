@@ -360,4 +360,19 @@ contract LicenseFactory is
     function unpause() external onlyOwner {
         _unpause();
     }
+
+    /**
+     * @notice Returns the current owner of the factory.
+     * @dev Explicit override to resolve multiple inheritance (OwnableUpgradeable + ILicenseFactory).
+     *      Uses the underlying OwnableUpgradeable implementation via `super.owner()`.
+     * @return ownerAddress Address that currently has ownership privileges (can pause, upgrade, set coordinators, etc.).
+     */
+    function owner()
+        public
+        view
+        override(OwnableUpgradeable, ILicenseFactory)
+        returns (address ownerAddress)
+    {
+        return super.owner();
+    }
 }
