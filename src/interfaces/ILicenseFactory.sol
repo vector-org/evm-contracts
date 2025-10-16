@@ -94,4 +94,8 @@ interface ILicenseFactory {
     /// @notice Return all license IDs ever created.
     /// @return An array of uint256 license IDs.
     function getAllLicenseIds() external view returns (uint256[] memory);
+
+    /// @notice Return the current owner of the LicenseFactory contract.
+    /// @return The owner address.
+    function owner() external view returns (address);
 }
