@@ -2,7 +2,7 @@
 pragma solidity ^0.8.28;
 
 import {Script, console} from "forge-std/Script.sol";
-import {PrimaryMarketPlace} from "../src/PrimaryMarketPlace.sol";
+import {PrimaryMarketPlace} from "../../src/PrimaryMarketPlace.sol";
 import {ERC1967Proxy} from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 
 contract DeployPrimaryMarketPlaceProxy is Script {

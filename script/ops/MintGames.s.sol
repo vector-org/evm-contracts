@@ -2,8 +2,8 @@
 pragma solidity ^0.8.28;
 
 import {Script, console} from "forge-std/Script.sol";
-import {LicenseFactory} from "../src/LicenseFactory.sol";
-import {LicenseInput} from "../src/types/Types.sol";
+import {LicenseFactory} from "../../src/LicenseFactory.sol";
+import {LicenseInput} from "../../src/types/Types.sol";
 
 contract MintGames is Script {
     function run() external {
