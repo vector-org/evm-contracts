@@ -156,6 +156,9 @@ contract LicenseFactory is
         uint256 platformFee = (licenseInput.totalFee * PLATFORM_FEE) / 100;
         uint256 publisherFee = (licenseInput.totalFee * PUBLISHER_FEE) / 100;
         uint256 devFee = licenseInput.totalFee - platformFee - publisherFee;
+        uint256 delta = licenseInput.totalFee -
+            (platformFee + publisherFee + devFee);
+        platformFee += delta;
 
         License storage licenseSlot = licenseContracts[_tokenIdCounter];
         licenseSlot.contractAddress = newLicenseAddress;
