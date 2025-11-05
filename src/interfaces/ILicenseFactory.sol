@@ -1,42 +1,12 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.28;
 
+import {License, LicenseInput} from "../types/Types.sol";
+
 /// @author Vector Blockchain AG
 /// @title ILicenseFactory
 /// @notice Interface for the LicenseFactory contract that deploys and manages license contracts.
 interface ILicenseFactory {
-    /// @dev License metadata stored in the factory mapping.
-    struct License {
-        address contractAddress;
-        address owner;
-        address coordinator;
-        string name;
-        string symbol;
-        string uri;
-        bool isActive;
-        uint256 timestamp;
-        uint256 developerFee;
-        uint256 platformFee;
-        uint256 publisherFee;
-        address developer;
-        address publisher;
-        address platform;
-    }
-
-    /// @dev Input struct passed to `createLicense()`.
-    struct LicenseInput {
-        string name;
-        string symbol;
-        string uri;
-        bool isActive;
-        uint256 totalFee;
-        address developer;
-        address publisher;
-        address platform;
-        address primaryMarketplace;
-        address secondaryMarketplace;
-    }
-
     /**
      * @notice Emitted when a new license contract is deployed.
      * @param contractAddress The address of the newly deployed license contract.
@@ -52,23 +22,62 @@ interface ILicenseFactory {
     );
 
     /**
-     * @notice Emitted when the owner is changed.
-     * @param newOwner The new owner address.
-     * @param oldOwner The previous owner address.
-     * @param timestamp The timestamp when the owner was changed.
+     * @notice Emitted when mutable license data (metadata / parties / fee split) is updated.
+     * @param contractAddress The address of the underlying license contract.
+     * @param licenseId The license token ID whose data was updated.
+     * @param oldTotalFee The previous total fee (sum of developer, platform, publisher fees).
+     * @param newTotalFee The new total fee after update.
+     * @param updatedBy The address that initiated the update.
+     * @param timestamp The block timestamp when the update occurred.
      */
-    event OwnerChanged(
-        address indexed newOwner,
-        address indexed oldOwner,
+    event ChangeLicenseDetails(
+        address indexed contractAddress,
+        uint256 indexed licenseId,
+        uint256 oldTotalFee,
+        uint256 newTotalFee,
+        address indexed updatedBy,
+        uint256 timestamp
+    );
+
+    /**
+     * @notice Emitted when a license's active status is changed.
+     * @param licenseId The license token ID whose status was changed.
+     * @param isActive The new active status.
+     * @param changedBy The address that initiated the status change.
+     * @param timestamp The block timestamp when the status was changed.
+     */
+    event LicenseStatusChanged(
+        uint256 indexed licenseId,
+        bool isActive,
+        address indexed changedBy,
+        uint256 timestamp
+    );
+
+    /**
+     * @notice Emitted when a license's metadata URI is updated.
+     * @param licenseId The license token ID whose URI was updated.
+     * @param newUri The new metadata URI.
+     * @param updatedBy The address that initiated the URI update.
+     * @param timestamp The block timestamp when the URI was updated.
+     */
+    event LicenseURIUpdated(
+        uint256 indexed licenseId,
+        string newUri,
+        address indexed updatedBy,
         uint256 timestamp
     );
 
     /**
      * @notice Emitted when a coordinator is added or removed.
      * @param coordinator The address of the coordinator added or removed.
-     * @param timestamp The timestamp when the coordinator was added or removed.
+     * @param status True if added, false if removed.
+     * @param timestamp The timestamp when the coordinator status was changed.
      */
-    event AddCoordinator(address indexed coordinator, uint256 timestamp);
+    event CoordinatorStatusChanged(
+        address indexed coordinator,
+        bool status,
+        uint256 timestamp
+    );
 
     /// @notice Deploy a new license contract and store its metadata.
     /// @param licenseInput The configuration and metadata for the license.

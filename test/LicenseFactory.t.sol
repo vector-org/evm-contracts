@@ -32,6 +32,49 @@ contract LicenseFactoryTest is BaseSetup {
         assertGt(L.timestamp, 0, "timestamp should be greater than 0");
     }
 
+    function testChangeLicenseData() public {
+        (, uint256 licenseId) = _createLicense(true);
+
+        address newDev = makeAddr("newDev");
+        address newPub = makeAddr("newPub");
+        address newPlat = makeAddr("newPlat");
+
+        uint256 newTotal = 1 ether;
+        uint256 expectedPlatform = (newTotal * 5) / 100;
+        uint256 expectedPublisher = (newTotal * 5) / 100;
+        uint256 expectedDev = newTotal - expectedPlatform - expectedPublisher;
+
+        LicenseInput memory input = LicenseInput({
+            name: "ChangedName",
+            symbol: "CHG",
+            uri: "ipfs://changed/uri",
+            isActive: false,
+            totalFee: newTotal,
+            developer: newDev,
+            publisher: newPub,
+            platform: newPlat,
+            primaryMarketplace: address(primary),
+            secondaryMarketplace: address(secondary)
+        });
+
+        vm.prank(coordinator);
+        factory.changeLicenseData(licenseId, input);
+
+        License memory L = factory.getLicenseFromId(licenseId);
+        assertEq(L.name, "ChangedName", "name not updated");
+        assertEq(L.symbol, "CHG", "symbol not updated");
+        assertEq(L.uri, "ipfs://changed/uri", "uri not updated");
+        assertFalse(L.isActive, "status should update");
+        assertEq(L.developer, newDev, "dev addr not updated");
+        assertEq(L.publisher, newPub, "pub addr not updated");
+        assertEq(L.platform, newPlat, "platform addr not updated");
+        assertEq(L.platformFee, expectedPlatform, "platform fee wrong");
+        assertEq(L.publisherFee, expectedPublisher, "publisher fee wrong");
+        assertEq(L.developerFee, expectedDev, "dev fee wrong");
+        assertEq(L.owner, coordinator, "owner should not change");
+        assertEq(L.coordinator, admin, "coordinator should remain admin");
+    }
+
     function testChangeLicenseStatusByOwner() public {
         (, uint256 licenseId) = _createLicense(true);
         vm.prank(coordinator);
