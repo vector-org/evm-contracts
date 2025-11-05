@@ -160,7 +160,7 @@ contract LicenseFactory is
      * @notice Change the active status of a license.
      * @param licenseId The license ID.
      * @param status The new active status.
-     * @dev Only the license owner or administrator can change status.
+     * @dev Only the license owner or administrator can change status. Emits LicenseStatusChanged event.
      */
     function changeLicenseStatus(
         uint256 licenseId,
@@ -173,6 +173,13 @@ contract LicenseFactory is
             revert notAdminOrOwner(msg.sender);
         }
         licenseContracts[licenseId].isActive = status;
+        
+        emit LicenseStatusChanged(
+            licenseId,
+            status,
+            msg.sender,
+            block.timestamp
+        );
     }
 
     /**
@@ -191,6 +198,12 @@ contract LicenseFactory is
         if (licenseSlot.contractAddress == ZERO_ADDRESS) {
             revert licenseNotFound(licenseId);
         }
+        
+        // Capture old total fee before update
+        uint256 oldTotalFee = licenseSlot.developerFee +
+            licenseSlot.platformFee +
+            licenseSlot.publisherFee;
+        
         (
             uint256 platformFee,
             uint256 publisherFee,
@@ -209,6 +222,9 @@ contract LicenseFactory is
         emit ChangeLicenseDetails(
             licenseSlot.contractAddress,
             licenseId,
+            oldTotalFee,
+            licenseInput.totalFee,
+            msg.sender,
             block.timestamp
         );
     }
@@ -218,6 +234,8 @@ contract LicenseFactory is
      * @param licenseId The license ID.
      * @param uri The new metadata URI.
      * @dev Only the license owner, administrator, or coordinator can update.
+     *      Updates both the LicenseContract storage and factory storage for consistency.
+     *      Emits LicenseURIUpdated event.
      */
     function updateLicense(
         uint256 licenseId,
@@ -234,8 +252,18 @@ contract LicenseFactory is
         ) {
             revert cannotUpdateLicense(msg.sender);
         }
+        
+        // Update URI in both LicenseContract and factory storage
         ILicenseContract licenseContract = ILicenseContract(licenseAddress);
         licenseContract.updateTokenURI(licenseId, uri);
+        licenseContracts[licenseId].uri = uri;
+        
+        emit LicenseURIUpdated(
+            licenseId,
+            uri,
+            msg.sender,
+            block.timestamp
+        );
     }
 
     /**
@@ -261,14 +289,14 @@ contract LicenseFactory is
      * @notice Set or unset a coordinator address.
      * @param _coordinator The coordinator address.
      * @param status True to add, false to remove.
-     * @dev Only callable by the contract owner. Emits AddCoordinator event.
+     * @dev Only callable by the contract owner. Emits CoordinatorStatusChanged event.
      */
     function setCoordinator(
         address _coordinator,
         bool status
     ) external whenNotPaused onlyOwner {
         coordinators[_coordinator] = status;
-        emit AddCoordinator(_coordinator, block.timestamp);
+        emit CoordinatorStatusChanged(_coordinator, status, block.timestamp);
     }
 
     /**
