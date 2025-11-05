@@ -9,7 +9,9 @@ on:
 
 jobs:
     install:
-        runs-on: ${{ inputs.runner }}
+        runs-on: ${{ fromJSON(inputs.runner) }}
         steps:
             - uses: actions/checkout@v4
             - uses: ./.github/actions/install
+            - run: forge install
+              shell: bash

@@ -18,25 +18,14 @@ export function useIPFS() {
       setIsUploading(true)
       setUploadProgress(0)
 
-      console.log('📤 [useIPFS] Starting file upload to Pinata:', {
-        name: file.name,
-        size: file.size,
-        type: file.type,
-        lastModified: new Date(file.lastModified).toISOString()
-      })
+
 
       const result = await uploadFileWithProgress(file, (progress) => {
         setUploadProgress(progress)
-        console.log(`⏳ [useIPFS] Upload progress: ${progress}%`)
+  // console.log(`⏳ [useIPFS] Upload progress: ${progress}%`)
       })
 
-      console.log('✅ [useIPFS] File uploaded successfully:', {
-        cid: result.cid,
-        url: result.url,
-        size: file.size,
-        pinataUrl: getPinataUrl(result.cid),
-        ipfsUrl: getIPFSUrl(result.cid)
-      })
+
 
       setUploadProgress(100)
       return {
@@ -65,21 +54,11 @@ export function useIPFS() {
     try {
       setIsUploading(true)
       
-      console.log('📤 [useIPFS] Starting JSON upload to Pinata:', {
-        dataType: typeof jsonObject,
-        keys: Object.keys(jsonObject),
-        size: JSON.stringify(jsonObject).length
-      })
+
       
       const result = await uploadJSONData(jsonObject)
       
-      console.log('✅ [useIPFS] JSON uploaded successfully:', {
-        cid: result.cid,
-        url: result.url,
-        dataKeys: Object.keys(jsonObject),
-        pinataUrl: getPinataUrl(result.cid),
-        ipfsUrl: getIPFSUrl(result.cid)
-      })
+
       
       return {
         hash: result.cid, // For backward compatibility
@@ -106,27 +85,22 @@ export function useIPFS() {
       setIsUploading(true)
       setUploadProgress(0)
 
-      console.log('📤 [useIPFS] Starting generic upload to Pinata:', {
-        type: data.constructor.name,
-        size: data.size || 'unknown',
-        isFile: data instanceof File,
-        isBlob: data instanceof Blob
-      })
+
 
       let result
       if (data instanceof File) {
         // Use the file upload function with progress
         result = await uploadFileWithProgress(data, (progress) => {
           setUploadProgress(progress)
-          console.log(`⏳ [useIPFS] Upload progress: ${progress}%`)
+          // console.log(`⏳ [useIPFS] Upload progress: ${progress}%`)
         })
-        console.log('✅ [useIPFS] File uploaded via generic upload:', result)
+  // console.log('✅ [useIPFS] File uploaded via generic upload:', result)
         return result.cid // Return just the CID for compatibility
       } else {
         // Use the generic data upload
         const cid = await uploadData(data)
         setUploadProgress(100)
-        console.log('✅ [useIPFS] Data uploaded via generic upload:', { cid })
+  // console.log('✅ [useIPFS] Data uploaded via generic upload:', { cid })
         return cid // Return just the CID for compatibility
       }
 
@@ -148,23 +122,14 @@ export function useIPFS() {
     try {
       setIsUploading(true)
       
-      console.log('🎮 [useIPFS] Starting game metadata upload process:', {
-        gameName: gameData.name,
-        gameDescription: gameData.description,
-        imageFile: {
-          name: imageFile.name,
-          size: imageFile.size,
-          type: imageFile.type
-        },
-        gameDataKeys: Object.keys(gameData)
-      })
+
       
       // Step 1: Upload the image
-      console.log('📸 [useIPFS] Step 1: Uploading game image...')
+  // console.log('📸 [useIPFS] Step 1: Uploading game image...')
       const imageResult = await uploadFile(imageFile)
       
       // Step 2: Create and upload the metadata with enhanced structure
-      console.log('📋 [useIPFS] Step 2: Creating enhanced game metadata...')
+  // console.log('📋 [useIPFS] Step 2: Creating enhanced game metadata...')
       const metadata = {
         name: gameData.name,
         description: gameData.description || `Gaming license for ${gameData.name}`,
@@ -233,7 +198,7 @@ export function useIPFS() {
         ].filter(attr => attr.value && attr.value !== "0 ETH")
       }
       
-      console.log('📋 [useIPFS] Step 3: Uploading enhanced metadata to Pinata...')
+  // console.log('📋 [useIPFS] Step 3: Uploading enhanced metadata to Pinata...')
       const metadataResult = await uploadJSON(metadata)
       
       const finalResult = {
@@ -259,14 +224,7 @@ export function useIPFS() {
         }
       }
       
-      console.log('🎉 [useIPFS] Game metadata upload completed successfully:', {
-        imageHash: finalResult.imageHash,
-        metadataHash: finalResult.metadataHash,
-        imageUrl: finalResult.imageUrl,
-        metadataUrl: finalResult.metadataUrl,
-        totalSize: `${(imageFile.size / 1024 / 1024).toFixed(2)} MB`,
-        uploadDuration: 'N/A' // Could add timing if needed
-      })
+
       
       return finalResult
     } catch (error) {
@@ -292,12 +250,7 @@ export function useIPFS() {
     const pinataUrl = getPinataUrl(cid)
     const ipfsUrl = getIPFSUrl(cid)
     
-    console.log('🔗 [useIPFS] Generated URLs for CID:', {
-      cid: cid,
-      pinataUrl: pinataUrl,
-      ipfsUrl: ipfsUrl,
-      selectedUrl: usePublicGateway ? ipfsUrl : pinataUrl
-    })
+
     
     return usePublicGateway ? ipfsUrl : pinataUrl
   }
@@ -307,10 +260,7 @@ export function useIPFS() {
     try {
       setIsUploading(true)
       
-      console.log('📋 [useIPFS] Uploading metadata with image reference:', {
-        imageCid: imageCid,
-        metadataKeys: Object.keys(metadata)
-      })
+
       
       const enhancedMetadata = {
         ...metadata,
@@ -323,12 +273,7 @@ export function useIPFS() {
       
       const result = await uploadJSON(enhancedMetadata)
       
-      console.log('✅ [useIPFS] Metadata with image uploaded successfully:', {
-        metadataCid: result.cid,
-        metadataUrl: result.url,
-        imageCid: imageCid,
-        imageUrl: enhancedMetadata.imageUrl
-      })
+
       
       return {
         hash: result.cid,
@@ -354,11 +299,7 @@ export function useIPFS() {
   // Function to upload file and get both IPFS URI and HTTP URL
   const uploadFileWithURIs = async (file) => {
     try {
-      console.log('📤 [useIPFS] Uploading file with comprehensive URI response:', {
-        fileName: file.name,
-        fileSize: file.size,
-        fileType: file.type
-      })
+
       
       const result = await uploadFile(file)
       
@@ -373,16 +314,7 @@ export function useIPFS() {
         url: result.url
       }
       
-      console.log('✅ [useIPFS] File uploaded with comprehensive URIs:', {
-        cid: comprehensiveResult.cid,
-        uriCount: Object.keys(comprehensiveResult).length,
-        urls: {
-          ipfsUri: comprehensiveResult.ipfsUri,
-          httpUrl: comprehensiveResult.httpUrl,
-          pinataUrl: comprehensiveResult.pinataUrl,
-          publicUrl: comprehensiveResult.publicUrl
-        }
-      })
+
       
       return comprehensiveResult
     } catch (error) {
@@ -398,17 +330,12 @@ export function useIPFS() {
   // Enhanced metadata fetching function that integrates with MetadataUtils
   const fetchMetadata = async (uri) => {
     try {
-      console.log('🔍 [useIPFS] Fetching metadata using MetadataUtils:', uri)
+  // console.log('🔍 [useIPFS] Fetching metadata using MetadataUtils:', uri)
       
       const metadata = await MetadataUtils.fetchMetadataEnhanced(uri)
       const normalizedMetadata = MetadataUtils.normalizeImageUrls(metadata)
       
-      console.log('✅ [useIPFS] Metadata fetched and normalized:', {
-        uri: uri,
-        hasImage: !!normalizedMetadata.image,
-        hasImageUrl: !!normalizedMetadata.imageUrl,
-        source: normalizedMetadata._source
-      })
+
       
       return normalizedMetadata
     } catch (error) {
@@ -423,7 +350,7 @@ export function useIPFS() {
   // Test connection function
   const testConnection = async () => {
     try {
-      console.log('🧪 [useIPFS] Testing Pinata connection...')
+  // console.log('🧪 [useIPFS] Testing Pinata connection...')
       
       const testData = {
         test: 'connection',
@@ -433,10 +360,7 @@ export function useIPFS() {
       
       const result = await uploadJSON(testData)
       
-      console.log('✅ [useIPFS] Connection test successful:', {
-        cid: result.cid,
-        url: result.url
-      })
+
       
       return {
         success: true,

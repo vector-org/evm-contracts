@@ -43,14 +43,14 @@ export function useContract() {
     }
   }
 
-  const useGetLicenseFromID = (licenseId) => {
+  const useGetLicenseFromId = (licenseId) => {
     // Convert BigInt to number if needed
     const numericId = typeof licenseId === 'bigint' ? Number(licenseId) : licenseId
     
     return useReadContract({
       address: CONTRACTS.FACTORY.address,
       abi: CONTRACTS.FACTORY.abi,
-      functionName: 'getLicenseFromID',
+      functionName: 'getLicenseFromId',
       args: [numericId],
       query: {
         enabled: numericId !== null && numericId !== undefined,
@@ -59,27 +59,27 @@ export function useContract() {
   }
 
   // Primary Marketplace Functions
+  // Mint License (PrimaryMarketPlace): requires ETH value
   const useMintLicense = () => {
     const { writeContractAsync, isPending, error } = useWriteContract()
-    
-    const mintLicense = async ({ licenseId, receiver, metadataURI }) => {
+    /**
+     * mintLicense: Call with { licenseId, receiver, metadataURI, value } where value is the ETH to send (in wei or string/BigInt)
+     */
+    const mintLicense = async ({ licenseId, receiver, metadataURI, value }) => {
       try {
         const numericId = typeof licenseId === 'bigint' ? Number(licenseId) : licenseId
-        
-        const hash = await writeContractAsync({
+        const tx = await writeContractAsync({
           address: CONTRACTS.PRIMARY_MARKETPLACE.address,
           abi: CONTRACTS.PRIMARY_MARKETPLACE.abi,
           functionName: 'mintLicense',
           args: [numericId, receiver, metadataURI],
-          // value: BigInt(value)
+          value: value ? BigInt(value) : undefined
         })
-        
-        return { hash }
+        return { hash: tx }
       } catch (error) {
         throw error
       }
     }
-    
     return { mintLicense, isPending, error }
   }
 
@@ -104,7 +104,7 @@ export function useContract() {
     return useReadContract({
       address: CONTRACTS.PRIMARY_MARKETPLACE.address,
       abi: CONTRACTS.PRIMARY_MARKETPLACE.abi,
-      functionName: 'getNFTDetails',
+      functionName: 'getNftDetails',
       args: [numericId],
       // query: {
       //   enabled: numericId !== null && numericId !== undefined,
@@ -136,27 +136,27 @@ export function useContract() {
     return { createOffer, isPending, error }
   }
 
+  // Accept Offer (SecondaryMarketPlace): requires ETH value
   const useAcceptOffer = () => {
     const { writeContractAsync, isPending, error } = useWriteContract()
-    
+    /**
+     * acceptOffer: Call with (tokenId, value) where value is the ETH to send (in wei or string/BigInt)
+     */
     const acceptOffer = async (tokenId, value) => {
       try {
         const numericTokenId = typeof tokenId === 'bigint' ? Number(tokenId) : tokenId
-        
-        const hash = await writeContractAsync({
+        const tx = await writeContractAsync({
           address: CONTRACTS.SECONDARY_MARKETPLACE.address,
           abi: CONTRACTS.SECONDARY_MARKETPLACE.abi,
           functionName: 'acceptOffer',
           args: [numericTokenId],
-          value: BigInt(value)
+          value: value ? BigInt(value) : undefined
         })
-        
-        return hash
+        return tx
       } catch (error) {
         throw error
       }
     }
-    
     return { acceptOffer, isPending, error }
   }
 
@@ -166,6 +166,21 @@ export function useContract() {
       abi: CONTRACTS.SECONDARY_MARKETPLACE.abi,
       functionName: 'getOpenOffers',
     })
+  }
+
+  // Fetch all NFT IDs owned by a user from PrimaryMarketPlace
+  const useGetUserNftIds = (userAddress) => {
+    const result = useReadContract({
+      address: CONTRACTS.PRIMARY_MARKETPLACE.address,
+      abi: CONTRACTS.PRIMARY_MARKETPLACE.abi,
+      functionName: 'getUserNftIds',
+      args: [userAddress],
+      query: {
+        enabled: !!userAddress,
+      }
+    })
+    const data = result.data ? result.data.map(id => Number(id)) : result.data
+    return { ...result, data }
   }
 
   const useRemoveOffer = () => {
@@ -288,7 +303,7 @@ export function useContract() {
     setIsLoading,
     useCreateLicense,
     useGetAllLicenseIds,
-    useGetLicenseFromID,
+    useGetLicenseFromId,
     useMintLicense,
     useGetAllNFTIds,
     useGetNFTDetails,
@@ -297,6 +312,7 @@ export function useContract() {
     useGetOpenOffers,
     useRemoveOffer,
     useGetUserTokens,
+    useGetUserNftIds, // <-- new hook
     useApprove,
     useGetApproved,
     useOwnerOf,

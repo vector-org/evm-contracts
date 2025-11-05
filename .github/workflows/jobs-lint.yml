@@ -9,12 +9,11 @@ on:
 
 jobs:
     lint:
-        runs-on: ${{ inputs.runner }}
+        runs-on: ${{ fromJSON(inputs.runner) }}
         steps:
             - uses: actions/checkout@v4
             - uses: ./.github/actions/install
             - run: npm run lint
-              shell: bash
-            - run: npm run check:format
+            - run: npm run forge:lint
+            - run: npm run format:check
             - run: npm run compile
-              shell: bash

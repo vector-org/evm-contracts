@@ -1,6 +1,43 @@
 {
   "extends": "solhint:recommended",
   "rules": {
-    "func-visibility": ["warn", { "ignoreConstructors": true }]
+    "func-visibility": ["error", { "ignoreConstructors": true }],
+    "state-visibility": "error",
+    "reentrancy": "error",
+    "no-inline-assembly": "off",
+    "no-complex-fallback": "warn",
+    "multiple-sends": "error",
+    "avoid-tx-origin": "error",
+    "compiler-version": ["error", "^0.8.20"],
+    "avoid-throw": "error",
+    "avoid-suicide": "error",
+    "avoid-sha3": "warn",
+    "quotes": [
+      "error",
+      "double"
+    ],
+    "gas-calldata-parameters": "error",
+    "gas-custom-errors": "error",
+    "gas-indexed-events": "off",
+    "imports-on-top": "error",
+    "interface-starts-with-i": "error",
+    "use-natspec": ["warn", {
+      "notice": {
+        "enabled": true,
+        "ignore": {}
+      },
+      "param": {
+        "enabled": true,
+        "ignore": {}
+      },
+      "return": {
+        "enabled": true,
+        "ignore": {}
+      }
+    }],
+    "import-path-check": "off",
+    "function-max-lines": ["warn", 80],
+    "gas-increment-by-one": "error",
+    "no-unused-import": "error"
   }
 }

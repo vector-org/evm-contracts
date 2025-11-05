@@ -17,8 +17,8 @@ const LicenseCard = ({
   pendingMints, 
   handleMintLicense 
 }) => {
-  const { useGetLicenseFromID } = useContract()
-  const { data: licenseData, isLoading: isLoadingLicense } = useGetLicenseFromID(licenseId)
+  const { useGetLicenseFromId } = useContract()
+  const { data: licenseData, isLoading: isLoadingLicense } = useGetLicenseFromId(licenseId)
   const [metadata, setMetadata] = useState(null)
   const [imageUrl, setImageUrl] = useState(null)
   const [metadataLoaded, setMetadataLoaded] = useState(false)
@@ -27,7 +27,7 @@ const LicenseCard = ({
   useEffect(() => {
     if (licenseData?.uri && !metadataLoaded) {
       setMetadataLoaded(true)
-      
+      console.log('license data', licenseData);
       MetadataUtils.fetchMetadataEnhanced(licenseData.uri)
         .then(data => {
           const normalized = MetadataUtils.normalizeImageUrls(data)
@@ -138,12 +138,50 @@ const LicenseCard = ({
             <span className="text-gray-600">Symbol:</span>
             <span className="font-semibold text-gray-900">{licenseData?.symbol || 'N/A'}</span>
           </div>
-          <div className="flex items-center justify-between text-sm">
-            <span className="text-gray-600">Dev Fee:</span>
-            <span className="font-semibold text-gray-900">
-              {licenseData?.developerFee ? `${formatEther(licenseData.developerFee)} ETH` : '0 ETH'}
-            </span>
-          </div>
+          {/* Fee summary */}
+          {(() => {
+            // Use developerFee, platformFee, publisherFee from licenseData
+            // Always treat as string for replace
+            let devFeeRaw = licenseData?.developerFee ?? '0';
+            let platformFeeRaw = licenseData?.platformFee ?? '0';
+            let publisherFeeRaw = licenseData?.publisherFee ?? '0';
+            devFeeRaw = String(devFeeRaw).replace(/,/g, '');
+            platformFeeRaw = String(platformFeeRaw).replace(/,/g, '');
+            publisherFeeRaw = String(publisherFeeRaw).replace(/,/g, '');
+            let developerFee = BigInt(0), platformFee = BigInt(0), publisherFee = BigInt(0);
+            try { developerFee = BigInt(devFeeRaw); } catch (e) { developerFee = 0n; }
+            try { platformFee = BigInt(platformFeeRaw); } catch (e) { platformFee = 0n; }
+            try { publisherFee = BigInt(publisherFeeRaw); } catch (e) { publisherFee = 0n; }
+            const totalFee = developerFee + platformFee + publisherFee;
+            if (totalFee > 0n) {
+              return (
+                <div className="flex flex-col gap-1 mt-2">
+                  <div className="flex items-center justify-between text-sm">
+                    <span className="text-gray-600">Developer Share:</span>
+                    <span className="font-semibold text-gray-900">{formatEther(developerFee)} VCTR</span>
+                  </div>
+                  <div className="flex items-center justify-between text-sm">
+                    <span className="text-gray-600">Platform Fee:</span>
+                    <span className="font-semibold text-gray-900">{formatEther(platformFee)} VCTR</span>
+                  </div>
+                  <div className="flex items-center justify-between text-sm">
+                    <span className="text-gray-600">Publisher Fee:</span>
+                    <span className="font-semibold text-gray-900">{formatEther(publisherFee)} VCTR</span>
+                  </div>
+                  <div className="text-xs text-orange-600 mt-1">
+                    5% of the total fee goes to the platform, 5% to the publisher, and the rest to the developer.
+                  </div>
+                </div>
+              )
+            } else {
+              return (
+                <div className="flex items-center justify-between text-sm mt-2">
+                  <span className="text-gray-600">Price:</span>
+                  <span className="font-semibold text-green-700">FREE</span>
+                </div>
+              )
+            }
+          })()}
         </div>
       </CardContent>
 
@@ -224,12 +262,12 @@ const TransactionNotification = ({ txNotification, setTxNotification }) => {
           {txNotification.hash && (
             <div className="mt-2">
               <a
-                href={`https://sepolia.etherscan.io/tx/${txNotification.hash}`}
+                href={`https://explorer.evm.wasm.host/tx/${txNotification.hash}`}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="text-xs text-blue-600 hover:underline flex items-center"
               >
-                View on Etherscan <ExternalLink className="h-3 w-3 ml-1" />
+                View on Explorer <ExternalLink className="h-3 w-3 ml-1" />
               </a>
             </div>
           )}
@@ -243,7 +281,7 @@ export default function LicenseMarketplace() {
   const { address, isConnected } = useAccount()
   const { 
     useGetAllLicenseIds, 
-    useGetLicenseFromID, 
+  useGetLicenseFromId, 
     useMintLicense
   } = useContract()
 
@@ -394,6 +432,9 @@ export default function LicenseMarketplace() {
       return
     }
 
+  // Use totalFee from contract
+  const totalFee = BigInt(licenseData?.totalFee || 0)
+
     try {
       setMintingLicense(licenseId)
       setPendingMints(prev => new Set([...prev, licenseId])) // Track pending mint
@@ -401,7 +442,8 @@ export default function LicenseMarketplace() {
       const result = await mintLicense({
         licenseId,
         receiver: address,
-        metadataURI: licenseData.uri
+        metadataURI: licenseData.uri,
+        value: totalFee
       })
       
       const txHash = result.hash
