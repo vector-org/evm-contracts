@@ -1,0 +1,31 @@
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.28;
+
+/**
+ * @author Vector Blockchain AG
+ * @title Addresses
+ * @notice Provides global addresses and versioning for the protocol.
+ * @dev Holds the administrator address and zero address constant for use across contracts.
+ */
+contract Addresses {
+    /// @notice The zero address constant (address(0)).
+    address public constant ZERO_ADDRESS = address(0);
+    /// @notice The administrator address for protocol control.
+    address public immutable ADMINISTRATOR;
+    /// @notice The version string for the protocol.
+    string public constant VERSION = "0.1.0";
+    /// @notice The platform fee % for the protocol.
+    uint8 public constant PLATFORM_FEE = 5;
+    /// @notice The publisher fee % for the protocol.
+    uint8 public constant PUBLISHER_FEE = 5;
+    /// @notice The max price for listing license on Secondary Market
+    uint256 public constant MAX_PRICE = 100 ether;
+
+    /**
+     * @notice Constructs the Addresses contract.
+     * @param _admin The administrator address.
+     */
+    constructor(address _admin) {
+        ADMINISTRATOR = _admin;
+    }
+}
