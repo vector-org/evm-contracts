@@ -3,13 +3,17 @@
   "abi": [
     {
       "type": "constructor",
-      "inputs": [],
+      "inputs": [
+        
+      ],
       "stateMutability": "nonpayable"
     },
     {
       "type": "function",
       "name": "ADMINISTRATOR",
-      "inputs": [],
+      "inputs": [
+        
+      ],
       "outputs": [
         {
           "name": "",
@@ -22,7 +26,9 @@
     {
       "type": "function",
       "name": "MAX_PRICE",
-      "inputs": [],
+      "inputs": [
+        
+      ],
       "outputs": [
         {
           "name": "",
@@ -35,7 +41,9 @@
     {
       "type": "function",
       "name": "PLATFORM_FEE",
-      "inputs": [],
+      "inputs": [
+        
+      ],
       "outputs": [
         {
           "name": "",
@@ -48,7 +56,9 @@
     {
       "type": "function",
       "name": "PUBLISHER_FEE",
-      "inputs": [],
+      "inputs": [
+        
+      ],
       "outputs": [
         {
           "name": "",
@@ -61,7 +71,9 @@
     {
       "type": "function",
       "name": "UPGRADE_INTERFACE_VERSION",
-      "inputs": [],
+      "inputs": [
+        
+      ],
       "outputs": [
         {
           "name": "",
@@ -74,7 +86,9 @@
     {
       "type": "function",
       "name": "VERSION",
-      "inputs": [],
+      "inputs": [
+        
+      ],
       "outputs": [
         {
           "name": "",
@@ -87,7 +101,9 @@
     {
       "type": "function",
       "name": "ZERO_ADDRESS",
-      "inputs": [],
+      "inputs": [
+        
+      ],
       "outputs": [
         {
           "name": "",
@@ -118,6 +134,78 @@
     },
     {
       "type": "function",
+      "name": "changeLicenseData",
+      "inputs": [
+        {
+          "name": "licenseId",
+          "type": "uint256",
+          "internalType": "uint256"
+        },
+        {
+          "name": "licenseInput",
+          "type": "tuple",
+          "internalType": "struct LicenseInput",
+          "components": [
+            {
+              "name": "name",
+              "type": "string",
+              "internalType": "string"
+            },
+            {
+              "name": "symbol",
+              "type": "string",
+              "internalType": "string"
+            },
+            {
+              "name": "uri",
+              "type": "string",
+              "internalType": "string"
+            },
+            {
+              "name": "isActive",
+              "type": "bool",
+              "internalType": "bool"
+            },
+            {
+              "name": "totalFee",
+              "type": "uint256",
+              "internalType": "uint256"
+            },
+            {
+              "name": "developer",
+              "type": "address",
+              "internalType": "address"
+            },
+            {
+              "name": "publisher",
+              "type": "address",
+              "internalType": "address"
+            },
+            {
+              "name": "platform",
+              "type": "address",
+              "internalType": "address"
+            },
+            {
+              "name": "primaryMarketplace",
+              "type": "address",
+              "internalType": "address"
+            },
+            {
+              "name": "secondaryMarketplace",
+              "type": "address",
+              "internalType": "address"
+            }
+          ]
+        }
+      ],
+      "outputs": [
+        
+      ],
+      "stateMutability": "nonpayable"
+    },
+    {
+      "type": "function",
       "name": "changeLicenseStatus",
       "inputs": [
         {
@@ -131,7 +219,9 @@
           "internalType": "bool"
         }
       ],
-      "outputs": [],
+      "outputs": [
+        
+      ],
       "stateMutability": "nonpayable"
     },
     {
@@ -208,7 +298,9 @@
     {
       "type": "function",
       "name": "getAllLicenseIds",
-      "inputs": [],
+      "inputs": [
+        
+      ],
       "outputs": [
         {
           "name": "",
@@ -357,7 +449,9 @@
           "internalType": "address"
         }
       ],
-      "outputs": [],
+      "outputs": [
+        
+      ],
       "stateMutability": "nonpayable"
     },
     {
@@ -447,7 +541,9 @@
     {
       "type": "function",
       "name": "owner",
-      "inputs": [],
+      "inputs": [
+        
+      ],
       "outputs": [
         {
           "name": "",
@@ -460,14 +556,20 @@
     {
       "type": "function",
       "name": "pause",
-      "inputs": [],
-      "outputs": [],
+      "inputs": [
+        
+      ],
+      "outputs": [
+        
+      ],
       "stateMutability": "nonpayable"
     },
     {
       "type": "function",
       "name": "paused",
-      "inputs": [],
+      "inputs": [
+        
+      ],
       "outputs": [
         {
           "name": "",
@@ -480,7 +582,9 @@
     {
       "type": "function",
       "name": "proxiableUUID",
-      "inputs": [],
+      "inputs": [
+        
+      ],
       "outputs": [
         {
           "name": "",
@@ -493,8 +597,12 @@
     {
       "type": "function",
       "name": "renounceOwnership",
-      "inputs": [],
-      "outputs": [],
+      "inputs": [
+        
+      ],
+      "outputs": [
+        
+      ],
       "stateMutability": "nonpayable"
     },
     {
@@ -512,7 +620,9 @@
           "internalType": "bool"
         }
       ],
-      "outputs": [],
+      "outputs": [
+        
+      ],
       "stateMutability": "nonpayable"
     },
     {
@@ -544,14 +654,20 @@
           "internalType": "address"
         }
       ],
-      "outputs": [],
+      "outputs": [
+        
+      ],
       "stateMutability": "nonpayable"
     },
     {
       "type": "function",
       "name": "unpause",
-      "inputs": [],
-      "outputs": [],
+      "inputs": [
+        
+      ],
+      "outputs": [
+        
+      ],
       "stateMutability": "nonpayable"
     },
     {
@@ -569,7 +685,9 @@
           "internalType": "string"
         }
       ],
-      "outputs": [],
+      "outputs": [
+        
+      ],
       "stateMutability": "nonpayable"
     },
     {
@@ -587,7 +705,9 @@
           "internalType": "bytes"
         }
       ],
-      "outputs": [],
+      "outputs": [
+        
+      ],
       "stateMutability": "payable"
     },
     {
@@ -599,6 +719,31 @@
           "type": "address",
           "indexed": true,
           "internalType": "address"
+        },
+        {
+          "name": "timestamp",
+          "type": "uint256",
+          "indexed": false,
+          "internalType": "uint256"
+        }
+      ],
+      "anonymous": false
+    },
+    {
+      "type": "event",
+      "name": "ChangeLicenseDetails",
+      "inputs": [
+        {
+          "name": "contractAddress",
+          "type": "address",
+          "indexed": true,
+          "internalType": "address"
+        },
+        {
+          "name": "licenseId",
+          "type": "uint256",
+          "indexed": false,
+          "internalType": "uint256"
         },
         {
           "name": "timestamp",
@@ -761,32 +906,44 @@
     {
       "type": "error",
       "name": "ERC1967NonPayable",
-      "inputs": []
+      "inputs": [
+        
+      ]
     },
     {
       "type": "error",
       "name": "EnforcedPause",
-      "inputs": []
+      "inputs": [
+        
+      ]
     },
     {
       "type": "error",
       "name": "ExpectedPause",
-      "inputs": []
+      "inputs": [
+        
+      ]
     },
     {
       "type": "error",
       "name": "FailedCall",
-      "inputs": []
+      "inputs": [
+        
+      ]
     },
     {
       "type": "error",
       "name": "InvalidInitialization",
-      "inputs": []
+      "inputs": [
+        
+      ]
     },
     {
       "type": "error",
       "name": "NotInitializing",
-      "inputs": []
+      "inputs": [
+        
+      ]
     },
     {
       "type": "error",
@@ -813,7 +970,9 @@
     {
       "type": "error",
       "name": "UUPSUnauthorizedCallContext",
-      "inputs": []
+      "inputs": [
+        
+      ]
     },
     {
       "type": "error",
@@ -829,7 +988,9 @@
     {
       "type": "error",
       "name": "ZeroAddressInput",
-      "inputs": []
+      "inputs": [
+        
+      ]
     },
     {
       "type": "error",
