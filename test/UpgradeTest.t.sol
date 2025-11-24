@@ -7,11 +7,13 @@ import {LicenseFactory} from "../src/LicenseFactory.sol";
 import {PrimaryMarketPlace} from "../src/PrimaryMarketPlace.sol";
 import {SecondaryMarketPlace} from "../src/SecondaryMarketPlace.sol";
 import {LicenseInput} from "../src/types/Types.sol";
+import {ERC20Mock} from "@openzeppelin/contracts/mocks/token/ERC20Mock.sol";
 
 contract UpgradeTest is Test {
     LicenseFactory public licenseFactory;
     PrimaryMarketPlace public primaryMarketPlace;
     SecondaryMarketPlace public secondaryMarketPlace;
+    ERC20Mock public usdc;
 
     address public licenseFactoryProxy;
     address payable public primaryMarketPlaceProxy;
@@ -23,6 +25,9 @@ contract UpgradeTest is Test {
     address public user2 = makeAddr("user2");
 
     function setUp() public {
+        // Deploy mock USDC first
+        usdc = new ERC20Mock();
+        
         vm.startPrank(admin);
 
         address licenseFactoryImpl = address(new LicenseFactory());
@@ -37,7 +42,7 @@ contract UpgradeTest is Test {
                 primaryMarketPlaceImpl,
                 abi.encodeCall(
                     PrimaryMarketPlace.initialize,
-                    (admin, coordinator, licenseFactoryProxy)
+                    (admin, coordinator, licenseFactoryProxy, address(usdc))
                 )
             )
         );
@@ -51,7 +56,8 @@ contract UpgradeTest is Test {
                     admin,
                     coordinator,
                     licenseFactoryProxy,
-                    primaryMarketPlaceProxy
+                    primaryMarketPlaceProxy,
+                    address(usdc)
                 )
             )
         );
@@ -79,7 +85,6 @@ contract UpgradeTest is Test {
             isActive: true,
             totalFee: 175,
             developer: user1,
-            publisher: user2,
             platform: admin,
             primaryMarketplace: primaryMarketPlaceProxy,
             secondaryMarketplace: secondaryMarketPlaceProxy
@@ -115,7 +120,6 @@ contract UpgradeTest is Test {
             isActive: true,
             totalFee: 175,
             developer: user1,
-            publisher: user2,
             platform: admin,
             primaryMarketplace: primaryMarketPlaceProxy,
             secondaryMarketplace: secondaryMarketPlaceProxy
@@ -173,7 +177,6 @@ contract UpgradeTest is Test {
             isActive: true,
             totalFee: 175,
             developer: user1,
-            publisher: user2,
             platform: admin,
             primaryMarketplace: primaryMarketPlaceProxy,
             secondaryMarketplace: secondaryMarketPlaceProxy
@@ -186,7 +189,6 @@ contract UpgradeTest is Test {
             isActive: true,
             totalFee: 175,
             developer: user2,
-            publisher: user1,
             platform: admin,
             primaryMarketplace: primaryMarketPlaceProxy,
             secondaryMarketplace: secondaryMarketPlaceProxy

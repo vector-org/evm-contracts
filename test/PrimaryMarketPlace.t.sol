@@ -14,35 +14,39 @@ contract PrimaryMarketPlaceTest is BaseSetup {
         (address licenseAddr, uint256 licenseId) = _createLicense(true);
         uint256 total = TOTAL_FEE;
 
-        uint256 devBefore = developer.balance;
-        uint256 pubBefore = publisher.balance;
-        uint256 platBefore = platform.balance;
+        uint256 devBefore = usdc.balanceOf(developer);
+        uint256 platBefore = usdc.balanceOf(platform);
 
-        vm.prank(buyer);
-        primary.mintLicense{value: total}(licenseId, buyer, "ipfs://nft/0");
+        vm.startPrank(buyer);
+        usdc.approve(address(primary), total);
+        primary.mintLicense(licenseId, buyer, "ipfs://nft/0");
+        vm.stopPrank();
 
-        assertEq(developer.balance, devBefore + DEV_FEE);
-        assertEq(publisher.balance, pubBefore + PUB_FEE);
-        assertEq(platform.balance, platBefore + PLATFORM_FEE);
+        assertEq(usdc.balanceOf(developer), devBefore + DEV_FEE);
+        assertEq(usdc.balanceOf(platform), platBefore + PLATFORM_FEE);
 
         assertEq(ILicenseContract(licenseAddr).ownerOf(0), buyer);
     }
 
     function testMintInactiveReverts() public {
         (, uint256 licenseId) = _createLicense(false);
-        uint256 total = DEV_FEE + PUB_FEE + PLATFORM_FEE;
-        vm.prank(buyer);
+        uint256 total = TOTAL_FEE;
+        vm.startPrank(buyer);
+        usdc.approve(address(primary), total);
         vm.expectRevert(
             abi.encodeWithSelector(licenseNotActive.selector, licenseId)
         );
-        primary.mintLicense{value: total}(licenseId, buyer, "ipfs://nft/0");
+        primary.mintLicense(licenseId, buyer, "ipfs://nft/0");
+        vm.stopPrank();
     }
 
     function testMintWrongValueReverts() public {
         (, uint256 licenseId) = _createLicense(true);
-        vm.prank(buyer);
+        vm.startPrank(buyer);
+        usdc.approve(address(primary), 1); // Approve insufficient amount
         vm.expectRevert();
-        primary.mintLicense{value: 1 wei}(licenseId, buyer, "ipfs://nft/0");
+        primary.mintLicense(licenseId, buyer, "ipfs://nft/0");
+        vm.stopPrank();
     }
 
     function testMintZeroPriceLicense() public {
@@ -53,7 +57,6 @@ contract PrimaryMarketPlaceTest is BaseSetup {
             isActive: true,
             totalFee: 0,
             developer: developer,
-            publisher: publisher,
             platform: platform,
             primaryMarketplace: address(primary),
             secondaryMarketplace: address(secondary)
@@ -64,43 +67,25 @@ contract PrimaryMarketPlaceTest is BaseSetup {
         uint256[] memory ids = factory.getAllLicenseIds();
         uint256 licenseId = ids[ids.length - 1];
 
-        uint256 devBefore = developer.balance;
-        uint256 pubBefore = publisher.balance;
-        uint256 platBefore = platform.balance;
+        uint256 devBefore = usdc.balanceOf(developer);
+        uint256 platBefore = usdc.balanceOf(platform);
 
-        vm.prank(buyer);
-        primary.mintLicense{value: 0}(licenseId, buyer, "ipfs://nft/free0");
+        vm.startPrank(buyer);
+        usdc.approve(address(primary), 0); // No approval needed for free
+        primary.mintLicense(licenseId, buyer, "ipfs://nft/free0");
+        vm.stopPrank();
 
-        assertEq(developer.balance, devBefore);
-        assertEq(publisher.balance, pubBefore);
-        assertEq(platform.balance, platBefore);
+        assertEq(usdc.balanceOf(developer), devBefore);
+        assertEq(usdc.balanceOf(platform), platBefore);
         assertEq(ILicenseContract(licenseAddr).ownerOf(0), buyer);
     }
 
-    function testMintZeroPriceLicenseWithValueReverts() public {
-        LicenseInput memory input = LicenseInput({
-            name: "FreeLicense",
-            symbol: "FREE",
-            uri: "ipfs://root/free",
-            isActive: true,
-            totalFee: 0,
-            developer: developer,
-            publisher: publisher,
-            platform: platform,
-            primaryMarketplace: address(primary),
-            secondaryMarketplace: address(secondary)
-        });
-
-        vm.prank(coordinator);
-        factory.createLicense(input);
-        uint256[] memory ids = factory.getAllLicenseIds();
-        uint256 licenseId = ids[ids.length - 1];
-
-        uint256 sent = 1 wei;
+    function testMintWithoutApprovalReverts() public {
+        (, uint256 licenseId) = _createLicense(true);
+        
+        // Try to mint without USDC approval - should revert
         vm.prank(buyer);
-        vm.expectRevert(
-            abi.encodeWithSelector(NotSufficientETH.selector, sent, 0)
-        );
-        primary.mintLicense{value: sent}(licenseId, buyer, "ipfs://nft/free1");
+        vm.expectRevert();
+        primary.mintLicense(licenseId, buyer, "ipfs://nft/no-approval");
     }
 }

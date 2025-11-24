@@ -52,8 +52,20 @@ interface IPrimaryMarketPlace {
         uint256 timestamp
     );
 
+    /// @notice Emitted when the payment token address is updated.
+    /// @param oldToken The previous payment token address.
+    /// @param newToken The new payment token address.
+    /// @param updatedBy The address that performed the update (owner).
+    /// @param timestamp The block timestamp of the update.
+    event PaymentTokenUpdated(
+        address indexed oldToken,
+        address indexed newToken,
+        address indexed updatedBy,
+        uint256 timestamp
+    );
+
     /// @notice Mint a new NFT via a License contract for a given license ID.
-    /// @dev Requires the license to be active.
+    /// @dev Requires the license to be active. User must approve USDC spending before calling.
     /// @param licenseId The license ID managed by the factory.
     /// @param _receiver The address to receive the minted NFT.
     /// @param uri The metadata URI to assign to the NFT.
@@ -61,7 +73,7 @@ interface IPrimaryMarketPlace {
         uint256 licenseId,
         address _receiver,
         string memory uri
-    ) external payable;
+    ) external;
 
     /// @notice Get the list of all NFT IDs minted through this contract.
     /// @return An array of NFT token IDs.

@@ -49,6 +49,32 @@ interface ISecondaryMarketPlace {
         uint256 timestamp
     );
 
+    /// @notice Emitted when the payment token address is updated.
+    /// @param oldToken The previous payment token address.
+    /// @param newToken The new payment token address.
+    /// @param updatedBy The address that performed the update (owner).
+    /// @param timestamp The block timestamp of the update.
+    event PaymentTokenUpdated(
+        address indexed oldToken,
+        address indexed newToken,
+        address indexed updatedBy,
+        uint256 timestamp
+    );
+
+    /// @notice Emitted when an offer price is updated.
+    /// @param seller The address of the seller.
+    /// @param tokenId The NFT token ID.
+    /// @param oldPrice The previous price.
+    /// @param newPrice The new price.
+    /// @param timestamp The block timestamp of the update.
+    event OfferUpdated(
+        address indexed seller,
+        uint256 indexed tokenId,
+        uint256 oldPrice,
+        uint256 newPrice,
+        uint256 timestamp
+    );
+
     /// @notice Create a new offer for an NFT.
     /// @param tokenId The NFT token ID to offer.
     /// @param licenseAddress The address of the LicenseContract for the NFT.
@@ -65,12 +91,21 @@ interface ISecondaryMarketPlace {
 
     /// @notice Accept an active offer and purchase the NFT.
     /// @param tokenId The NFT token ID to buy.
-    /// @dev The caller must send the exact price in msg.value.
-    function acceptOffer(uint256 tokenId) external payable;
+    /// @dev The caller must approve ERC20 token spending before calling.
+    function acceptOffer(uint256 tokenId) external;
 
     /// @notice Set the coordinator address (admin only).
     /// @param newCoordinator The new coordinator address.
     function setCoordinator(address newCoordinator) external;
+
+    /// @notice Update the payment token address (allows switching between ERC20 tokens).
+    /// @param _newPaymentToken The address of the new ERC20 payment token (e.g., USDC, USDT).
+    function setPaymentToken(address _newPaymentToken) external;
+
+    /// @notice Edit the price of an existing active offer.
+    /// @param tokenId The NFT token ID whose offer price is to be updated.
+    /// @param newPrice The new price for the offer.
+    function editOffer(uint256 tokenId, uint256 newPrice) external;
 
     /// @notice Get the offer details for a specific NFT token ID.
     /// @param tokenId The NFT token ID.
