@@ -132,7 +132,6 @@ contract LicenseFactory is
 
         (
             uint256 platformFee,
-            uint256 publisherFee,
             uint256 devFee
         ) = _splitFees(licenseInput.totalFee);
 
@@ -142,8 +141,7 @@ contract LicenseFactory is
             msg.sender,
             licenseInput,
             devFee,
-            platformFee,
-            publisherFee
+            platformFee
         );
 
         emit NewLicenseContract(
@@ -186,7 +184,7 @@ contract LicenseFactory is
      * @notice Update mutable license data (metadata, parties and fee split) for an existing license.
      * @param licenseId The license ID to modify.
      * @param licenseInput New license input values (totalFee will be repartitioned into fees).
-     * @dev Only coordinators can call. Recomputes platform / publisher / developer fees from totalFee.
+     * @dev Only coordinators can call. Recomputes platform / developer fees from totalFee (2-party split).
      *      Preserves original owner, coordinator and contractAddress.
      *      Reverts if license does not exist.
      */
@@ -199,14 +197,12 @@ contract LicenseFactory is
             revert licenseNotFound(licenseId);
         }
         
-        // Capture old total fee before update
+        // Capture old total fee before update (2-party split)
         uint256 oldTotalFee = licenseSlot.developerFee +
-            licenseSlot.platformFee +
-            licenseSlot.publisherFee;
+            licenseSlot.platformFee;
         
         (
             uint256 platformFee,
-            uint256 publisherFee,
             uint256 devFee
         ) = _splitFees(licenseInput.totalFee);
         _storeNewLicense(
@@ -215,8 +211,7 @@ contract LicenseFactory is
             licenseSlot.owner,
             licenseInput,
             devFee,
-            platformFee,
-            publisherFee
+            platformFee
         );
 
         emit ChangeLicenseDetails(
@@ -267,22 +262,21 @@ contract LicenseFactory is
     }
 
     /**
-     * @notice Split a total license fee into platform, publisher and developer portions.
+     * @notice Split a total license fee into platform and developer portions (2-party split).
      * @param totalFees The aggregate fee amount.
      * @return platformFee Portion assigned to the platform.
-     * @return publisherFee Portion assigned to the publisher.
      * @return devFee Remaining portion assigned to the developer.
+     * @dev Publisher removed - now 2-party split only
      */
     function _splitFees(
         uint256 totalFees
     )
         internal
         pure
-        returns (uint256 platformFee, uint256 publisherFee, uint256 devFee)
+        returns (uint256 platformFee, uint256 devFee)
     {
         platformFee = (totalFees * PLATFORM_FEE) / 100;
-        publisherFee = (totalFees * PUBLISHER_FEE) / 100;
-        devFee = totalFees - platformFee - publisherFee;
+        devFee = totalFees - platformFee;
     }
 
     /**
@@ -307,8 +301,7 @@ contract LicenseFactory is
      * @param licenseInput Source input (metadata + parties).
      * @param devFee Developer fee portion (post‑split).
      * @param platformFee Platform fee portion (post‑split).
-     * @param publisherFee Publisher fee portion (post‑split).
-     * @dev Sets coordinator to ADMINISTRATOR and stamps current block timestamp.
+     * @dev Sets coordinator to ADMINISTRATOR and stamps current block timestamp. 2-party split (developer/platform).
      */
     function _storeNewLicense(
         uint256 id,
@@ -316,8 +309,7 @@ contract LicenseFactory is
         address creator,
         LicenseInput memory licenseInput,
         uint256 devFee,
-        uint256 platformFee,
-        uint256 publisherFee
+        uint256 platformFee
     ) internal whenNotPaused {
         License storage licenseSlot = licenseContracts[id];
         licenseSlot.contractAddress = licenseAddr;
@@ -330,9 +322,7 @@ contract LicenseFactory is
         licenseSlot.timestamp = block.timestamp;
         licenseSlot.developerFee = devFee;
         licenseSlot.platformFee = platformFee;
-        licenseSlot.publisherFee = publisherFee;
         licenseSlot.developer = licenseInput.developer;
-        licenseSlot.publisher = licenseInput.publisher;
         licenseSlot.platform = licenseInput.platform;
     }
 

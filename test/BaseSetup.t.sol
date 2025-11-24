@@ -7,37 +7,45 @@ import {PrimaryMarketPlace} from "src/PrimaryMarketPlace.sol";
 import {SecondaryMarketPlace} from "src/SecondaryMarketPlace.sol";
 import {ERC1967Proxy} from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 import {LicenseInput} from "src/types/Types.sol";
+import {ERC20Mock} from "@openzeppelin/contracts/mocks/token/ERC20Mock.sol";
 
 contract BaseSetup is Test {
     LicenseFactory internal factory;
     PrimaryMarketPlace internal primary;
     SecondaryMarketPlace internal secondary;
+    ERC20Mock internal usdc;
 
     address internal admin;
     address internal coordinator;
     address internal developer;
-    address internal publisher;
     address internal platform;
     address internal buyer;
 
-    uint256 internal constant TOTAL_FEE = 0.8 ether;
-    uint256 internal constant PUB_FEE = (TOTAL_FEE * 5) / 100;
+    // USDC uses 6 decimals (not 18 like ETH)
+    // 2-party split: developer + platform (publisher removed per CHAIN_INTEGRATION_SOP)
+    uint256 internal constant TOTAL_FEE = 0.8e6; // 0.8 USDC
     uint256 internal constant PLATFORM_FEE = (TOTAL_FEE * 5) / 100;
-    uint256 internal constant DEV_FEE = TOTAL_FEE - PUB_FEE - PLATFORM_FEE;
+    uint256 internal constant DEV_FEE = TOTAL_FEE - PLATFORM_FEE;
 
     function setUp() public virtual {
         admin = address(this);
         coordinator = makeAddr("coordinator");
         developer = makeAddr("developer");
-        publisher = makeAddr("publisher");
         platform = makeAddr("platform");
         buyer = makeAddr("buyer");
 
         vm.deal(coordinator, 100 ether);
         vm.deal(developer, 2 ether);
-        vm.deal(publisher, 2 ether);
         vm.deal(platform, 2 ether);
         vm.deal(buyer, 100 ether);
+
+        // Deploy mock USDC with 6 decimals
+        usdc = new ERC20Mock();
+        vm.label(address(usdc), "USDC");
+        
+        // Mint USDC to test addresses
+        usdc.mint(buyer, 1000e6); // 1000 USDC for buyer
+        usdc.mint(coordinator, 1000e6);
 
         LicenseFactory factoryImpl = new LicenseFactory();
         PrimaryMarketPlace primaryImpl = new PrimaryMarketPlace();
@@ -54,7 +62,8 @@ contract BaseSetup is Test {
                 PrimaryMarketPlace.initialize.selector,
                 admin,
                 coordinator,
-                address(factoryProxy)
+                address(factoryProxy),
+                address(usdc)
             )
         );
 
@@ -65,7 +74,8 @@ contract BaseSetup is Test {
                 admin,
                 coordinator,
                 address(factoryProxy),
-                address(primaryProxy)
+                address(primaryProxy),
+                address(usdc)
             )
         );
 
@@ -90,7 +100,6 @@ contract BaseSetup is Test {
             isActive: active,
             totalFee: TOTAL_FEE,
             developer: developer,
-            publisher: publisher,
             platform: platform,
             primaryMarketplace: address(primary),
             secondaryMarketplace: address(secondary)

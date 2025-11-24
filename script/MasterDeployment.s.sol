@@ -13,6 +13,7 @@ contract MasterProxyDeployment is Script {
         vm.startBroadcast(deployerPrivateKey);
 
         address admin = vm.addr(deployerPrivateKey);
+        address usdcAddress = vm.envAddress("USDC_ADDRESS");
 
         LicenseFactory factoryImpl = new LicenseFactory();
         PrimaryMarketPlace primaryImpl = new PrimaryMarketPlace();
@@ -29,7 +30,8 @@ contract MasterProxyDeployment is Script {
                 PrimaryMarketPlace.initialize.selector,
                 admin,
                 admin,
-                address(factoryProxy)
+                address(factoryProxy),
+                usdcAddress
             )
         );
 

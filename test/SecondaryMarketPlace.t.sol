@@ -17,9 +17,11 @@ contract SecondaryMarketPlaceTest is BaseSetup {
         returns (address licenseAddr, uint256 licenseId, uint256 tokenId)
     {
         (licenseAddr, licenseId) = _createLicense(true);
-        uint256 total = DEV_FEE + PUB_FEE + PLATFORM_FEE;
-        vm.prank(buyer);
-        primary.mintLicense{value: total}(licenseId, buyer, "ipfs://nft/0");
+        uint256 total = TOTAL_FEE;
+        vm.startPrank(buyer);
+        usdc.approve(address(primary), total);
+        primary.mintLicense(licenseId, buyer, "ipfs://nft/0");
+        vm.stopPrank();
         tokenId = 0;
     }
 
@@ -29,14 +31,16 @@ contract SecondaryMarketPlaceTest is BaseSetup {
         vm.prank(buyer);
         ILicenseContract(licenseAddr).approve(address(secondary), tokenId);
 
-        uint256 price = 1 ether;
+        uint256 price = 10e6; // 10 USDC
         vm.prank(buyer);
         secondary.createOffer(tokenId, licenseAddr, price);
 
         address buyer2 = makeAddr("buyer2");
-        vm.deal(buyer2, 10 ether);
-        vm.prank(buyer2);
-        secondary.acceptOffer{value: price}(tokenId);
+        usdc.mint(buyer2, 10e6); // Mint 10 USDC to buyer2
+        vm.startPrank(buyer2);
+        usdc.approve(address(secondary), price);
+        secondary.acceptOffer(tokenId);
+        vm.stopPrank();
 
         assertEq(
             ILicenseContract(licenseAddr).ownerOf(tokenId),
@@ -50,14 +54,14 @@ contract SecondaryMarketPlaceTest is BaseSetup {
         vm.prank(buyer);
         ILicenseContract(licenseAddr).approve(address(secondary), tokenId);
         vm.prank(buyer);
-        secondary.createOffer(tokenId, licenseAddr, 1 ether);
+        uint256 price = 5e6; // 5 USDC
+        secondary.createOffer(tokenId, licenseAddr, price);
         address buyer2 = makeAddr("buyer2");
-        vm.deal(buyer2, 1 ether);
+        usdc.mint(buyer2, 1e6);
         vm.prank(buyer2);
-        vm.expectRevert(
-            abi.encodeWithSelector(insufficientPayment.selector, tokenId, 0)
-        );
-        secondary.acceptOffer{value: 0}(tokenId);
+        // Don't approve any tokens - this should cause the transfer to fail
+        vm.expectRevert(); // ERC20 will revert with ERC20InsufficientAllowance
+        secondary.acceptOffer(tokenId);
     }
 
     function testAcceptOfferCannotBuyOwnOffer() public {
@@ -65,19 +69,20 @@ contract SecondaryMarketPlaceTest is BaseSetup {
         vm.prank(buyer);
         ILicenseContract(licenseAddr).approve(address(secondary), tokenId);
         vm.prank(buyer);
-        secondary.createOffer(tokenId, licenseAddr, 1 ether);
+        uint256 price = 5e6; // 5 USDC
+        secondary.createOffer(tokenId, licenseAddr, price);
         vm.prank(buyer);
         vm.expectRevert(
             abi.encodeWithSelector(cannotBuyYourOwnOffer.selector, buyer)
         );
-        secondary.acceptOffer{value: 1 ether}(tokenId);
+        secondary.acceptOffer(tokenId);
     }
 
     function testCreateOfferUnapprovedReverts() public {
         (address licenseAddr, , uint256 tokenId) = _mintForSecondary();
         vm.prank(buyer);
         vm.expectRevert();
-        secondary.createOffer(tokenId, licenseAddr, 1 ether);
+        secondary.createOffer(tokenId, licenseAddr, 5e6); // 5 USDC
     }
 
     function testRemoveOffer() public {
@@ -85,7 +90,7 @@ contract SecondaryMarketPlaceTest is BaseSetup {
         vm.prank(buyer);
         ILicenseContract(licenseAddr).approve(address(secondary), tokenId);
         vm.prank(buyer);
-        secondary.createOffer(tokenId, licenseAddr, 1 ether);
+        secondary.createOffer(tokenId, licenseAddr, 5e6); // 5 USDC
         vm.prank(buyer);
         secondary.removeOffer(tokenId);
         vm.prank(buyer);
@@ -100,7 +105,7 @@ contract SecondaryMarketPlaceTest is BaseSetup {
         vm.prank(buyer);
         ILicenseContract(licenseAddr).approve(address(secondary), tokenId);
         vm.prank(buyer);
-        secondary.createOffer(tokenId, licenseAddr, 1 ether);
+        secondary.createOffer(tokenId, licenseAddr, 5e6); // 5 USDC
 
         vm.prank(coordinator);
         secondary.removeOffer(tokenId);
@@ -145,6 +150,6 @@ contract SecondaryMarketPlaceTest is BaseSetup {
                 wrongLicenseAddr
             )
         );
-        secondary.createOffer(tokenId, wrongLicenseAddr, 1 ether);
+        secondary.createOffer(tokenId, wrongLicenseAddr, 5e6); // 5 USDC
     }
 }

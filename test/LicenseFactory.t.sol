@@ -25,9 +25,7 @@ contract LicenseFactoryTest is BaseSetup {
         assertTrue(L.isActive, "should be active");
         assertEq(L.developerFee, DEV_FEE, "developer fee mismatch");
         assertEq(L.platformFee, PLATFORM_FEE, "platform fee mismatch");
-        assertEq(L.publisherFee, PUB_FEE, "publisher fee mismatch");
         assertEq(L.developer, developer, "developer address mismatch");
-        assertEq(L.publisher, publisher, "publisher address mismatch");
         assertEq(L.platform, platform, "platform address mismatch");
         assertGt(L.timestamp, 0, "timestamp should be greater than 0");
     }
@@ -36,13 +34,11 @@ contract LicenseFactoryTest is BaseSetup {
         (, uint256 licenseId) = _createLicense(true);
 
         address newDev = makeAddr("newDev");
-        address newPub = makeAddr("newPub");
         address newPlat = makeAddr("newPlat");
 
-        uint256 newTotal = 1 ether;
+        uint256 newTotal = 1e6; // 1 USDC (6 decimals)
         uint256 expectedPlatform = (newTotal * 5) / 100;
-        uint256 expectedPublisher = (newTotal * 5) / 100;
-        uint256 expectedDev = newTotal - expectedPlatform - expectedPublisher;
+        uint256 expectedDev = newTotal - expectedPlatform;
 
         LicenseInput memory input = LicenseInput({
             name: "ChangedName",
@@ -51,7 +47,6 @@ contract LicenseFactoryTest is BaseSetup {
             isActive: false,
             totalFee: newTotal,
             developer: newDev,
-            publisher: newPub,
             platform: newPlat,
             primaryMarketplace: address(primary),
             secondaryMarketplace: address(secondary)
@@ -66,10 +61,8 @@ contract LicenseFactoryTest is BaseSetup {
         assertEq(L.uri, "ipfs://changed/uri", "uri not updated");
         assertFalse(L.isActive, "status should update");
         assertEq(L.developer, newDev, "dev addr not updated");
-        assertEq(L.publisher, newPub, "pub addr not updated");
         assertEq(L.platform, newPlat, "platform addr not updated");
         assertEq(L.platformFee, expectedPlatform, "platform fee wrong");
-        assertEq(L.publisherFee, expectedPublisher, "publisher fee wrong");
         assertEq(L.developerFee, expectedDev, "dev fee wrong");
         assertEq(L.owner, coordinator, "owner should not change");
         assertEq(L.coordinator, admin, "coordinator should remain admin");
@@ -102,13 +95,15 @@ contract LicenseFactoryTest is BaseSetup {
     function testUpdateLicenseURIByOwnerAndAdmin() public {
         (address licenseAddr, uint256 licenseId) = _createLicense(true);
 
-        uint256 total = DEV_FEE + PUB_FEE + PLATFORM_FEE;
-        vm.prank(buyer);
-        primary.mintLicense{value: total}(
+        uint256 total = TOTAL_FEE;
+        vm.startPrank(buyer);
+        usdc.approve(address(primary), total);
+        primary.mintLicense(
             licenseId,
             buyer,
             "ipfs://mint/original"
         );
+        vm.stopPrank();
 
         vm.prank(coordinator);
         factory.updateLicense(licenseId, "ipfs://new/uri");
@@ -154,7 +149,6 @@ contract LicenseFactoryTest is BaseSetup {
             isActive: true,
             totalFee: TOTAL_FEE,
             developer: developer,
-            publisher: publisher,
             platform: platform,
             primaryMarketplace: address(primary),
             secondaryMarketplace: address(secondary)
