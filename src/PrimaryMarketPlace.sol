@@ -59,7 +59,10 @@ contract PrimaryMarketPlace is
     uint256 private _tokenIdCounter;
     mapping(address => uint256[]) private userNftIds;
 
-    uint256[45] private __storageGap;
+    /// @notice Address authorized to mint licenses without payment (Steam Legacy)
+    address public mintAuthority;
+
+    uint256[44] private __storageGap;
 
     /// @notice Restricts function to only the administrator.
     modifier checkIsAdmin() {
@@ -84,6 +87,14 @@ contract PrimaryMarketPlace is
     /// @notice Restricts function to only the owner or administrator.
     modifier onlyOwnerOrAdmin() {
         if (msg.sender != ADMINISTRATOR && msg.sender != owner()) {
+            revert UnAuthorizedUser(msg.sender);
+        }
+        _;
+    }
+
+    /// @notice Restricts function to only the mint authority or administrator.
+    modifier onlyMintAuthority() {
+        if (msg.sender != mintAuthority && msg.sender != ADMINISTRATOR) {
             revert UnAuthorizedUser(msg.sender);
         }
         _;
@@ -214,6 +225,61 @@ contract PrimaryMarketPlace is
         }
 
         emit Mint(_receiver, licenseAddress, uri, block.timestamp);
+    }
+
+    /**
+     * @notice Mint a license NFT to a user without payment (mintAuthority only).
+     * @dev Used for Steam Legacy minting. Only callable by mintAuthority or admin.
+     * @param licenseId The license ID to mint from.
+     * @param _receiver The address to receive the NFT.
+     * @param uri The metadata URI for the NFT.
+     */
+    function adminMintTo(
+        uint256 licenseId,
+        address _receiver,
+        string memory uri
+    ) external whenNotPaused nonReentrant onlyMintAuthority {
+        ILicenseFactory licenseFactory = ILicenseFactory(factory);
+        License memory fetchedLicense = licenseFactory.getLicenseFromId(
+            licenseId
+        );
+
+        if (fetchedLicense.isActive == false) {
+            revert licenseNotActive(licenseId);
+        }
+
+        address licenseAddress = fetchedLicense.contractAddress;
+        ILicenseContract licenseContract = ILicenseContract(licenseAddress);
+
+        uint256 nftId = _tokenIdCounter;
+        ++_tokenIdCounter;
+
+        gameNfts[nftId] = GameNft({
+            owner: _receiver,
+            uri: uri,
+            licenseId: licenseId,
+            licenseAddress: licenseAddress,
+            listedForSale: false
+        });
+        allNftIds.push(nftId);
+        userNftIds[_receiver].push(nftId);
+
+        licenseContract.safeMint(uri, _receiver, nftId);
+
+        emit AdminMint(_receiver, licenseAddress, licenseId, uri, block.timestamp);
+    }
+
+    /**
+     * @notice Set the mint authority address for Steam Legacy minting.
+     * @param _mintAuthority The new mint authority address.
+     * @dev Only callable by owner or admin.
+     */
+    function setMintAuthority(address _mintAuthority) external onlyOwnerOrAdmin {
+        if (_mintAuthority == ZERO_ADDRESS) {
+            revert ZeroAddressInput();
+        }
+        mintAuthority = _mintAuthority;
+        emit MintAuthorityUpdated(_mintAuthority, msg.sender, block.timestamp);
     }
 
     /**

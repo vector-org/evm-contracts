@@ -7,7 +7,6 @@ import {LicenseInput} from "../src/types/Types.sol";
 
 /**
  * @title MintGamesV2
- * @notice Recreates the 5 games from the old deployment using exported migration data
  * @dev Run with: forge script script/MintGamesV2.s.sol:MintGamesV2 --rpc-url $RPC_URL --broadcast --slow -vv
  */
 contract MintGamesV2 is Script {
