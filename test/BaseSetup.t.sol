@@ -21,8 +21,6 @@ contract BaseSetup is Test {
     address internal platform;
     address internal buyer;
 
-    // USDC uses 6 decimals (not 18 like ETH)
-    // 2-party split: developer + platform (publisher removed per CHAIN_INTEGRATION_SOP)
     uint256 internal constant TOTAL_FEE = 0.8e6; // 0.8 USDC
     uint256 internal constant PLATFORM_FEE = (TOTAL_FEE * 5) / 100;
     uint256 internal constant DEV_FEE = TOTAL_FEE - PLATFORM_FEE;
@@ -39,7 +37,6 @@ contract BaseSetup is Test {
         vm.deal(platform, 2 ether);
         vm.deal(buyer, 100 ether);
 
-        // Deploy mock USDC with 6 decimals
         usdc = new ERC20Mock();
         vm.label(address(usdc), "USDC");
         
