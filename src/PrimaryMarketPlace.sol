@@ -264,7 +264,7 @@ contract PrimaryMarketPlace is
         allNftIds.push(nftId);
         userNftIds[_receiver].push(nftId);
 
-        licenseContract.safeMint(uri, _receiver, nftId);
+        licenseContract.safeMintLocked(uri, _receiver, nftId);
 
         emit AdminMint(_receiver, licenseAddress, licenseId, uri, block.timestamp);
     }
