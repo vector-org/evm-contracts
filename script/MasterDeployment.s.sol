@@ -13,7 +13,8 @@ contract MasterProxyDeployment is Script {
         vm.startBroadcast(deployerPrivateKey);
 
         address admin = vm.addr(deployerPrivateKey);
-        address usdcAddress = vm.envAddress("USDC_ADDRESS");
+        // Use vUSD as the payment token
+        address vusdAddress = vm.envAddress("VUSD_ADDRESS");
 
         LicenseFactory factoryImpl = new LicenseFactory();
         PrimaryMarketPlace primaryImpl = new PrimaryMarketPlace();
@@ -31,7 +32,7 @@ contract MasterProxyDeployment is Script {
                 admin,
                 admin,
                 address(factoryProxy),
-                usdcAddress
+                vusdAddress
             )
         );
 
@@ -42,7 +43,8 @@ contract MasterProxyDeployment is Script {
                 admin,
                 admin,
                 address(factoryProxy),
-                address(primaryProxy)
+                address(primaryProxy),
+                vusdAddress
             )
         );
 

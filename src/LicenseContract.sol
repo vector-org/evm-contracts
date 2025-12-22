@@ -4,11 +4,13 @@ pragma solidity ^0.8.28;
 import {ERC721} from "@openzeppelin/contracts/token/ERC721/ERC721.sol";
 import {ERC721URIStorage} from "@openzeppelin/contracts/token/ERC721/extensions/ERC721URIStorage.sol";
 import {Addresses} from "./constants/Addresses.sol";
+import {IERC5192} from "./interfaces/IERC5192.sol";
 import {
     notFactory,
     notOwnerOrFactory,
     notPrimaryOrSecondary,
-    notPrimaryMarketPlace
+    notPrimaryMarketPlace,
+    TokenLocked
 } from "./errors/LicenseContract.sol";
 import {ZeroAddressInput} from "./errors/Common.sol";
 
@@ -23,8 +25,9 @@ import {ZeroAddressInput} from "./errors/Common.sol";
  * - Only the PrimaryMarketPlace contract can mint new NFTs via `safeMint`.
  * - Only the PrimaryMarketPlace and SecondaryMarketPlace contracts can transfer NFTs (enforced in `_update`).
  * - The LicenseFactory, contract owner, or administrator can update token URIs.
+ * - Supports ERC-5192 for soulbound (non-transferable) tokens.
  */
-contract LicenseContract is ERC721, ERC721URIStorage, Addresses {
+contract LicenseContract is ERC721, ERC721URIStorage, Addresses, IERC5192 {
     /// @notice The owner of this LicenseContract instance.
     address public owner;
     /// @notice The LicenseFactory address that deployed this contract.
@@ -33,6 +36,9 @@ contract LicenseContract is ERC721, ERC721URIStorage, Addresses {
     address public immutable PRIMARYMARKETPLACE;
     /// @notice The SecondaryMarketPlace contract address allowed to transfer.
     address public immutable SECONDARYMARKETPLACE;
+
+    /// @notice Mapping of token ID to locked (soulbound) status
+    mapping(uint256 => bool) private _locked;
 
     /// @notice Restricts function to only the factory.
     /// @param _factory The factory address to check.
@@ -98,6 +104,34 @@ contract LicenseContract is ERC721, ERC721URIStorage, Addresses {
     }
 
     /**
+     * @notice Mint a new soulbound (non-transferable) license NFT.
+     * @dev Only callable by PrimaryMarketPlace. Token is permanently locked.
+     * @param uri The metadata URI for the NFT.
+     * @param to The address to receive the NFT.
+     * @param licenseId The tokenId for the NFT.
+     * @custom:called-by PrimaryMarketPlace for Steam Legacy mints.
+     */
+    function safeMintLocked(
+        string memory uri,
+        address to,
+        uint256 licenseId
+    ) public onlyPrimaryMarketPlace {
+        _safeMint(to, licenseId);
+        _setTokenURI(licenseId, uri);
+        _locked[licenseId] = true;
+        emit Locked(licenseId);
+    }
+
+    /**
+     * @notice Check if a token is locked (soulbound).
+     * @param tokenId The tokenId to check.
+     * @return True if the token is locked and non-transferable.
+     */
+    function locked(uint256 tokenId) external view returns (bool) {
+        return _locked[tokenId];
+    }
+
+    /**
      * @notice Get the metadata URI for a license NFT.
      * @param licenseId The tokenId of the NFT.
      * @return The metadata URI.
@@ -142,6 +176,11 @@ contract LicenseContract is ERC721, ERC721URIStorage, Addresses {
     ) internal virtual override returns (address) {
         address from = _ownerOf(tokenId);
 
+        // Block transfers of locked (soulbound) tokens - allow minting (from == 0)
+        if (_locked[tokenId] && from != address(0)) {
+            revert TokenLocked(tokenId);
+        }
+
         if (
             from != address(0) &&
             auth != PRIMARYMARKETPLACE &&
@@ -165,6 +204,7 @@ contract LicenseContract is ERC721, ERC721URIStorage, Addresses {
     function supportsInterface(
         bytes4 interfaceId
     ) public view override(ERC721, ERC721URIStorage) returns (bool) {
-        return super.supportsInterface(interfaceId);
+        // ERC-5192 interface ID: 0xb45a3c0e
+        return interfaceId == 0xb45a3c0e || super.supportsInterface(interfaceId);
     }
 }

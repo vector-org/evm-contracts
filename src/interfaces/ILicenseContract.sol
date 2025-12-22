@@ -86,4 +86,25 @@ interface ILicenseContract {
         address to,
         uint256 tokenId
     ) external;
+
+    /// @notice Mints a new soulbound (non-transferable) license NFT.
+    /// @dev Only callable by PrimaryMarketPlace. Token will be locked permanently.
+    /// @param uri The metadata URI for the license.
+    /// @param to The recipient address.
+    /// @param licenseId The token ID.
+    function safeMintLocked(
+        string memory uri,
+        address to,
+        uint256 licenseId
+    ) external;
+
+    /// @notice Sets or unsets the approval of a given operator.
+    /// @param operator The operator to approve or disapprove.
+    /// @param approved True to approve, false to revoke.
+    function setApprovalForAll(address operator, bool approved) external;
+
+    /// @notice Check if a token is locked (soulbound).
+    /// @param tokenId The tokenId to check.
+    /// @return True if the token is locked and non-transferable.
+    function locked(uint256 tokenId) external view returns (bool);
 }

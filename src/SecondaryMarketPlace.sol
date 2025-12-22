@@ -21,7 +21,8 @@ import {
     alreadyListed,
     UnApprovedNFT,
     ContractNotOwner,
-    LicenseAddressDifferent
+    LicenseAddressDifferent,
+    TokenIsSoulbound
 } from "./errors/SecondaryMarketPlace.sol";
 import {ReentrancyGuard} from "openzeppelin-contracts/contracts/utils/ReentrancyGuard.sol";
 import {ISecondaryMarketPlace} from "./interfaces/ISecondaryMarketPlace.sol";
@@ -145,6 +146,23 @@ contract SecondaryMarketPlace is
         if (licenseAddress != gameNft.licenseAddress) {
             revert LicenseAddressDifferent(licenseAddress);
         }
+
+        // Block soulbound (non-transferable) tokens from being listed
+        // Use try/catch to handle legacy contracts that don't implement locked()
+        // We use a low-level call here because try/catch with interface calls can be tricky if the function selector doesn't exist
+        // and the contract has no fallback, it reverts.
+        (bool success, bytes memory data) = licenseAddress.staticcall(
+            abi.encodeWithSelector(ILicenseContract.locked.selector, tokenId)
+        );
+        
+        if (success && data.length > 0) {
+            bool isLocked = abi.decode(data, (bool));
+            if (isLocked) {
+                revert TokenIsSoulbound(tokenId);
+            }
+        }
+        // If call fails (old contract) or returns empty data, we assume NOT locked.
+
         if (
             !licenseContract.isApprovedForAll(msg.sender, address(this)) &&
             licenseContract.getApproved(tokenId) != address(this)
