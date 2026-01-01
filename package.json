@@ -9,7 +9,7 @@
   "dependencies": {
     "dotenv": "^17.1.0",
     "husky": "^9.1.7",
-    "solhint": "^6.0.0"
+    "solhint": "^6.0.2"
   },
   "scripts": {
     "prepare": "husky",
