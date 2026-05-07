@@ -17,11 +17,12 @@ import {License, LicenseInput} from "src/types/Types.sol";
  *      --rpc-url $RPC_URL --broadcast -vvvv
  */
 contract AdjustLicensePrices is Script {
-    uint256 constant PRICE_DOOM = 999 * 1e16;
-    uint256 constant PRICE_GASSHOOTER = 199 * 1e16;
-    uint256 constant PRICE_LYRA_ON_VECTOR = 1999 * 1e16;
-    uint256 constant PRICE_SHATTERED_PIXEL_DUNGEON = 499 * 1e16;
-    uint256 constant PRICE_LAST_DROP = 0;
+    // USDC prices (6 decimals) - Updated for USDC integration
+    uint256 constant PRICE_LYRA_ON_VECTOR = 19.99e6;      // 19990000 (6 decimals)
+    uint256 constant PRICE_DOOM = 9.99e6;                  // 9990000 (6 decimals)
+    uint256 constant PRICE_SHATTERED_PIXEL_DUNGEON = 4.99e6; // 4990000 (6 decimals)
+    uint256 constant PRICE_LAST_DROP = 0;                  // 0 (free)
+    uint256 constant PRICE_GASSHOOTER = 1.99e6;           // 1990000 (6 decimals)
 
     function run() external {
         uint256 pk = vm.envUint("PRIVATE_KEY");
@@ -50,8 +51,7 @@ contract AdjustLicensePrices is Script {
             if (!shouldUpdate) continue;
 
             uint256 currentTotal = L.developerFee +
-                L.platformFee +
-                L.publisherFee;
+                L.platformFee;
             if (currentTotal == newPrice) {
                 console.log("Skipping id (already at target price)");
                 console.log(id);
@@ -65,7 +65,6 @@ contract AdjustLicensePrices is Script {
                 isActive: L.isActive,
                 totalFee: newPrice,
                 developer: L.developer,
-                publisher: L.publisher,
                 platform: L.platform,
                 primaryMarketplace: primaryAddr,
                 secondaryMarketplace: secondaryAddr
@@ -92,14 +91,14 @@ contract AdjustLicensePrices is Script {
         string memory name
     ) internal pure returns (bool, uint256) {
         bytes32 h = keccak256(bytes(name));
-        if (h == keccak256(bytes("doom"))) return (true, PRICE_DOOM);
-        if (h == keccak256(bytes("GASShooter")))
-            return (true, PRICE_GASSHOOTER);
         if (h == keccak256(bytes("Lyra On Vector")))
             return (true, PRICE_LYRA_ON_VECTOR);
+        if (h == keccak256(bytes("Doom"))) return (true, PRICE_DOOM);
         if (h == keccak256(bytes("Shattered Pixel Dungeon")))
             return (true, PRICE_SHATTERED_PIXEL_DUNGEON);
         if (h == keccak256(bytes("Last Drop"))) return (true, PRICE_LAST_DROP);
+        if (h == keccak256(bytes("GASShooter")))
+            return (true, PRICE_GASSHOOTER);
         return (false, 0);
     }
 }

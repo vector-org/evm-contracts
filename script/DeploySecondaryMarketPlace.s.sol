@@ -13,6 +13,7 @@ contract DeploySecondaryMarketPlaceProxy is Script {
         address admin = vm.addr(deployerPrivateKey);
         address factoryProxy = vm.envAddress("FACTORY_PROXY_ADDRESS");
         address primaryProxy = vm.envAddress("PRIMARY_PROXY_ADDRESS");
+        address vusdAddress = vm.envAddress("VUSD_ADDRESS");
 
         SecondaryMarketPlace secondaryImpl = new SecondaryMarketPlace();
 
@@ -23,7 +24,8 @@ contract DeploySecondaryMarketPlaceProxy is Script {
                 admin,
                 admin,
                 factoryProxy,
-                primaryProxy
+                primaryProxy,
+                vusdAddress
             )
         );
 

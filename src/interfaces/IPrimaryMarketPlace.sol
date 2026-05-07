@@ -52,8 +52,44 @@ interface IPrimaryMarketPlace {
         uint256 timestamp
     );
 
+    /// @notice Emitted when the payment token address is updated.
+    /// @param oldToken The previous payment token address.
+    /// @param newToken The new payment token address.
+    /// @param updatedBy The address that performed the update (owner).
+    /// @param timestamp The block timestamp of the update.
+    event PaymentTokenUpdated(
+        address indexed oldToken,
+        address indexed newToken,
+        address indexed updatedBy,
+        uint256 timestamp
+    );
+
+    /// @notice Emitted when a mintAuthority mints a license without payment.
+    /// @param to Address receiving the NFT.
+    /// @param licenseAddress The LicenseContract address used for minting.
+    /// @param licenseId The license ID.
+    /// @param uri The metadata URI of the NFT.
+    /// @param timestamp The block timestamp when minting occurred.
+    event AdminMint(
+        address indexed to,
+        address indexed licenseAddress,
+        uint256 indexed licenseId,
+        string uri,
+        uint256 timestamp
+    );
+
+    /// @notice Emitted when the mint authority address is updated.
+    /// @param newAuthority The new mint authority address.
+    /// @param updatedBy The address that performed the update.
+    /// @param timestamp The block timestamp of the update.
+    event MintAuthorityUpdated(
+        address indexed newAuthority,
+        address indexed updatedBy,
+        uint256 timestamp
+    );
+
     /// @notice Mint a new NFT via a License contract for a given license ID.
-    /// @dev Requires the license to be active.
+    /// @dev Requires the license to be active. User must approve USDC spending before calling.
     /// @param licenseId The license ID managed by the factory.
     /// @param _receiver The address to receive the minted NFT.
     /// @param uri The metadata URI to assign to the NFT.
@@ -61,7 +97,7 @@ interface IPrimaryMarketPlace {
         uint256 licenseId,
         address _receiver,
         string memory uri
-    ) external payable;
+    ) external;
 
     /// @notice Get the list of all NFT IDs minted through this contract.
     /// @return An array of NFT token IDs.
@@ -101,4 +137,19 @@ interface IPrimaryMarketPlace {
     /// @param nftId The NFT token ID.
     /// @param nftData The new GameNFT data.
     function updateNftData(uint256 nftId, GameNft memory nftData) external;
+
+    /// @notice Mint a license NFT to a user without payment (mintAuthority only).
+    /// @dev Used for Steam Legacy feature. Only mintAuthority or admin can call.
+    /// @param licenseId The license ID managed by the factory.
+    /// @param _receiver The address to receive the minted NFT.
+    /// @param uri The metadata URI to assign to the NFT.
+    function adminMintTo(
+        uint256 licenseId,
+        address _receiver,
+        string memory uri
+    ) external;
+
+    /// @notice Set the mint authority address.
+    /// @param _mintAuthority The new mint authority address.
+    function setMintAuthority(address _mintAuthority) external;
 }

@@ -5,3 +5,4 @@ error notFactory(address caller);
 error notOwnerOrFactory(address caller);
 error notPrimaryOrSecondary(address caller);
 error notPrimaryMarketPlace();
+error TokenLocked(uint256 tokenId);

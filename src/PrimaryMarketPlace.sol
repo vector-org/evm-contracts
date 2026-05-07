@@ -4,6 +4,7 @@ pragma solidity ^0.8.28;
 import {Initializable} from "openzeppelin-contracts-upgradeable/contracts/proxy/utils/Initializable.sol";
 import {UUPSUpgradeable} from "openzeppelin-contracts-upgradeable/contracts/proxy/utils/UUPSUpgradeable.sol";
 import {OwnableUpgradeable} from "openzeppelin-contracts-upgradeable/contracts/access/OwnableUpgradeable.sol";
+import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {ILicenseContract} from "./interfaces/ILicenseContract.sol";
 import {ILicenseFactory} from "./interfaces/ILicenseFactory.sol";
 import {License} from "./types/Types.sol";
@@ -48,6 +49,8 @@ contract PrimaryMarketPlace is
     address private coordinator;
     address private factory;
     address private secondaryMarketPlace;
+    /// @notice USDC token address for payments
+    address public paymentToken;
     /// @notice Mapping from NFT ID to its GameNft metadata.
     mapping(uint256 => GameNft) public gameNfts;
     /// @notice List of all NFT IDs managed by the marketplace.
@@ -56,7 +59,10 @@ contract PrimaryMarketPlace is
     uint256 private _tokenIdCounter;
     mapping(address => uint256[]) private userNftIds;
 
-    uint256[46] private __storageGap;
+    /// @notice Address authorized to mint licenses without payment (Steam Legacy)
+    address public mintAuthority;
+
+    uint256[44] private __storageGap;
 
     /// @notice Restricts function to only the administrator.
     modifier checkIsAdmin() {
@@ -86,6 +92,14 @@ contract PrimaryMarketPlace is
         _;
     }
 
+    /// @notice Restricts function to only the mint authority or administrator.
+    modifier onlyMintAuthority() {
+        if (msg.sender != mintAuthority && msg.sender != ADMINISTRATOR) {
+            revert UnAuthorizedUser(msg.sender);
+        }
+        _;
+    }
+
     /**
      * @notice Constructs the PrimaryMarketPlace contract.
      * @dev Disables initializers to prevent proxy misuse.
@@ -99,17 +113,20 @@ contract PrimaryMarketPlace is
      * @param _admin The administrator address.
      * @param _coordinator The coordinator address.
      * @param _factory The LicenseFactory address.
+     * @param _paymentToken The USDC token address for payments.
      * @dev Can only be called once. Sets up ownership, UUPS, and pausable modules.
      */
     function initialize(
         address _admin,
         address _coordinator,
-        address _factory
+        address _factory,
+        address _paymentToken
     ) public initializer {
         if (
             _admin == ZERO_ADDRESS ||
             _coordinator == ZERO_ADDRESS ||
-            _factory == ZERO_ADDRESS
+            _factory == ZERO_ADDRESS ||
+            _paymentToken == ZERO_ADDRESS
         ) {
             revert ZeroAddressInput();
         }
@@ -123,6 +140,7 @@ contract PrimaryMarketPlace is
 
         coordinator = _coordinator;
         factory = _factory;
+        paymentToken = _paymentToken;
     }
 
     /* solhint-disable no-empty-blocks */
@@ -141,25 +159,28 @@ contract PrimaryMarketPlace is
      * @param licenseId The license ID to mint from.
      * @param _receiver The address to receive the NFT.
      * @param uri The metadata URI for the NFT.
-     * @dev Requires payment of all license fees. Only active licenses can be minted. Emits Mint event.
+     * @dev Requires USDC payment of all license fees. User must approve USDC spending first. Only active licenses can be minted. Emits Mint event.
      */
     function mintLicense(
         uint256 licenseId,
         address _receiver,
         string memory uri
-    ) external payable whenNotPaused nonReentrant {
+    ) external whenNotPaused nonReentrant {
         ILicenseFactory licenseFactory = ILicenseFactory(factory);
         License memory fetchedLicense = licenseFactory.getLicenseFromId(
             licenseId
         );
         uint256 totalFee = fetchedLicense.developerFee +
-            fetchedLicense.publisherFee +
             fetchedLicense.platformFee;
         if (fetchedLicense.isActive == false) {
             revert licenseNotActive(licenseId);
         }
-        if (msg.value != totalFee) {
-            revert NotSufficientETH(msg.value, totalFee);
+
+        // Pull USDC from buyer (requires prior approval)
+        IERC20 usdc = IERC20(paymentToken);
+        bool transferSuccess = usdc.transferFrom(msg.sender, address(this), totalFee);
+        if (!transferSuccess) {
+            revert NotSufficientETH(0, totalFee); // TODO: Update error name
         }
 
         address licenseAddress = fetchedLicense.contractAddress;
@@ -180,41 +201,23 @@ contract PrimaryMarketPlace is
 
         licenseContract.safeMint(uri, _receiver, nftId);
 
-        bool success;
-
+        // Distribute USDC to parties (2-party split: developer + platform)
         if (fetchedLicense.developerFee > 0) {
-            (success, ) = payable(fetchedLicense.developer).call{
-                value: fetchedLicense.developerFee
-            }("");
+            bool success = usdc.transfer(fetchedLicense.developer, fetchedLicense.developerFee);
             if (!success) {
                 revert TransferFailed(
-                    msg.sender,
+                    address(this),
                     fetchedLicense.developer,
                     fetchedLicense.developerFee
                 );
             }
         }
 
-        if (fetchedLicense.publisherFee > 0) {
-            (success, ) = payable(fetchedLicense.publisher).call{
-                value: fetchedLicense.publisherFee
-            }("");
-            if (!success) {
-                revert TransferFailed(
-                    msg.sender,
-                    fetchedLicense.publisher,
-                    fetchedLicense.publisherFee
-                );
-            }
-        }
-
         if (fetchedLicense.platformFee > 0) {
-            (success, ) = payable(fetchedLicense.platform).call{
-                value: fetchedLicense.platformFee
-            }("");
+            bool success = usdc.transfer(fetchedLicense.platform, fetchedLicense.platformFee);
             if (!success) {
                 revert TransferFailed(
-                    msg.sender,
+                    address(this),
                     fetchedLicense.platform,
                     fetchedLicense.platformFee
                 );
@@ -222,6 +225,61 @@ contract PrimaryMarketPlace is
         }
 
         emit Mint(_receiver, licenseAddress, uri, block.timestamp);
+    }
+
+    /**
+     * @notice Mint a license NFT to a user without payment (mintAuthority only).
+     * @dev Used for Steam Legacy minting. Only callable by mintAuthority or admin.
+     * @param licenseId The license ID to mint from.
+     * @param _receiver The address to receive the NFT.
+     * @param uri The metadata URI for the NFT.
+     */
+    function adminMintTo(
+        uint256 licenseId,
+        address _receiver,
+        string memory uri
+    ) external whenNotPaused nonReentrant onlyMintAuthority {
+        ILicenseFactory licenseFactory = ILicenseFactory(factory);
+        License memory fetchedLicense = licenseFactory.getLicenseFromId(
+            licenseId
+        );
+
+        if (fetchedLicense.isActive == false) {
+            revert licenseNotActive(licenseId);
+        }
+
+        address licenseAddress = fetchedLicense.contractAddress;
+        ILicenseContract licenseContract = ILicenseContract(licenseAddress);
+
+        uint256 nftId = _tokenIdCounter;
+        ++_tokenIdCounter;
+
+        gameNfts[nftId] = GameNft({
+            owner: _receiver,
+            uri: uri,
+            licenseId: licenseId,
+            licenseAddress: licenseAddress,
+            listedForSale: false
+        });
+        allNftIds.push(nftId);
+        userNftIds[_receiver].push(nftId);
+
+        licenseContract.safeMintLocked(uri, _receiver, nftId);
+
+        emit AdminMint(_receiver, licenseAddress, licenseId, uri, block.timestamp);
+    }
+
+    /**
+     * @notice Set the mint authority address for Steam Legacy minting.
+     * @param _mintAuthority The new mint authority address.
+     * @dev Only callable by owner or admin.
+     */
+    function setMintAuthority(address _mintAuthority) external onlyOwnerOrAdmin {
+        if (_mintAuthority == ZERO_ADDRESS) {
+            revert ZeroAddressInput();
+        }
+        mintAuthority = _mintAuthority;
+        emit MintAuthorityUpdated(_mintAuthority, msg.sender, block.timestamp);
     }
 
     /**
@@ -343,6 +401,22 @@ contract PrimaryMarketPlace is
             revert ZeroAddressInput();
         }
         secondaryMarketPlace = _secondary;
+    }
+
+    /**
+     * @notice Update the payment token address (allows switching between ERC20 tokens).
+     * @param _newPaymentToken The address of the new ERC20 payment token (e.g., USDC, USDT).
+     * @dev Only callable by the contract owner. Platform-wide setting for all licenses. Emits PaymentTokenUpdated event.
+     */
+    function setPaymentToken(
+        address _newPaymentToken
+    ) external onlyOwner {
+        if (_newPaymentToken == ZERO_ADDRESS) {
+            revert ZeroAddressInput();
+        }
+        address oldToken = paymentToken;
+        paymentToken = _newPaymentToken;
+        emit PaymentTokenUpdated(oldToken, _newPaymentToken, msg.sender, block.timestamp);
     }
 
     /**

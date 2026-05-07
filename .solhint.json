@@ -1,6 +1,7 @@
 {
   "extends": "solhint:recommended",
   "rules": {
+    "no-console": "off",
     "func-visibility": ["error", { "ignoreConstructors": true }],
     "state-visibility": "error",
     "reentrancy": "error",

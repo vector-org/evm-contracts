@@ -12,3 +12,4 @@ error UnApprovedNFT(address licenseAddress, uint256 tokenId);
 error ContractNotOwner();
 error offerAlreadyActive(uint256 offerId);
 error LicenseAddressDifferent(address licenseAddress);
+error TokenIsSoulbound(uint256 tokenId);

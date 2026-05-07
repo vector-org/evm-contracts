@@ -4,6 +4,7 @@ pragma solidity ^0.8.28;
 import {Initializable} from "openzeppelin-contracts-upgradeable/contracts/proxy/utils/Initializable.sol";
 import {UUPSUpgradeable} from "openzeppelin-contracts-upgradeable/contracts/proxy/utils/UUPSUpgradeable.sol";
 import {OwnableUpgradeable} from "openzeppelin-contracts-upgradeable/contracts/access/OwnableUpgradeable.sol";
+import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {ILicenseContract} from "./interfaces/ILicenseContract.sol";
 import {IPrimaryMarketPlace} from "./interfaces/IPrimaryMarketPlace.sol";
 import {Addresses} from "./constants/Addresses.sol";
@@ -20,7 +21,8 @@ import {
     alreadyListed,
     UnApprovedNFT,
     ContractNotOwner,
-    LicenseAddressDifferent
+    LicenseAddressDifferent,
+    TokenIsSoulbound
 } from "./errors/SecondaryMarketPlace.sol";
 import {ReentrancyGuard} from "openzeppelin-contracts/contracts/utils/ReentrancyGuard.sol";
 import {ISecondaryMarketPlace} from "./interfaces/ISecondaryMarketPlace.sol";
@@ -58,8 +60,10 @@ contract SecondaryMarketPlace is
     mapping(uint256 => Offer) public offerById;
     /// @notice Mapping from NFT tokenId to its index in the offers array.
     mapping(uint256 => uint256) public tokenIdToOfferIndex;
+    /// @notice ERC20 token address for payments (e.g., USDC)
+    address public paymentToken;
 
-    uint256[47] private __storageGap;
+    uint256[46] private __storageGap;
 
     /**
      * @notice Constructs the SecondaryMarketPlace contract.
@@ -75,19 +79,22 @@ contract SecondaryMarketPlace is
      * @param _coordinator The coordinator address.
      * @param _factory The LicenseFactory address.
      * @param _primaryMarketPlace The PrimaryMarketPlace address.
+     * @param _paymentToken The ERC20 token address for payments.
      * @dev Can only be called once. Sets up ownership, UUPS, and pausable modules.
      */
     function initialize(
         address _admin,
         address _coordinator,
         address _factory,
-        address _primaryMarketPlace
+        address _primaryMarketPlace,
+        address _paymentToken
     ) public initializer {
         if (
             _admin == ZERO_ADDRESS ||
             _coordinator == ZERO_ADDRESS ||
             _factory == ZERO_ADDRESS ||
-            _primaryMarketPlace == ZERO_ADDRESS
+            _primaryMarketPlace == ZERO_ADDRESS ||
+            _paymentToken == ZERO_ADDRESS
         ) {
             revert ZeroAddressInput();
         }
@@ -102,6 +109,7 @@ contract SecondaryMarketPlace is
         coordinator = _coordinator;
         factory = _factory;
         primaryMarketPlace = _primaryMarketPlace;
+        paymentToken = _paymentToken;
     }
 
     /* solhint-disable no-empty-blocks */
@@ -138,6 +146,23 @@ contract SecondaryMarketPlace is
         if (licenseAddress != gameNft.licenseAddress) {
             revert LicenseAddressDifferent(licenseAddress);
         }
+
+        // Block soulbound (non-transferable) tokens from being listed
+        // Use try/catch to handle legacy contracts that don't implement locked()
+        // We use a low-level call here because try/catch with interface calls can be tricky if the function selector doesn't exist
+        // and the contract has no fallback, it reverts.
+        (bool success, bytes memory data) = licenseAddress.staticcall(
+            abi.encodeWithSelector(ILicenseContract.locked.selector, tokenId)
+        );
+        
+        if (success && data.length > 0) {
+            bool isLocked = abi.decode(data, (bool));
+            if (isLocked) {
+                revert TokenIsSoulbound(tokenId);
+            }
+        }
+        // If call fails (old contract) or returns empty data, we assume NOT locked.
+
         if (
             !licenseContract.isApprovedForAll(msg.sender, address(this)) &&
             licenseContract.getApproved(tokenId) != address(this)
@@ -234,17 +259,14 @@ contract SecondaryMarketPlace is
     /**
      * @notice Accept an active offer and purchase the NFT.
      * @param tokenId The NFT ID to purchase.
-     * @dev Buyer must send the exact offer price. NFT is transferred to buyer. Emits OfferAccepted event.
+     * @dev Buyer must approve ERC20 token spending before calling. NFT is transferred to buyer. Emits OfferAccepted event.
      */
     function acceptOffer(
         uint256 tokenId
-    ) external payable whenNotPaused nonReentrant {
+    ) external whenNotPaused nonReentrant {
         Offer storage offer = offerById[tokenId];
         if (offer.isActive == false) {
             revert offerInactive(tokenId);
-        }
-        if (msg.value != offer.price) {
-            revert insufficientPayment(tokenId, msg.value);
         }
         if (offer.seller == msg.sender) {
             revert cannotBuyYourOwnOffer(msg.sender);
@@ -256,6 +278,13 @@ contract SecondaryMarketPlace is
 
         if (licenseContract.ownerOf(tokenId) != address(this)) {
             revert ContractNotOwner();
+        }
+
+        // Pull ERC20 tokens from buyer (requires prior approval)
+        IERC20 token = IERC20(paymentToken);
+        bool transferSuccess = token.transferFrom(msg.sender, address(this), offer.price);
+        if (!transferSuccess) {
+            revert insufficientPayment(tokenId, 0); // TODO: Update error to handle ERC20
         }
 
         offer.buyer = msg.sender;
@@ -277,9 +306,10 @@ contract SecondaryMarketPlace is
 
         licenseContract.safeTransferFrom(address(this), msg.sender, tokenId);
 
-        (bool success, ) = payable(offer.seller).call{value: offer.price}("");
+        // Transfer ERC20 tokens to seller
+        bool success = token.transfer(offer.seller, offer.price);
         if (!success) {
-            revert TransferFailed(msg.sender, offer.seller, offer.price);
+            revert TransferFailed(address(this), offer.seller, offer.price);
         }
 
         emit OfferAccepted(
@@ -293,12 +323,68 @@ contract SecondaryMarketPlace is
     }
 
     /**
+     * @notice Edit the price of an existing, active offer.
+     * @param tokenId The NFT ID whose offer price is to be updated.
+     * @param newPrice The new price for the offer.
+     * @dev Only the seller can update the price. Price must be valid. Emits OfferUpdated event.
+     */
+    function editOffer(
+        uint256 tokenId,
+        uint256 newPrice
+    ) external whenNotPaused nonReentrant {
+        Offer storage offer = offerById[tokenId];
+
+        // Validation checks
+        if (offer.isActive == false) {
+            revert offerInactive(tokenId);
+        }
+        if (offer.seller != msg.sender) {
+            revert notSeller(msg.sender);
+        }
+        if (newPrice <= 0 || newPrice > Addresses.MAX_PRICE) {
+            revert priceIsInvalid(newPrice);
+        }
+
+        // Store old price for event
+        uint256 oldPrice = offer.price;
+
+        // Update price in both storage locations
+        offer.price = newPrice;
+        uint256 arrayIndex = tokenIdToOfferIndex[tokenId];
+        offers[arrayIndex].price = newPrice;
+
+        emit OfferUpdated(
+            msg.sender,
+            tokenId,
+            oldPrice,
+            newPrice,
+            block.timestamp
+        );
+    }
+
+    /**
      * @notice Set the coordinator address.
      * @param newCoordinator The new coordinator address.
      * @dev Only callable by the contract owner.
      */
     function setCoordinator(address newCoordinator) external onlyOwner {
         coordinator = newCoordinator;
+    }
+
+    /**
+     * @notice Update the payment token address (allows switching between ERC20 tokens).
+     * @param _newPaymentToken The address of the new ERC20 payment token (e.g., USDC, USDT).
+     * @dev Only callable by the contract owner. Platform-wide setting for all secondary sales. Emits PaymentTokenUpdated event.
+     */
+    function setPaymentToken(
+        address _newPaymentToken
+    ) external onlyOwner {
+        if (_newPaymentToken == ZERO_ADDRESS) {
+            revert ZeroAddressInput();
+        }
+        address oldToken = paymentToken;
+        paymentToken = _newPaymentToken;
+        emit PaymentTokenUpdated(oldToken, _newPaymentToken, msg.sender, block.timestamp);
     }
 
     /**
