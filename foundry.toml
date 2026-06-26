@@ -19,9 +19,9 @@ gas_reports = ["*"]
 fs_permissions = [{ access = "read", path = "./migration-state.json" }]
 
 [rpc_endpoints]
-sepolia = "https://sepolia.infura.io/v3/INFURA_API_KEY"
-arbitrum_sepolia = "https://arbitrum-sepolia.infura.io/v3/INFURA_API_KEY" 
-base_sepolia = "https://base-sepolia.infura.io/v3/INFURA_API_KEY"
+sepolia = "${SEPOLIA_RPC_URL}"
+arbitrum_sepolia = "${ARBITRUM_SEPOLIA_RPC_URL}"
+base_sepolia = "${BASE_SEPOLIA_RPC_URL}"
 vector = "https://rpc.evm.wasm.host/"
 
 [etherscan]

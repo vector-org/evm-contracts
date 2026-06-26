@@ -14,7 +14,7 @@ const root = process.cwd();
 const broadcastDir = path.join(root, 'broadcast', script, chain);
 const runFile = path.join(broadcastDir, 'run-latest.json');
 const outDir = path.join(root, 'out');
-const targetDir = path.join(root, 'dev-example', 'src', 'abi');
+const targetDir = path.join(root, get('out-dir', 'exports/abi'));
 
 if (!fs.existsSync(runFile)) {
   console.error(`Missing run file: ${runFile}\nPlease run 'forge script ${script} --broadcast --chain ${chain}' first to generate the broadcast file.`);
