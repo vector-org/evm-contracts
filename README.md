@@ -71,6 +71,29 @@ After a broadcast deployment, export contract ABIs and addresses to `exports/abi
 npm run export:vector
 ```
 
+### VECTOR staking
+
+`VECTORStaking` is a lockbox contract for the staking UI. Users can lock and
+unlock VECTOR immediately; reward distribution is intentionally not part of this
+contract yet.
+
+Eligibility uses UTC calendar-month buckets based on the accepted
+`block.timestamp`. A stake made in month `M` first counts in month `M + 1`, so a
+July stake is pending during July and eligible during August. Future reward
+processors should distribute only for closed month windows using finalized chain
+data, not local server wallclock time.
+
+If VECTOR transfer tax is enabled or may be enabled, mark the staking contract as
+tax-exempt after deployment:
+
+```sh
+cast send $VECTOR_TOKEN_ADDRESS \
+  "setTaxExempt(address,bool)" \
+  $VECTOR_STAKING_ADDRESS true \
+  --private-key $PRIVATE_KEY \
+  --rpc-url sepolia
+```
+
 ### Directory Structure
 - `src/` - Smart contracts
 - `script/` - Deployment scripts  
