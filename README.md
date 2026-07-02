@@ -18,7 +18,7 @@ This project now uses Foundry for smart contract development, compilation, and d
 If you use Nix, you can run the project without installing Foundry globally:
 
 ```sh
-nix develop --no-pure-eval
+nix develop
 ```
 
 With direnv installed, enable automatic shell activation for this checkout:
