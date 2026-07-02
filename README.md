@@ -13,6 +13,22 @@ This project now uses Foundry for smart contract development, compilation, and d
 ### Prerequisites
 - [Foundry](https://book.getfoundry.sh/getting-started/installation) installed
 
+### Optional Nix development shell
+
+If you use Nix, you can run the project without installing Foundry globally:
+
+```sh
+nix develop --no-pure-eval
+```
+
+With direnv installed, enable automatic shell activation for this checkout:
+
+```sh
+direnv allow
+```
+
+This setup is optional. Contributors who do not use Nix or direnv can keep using their normal local Foundry installation.
+
 ### Compilation
 ```sh
 forge install && npm install
