@@ -27,7 +27,6 @@ contract MintGames is Script {
             isActive: true,
             totalFee: devFee,
             developer: admin,
-            publisher: admin,
             platform: admin,
             primaryMarketplace: primaryMarketplaceAddress,
             secondaryMarketplace: secondaryMarketplaceAddress
@@ -40,7 +39,6 @@ contract MintGames is Script {
             isActive: true,
             totalFee: devFee,
             developer: admin,
-            publisher: admin,
             platform: admin,
             primaryMarketplace: primaryMarketplaceAddress,
             secondaryMarketplace: secondaryMarketplaceAddress
@@ -53,7 +51,6 @@ contract MintGames is Script {
             isActive: true,
             totalFee: devFee,
             developer: admin,
-            publisher: admin,
             platform: admin,
             primaryMarketplace: primaryMarketplaceAddress,
             secondaryMarketplace: secondaryMarketplaceAddress

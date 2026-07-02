@@ -39,7 +39,7 @@ contract ListLicenses is Script {
         for (uint256 i = 0; i < ids.length; i++) {
             uint256 id = ids[i];
             License memory L = factory.getLicenseFromId(id);
-            uint256 total = L.developerFee + L.platformFee + L.publisherFee;
+            uint256 total = L.developerFee + L.platformFee;
 
             console.log("-----------------------------");
             console.log("License ID:");
@@ -66,8 +66,6 @@ contract ListLicenses is Script {
             console.log(L.developerFee);
             console.log("Platform Fee (wei):");
             console.log(L.platformFee);
-            console.log("Publisher Fee (wei):");
-            console.log(L.publisherFee);
             console.log("Total Fee (wei):");
             console.log(total);
             console.log("URI:");
