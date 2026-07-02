@@ -7,7 +7,7 @@ import {License} from "src/types/Types.sol";
 
 /**
  * @title ListLicenses
- * @notice Utility script to enumerate all licenses in the factory and print their exact on‑chain names & fee splits.
+ * @notice Utility script to enumerate all licenses in the factory and print their exact on-chain names & fee splits.
  * @dev Read-only (no broadcast needed). Use this first to capture the precise name strings before crafting updates.
  *
  * Run (example):
@@ -18,8 +18,7 @@ import {License} from "src/types/Types.sol";
  *  forge script script/ListLicenses.s.sol:ListLicenses --rpc-url vector -vvvv
  */
 contract ListLicenses is Script {
-    address constant DEFAULT_FACTORY =
-        0x2C7548B2BBecF649976D4eEe6c0Ff586fab444b7;
+    address constant DEFAULT_FACTORY = 0x2C7548B2BBecF649976D4eEe6c0Ff586fab444b7;
 
     function run() external view {
         address factoryAddr = DEFAULT_FACTORY;
@@ -39,21 +38,15 @@ contract ListLicenses is Script {
         for (uint256 i = 0; i < ids.length; i++) {
             uint256 id = ids[i];
             License memory L = factory.getLicenseFromId(id);
-            uint256 total = L.developerFee + L.platformFee + L.publisherFee;
+            uint256 total = L.developerFee + L.platformFee;
 
             console.log("-----------------------------");
             console.log("License ID:");
             console.log(id);
             console.log("Name:");
-            console.log(
-                bytes(L.name).length > 0 ? L.name : string(abi.encodePacked(""))
-            );
+            console.log(bytes(L.name).length > 0 ? L.name : string(abi.encodePacked("")));
             console.log("Symbol:");
-            console.log(
-                bytes(L.symbol).length > 0
-                    ? L.symbol
-                    : string(abi.encodePacked(""))
-            );
+            console.log(bytes(L.symbol).length > 0 ? L.symbol : string(abi.encodePacked("")));
             console.log("Contract Address:");
             console.log(L.contractAddress);
             console.log("Owner:");
@@ -66,14 +59,10 @@ contract ListLicenses is Script {
             console.log(L.developerFee);
             console.log("Platform Fee (wei):");
             console.log(L.platformFee);
-            console.log("Publisher Fee (wei):");
-            console.log(L.publisherFee);
             console.log("Total Fee (wei):");
             console.log(total);
             console.log("URI:");
-            console.log(
-                bytes(L.uri).length > 0 ? L.uri : string(abi.encodePacked(""))
-            );
+            console.log(bytes(L.uri).length > 0 ? L.uri : string(abi.encodePacked("")));
         }
 
         console.log("====== END LIST ======");

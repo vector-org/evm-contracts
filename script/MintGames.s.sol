@@ -27,7 +27,6 @@ contract MintGames is Script {
             isActive: true,
             totalFee: devFee,
             developer: admin,
-            publisher: admin,
             platform: admin,
             primaryMarketplace: primaryMarketplaceAddress,
             secondaryMarketplace: secondaryMarketplaceAddress
@@ -40,7 +39,6 @@ contract MintGames is Script {
             isActive: true,
             totalFee: devFee,
             developer: admin,
-            publisher: admin,
             platform: admin,
             primaryMarketplace: primaryMarketplaceAddress,
             secondaryMarketplace: secondaryMarketplaceAddress
@@ -53,7 +51,6 @@ contract MintGames is Script {
             isActive: true,
             totalFee: devFee,
             developer: admin,
-            publisher: admin,
             platform: admin,
             primaryMarketplace: primaryMarketplaceAddress,
             secondaryMarketplace: secondaryMarketplaceAddress
@@ -61,9 +58,7 @@ contract MintGames is Script {
 
         address lyraContract = factory.createLicense(lyraInput);
         address doomContract = factory.createLicense(doomInput);
-        address pixelDungeonsContract = factory.createLicense(
-            pixelDungeonsInput
-        );
+        address pixelDungeonsContract = factory.createLicense(pixelDungeonsInput);
 
         console.log("Lyra License Contract:", lyraContract);
         console.log("Doom License Contract:", doomContract);
